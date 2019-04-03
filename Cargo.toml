@@ -1,0 +1,14 @@
+[package]
+name = "yarn_rust"
+version = "0.1.0"
+authors = ["Michael Palmos <toqoz@hotmail.com>"]
+edition = "2018"
+
+[dependencies]
+gfx = "0.18"
+gfx_core = "*"
+gfx_device_gl = "*"
+gfx_window_glutin = "0.30.0"
+glutin = "*"
+nalgebra = "*"
+lyon = "*"
