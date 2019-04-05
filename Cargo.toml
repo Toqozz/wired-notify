@@ -12,3 +12,4 @@ gfx_window_glutin = "0.30.0"
 glutin = "*"
 nalgebra = "*"
 lyon = "*"
+rusttype = { version = "0.7.5", features = ["gpu_cache"] }
