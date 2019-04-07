@@ -6,6 +6,9 @@ extern crate glutin;
 extern crate nalgebra;
 extern crate lyon;
 extern crate rusttype;
+extern crate gfx_glyph;
+
+use gfx_glyph::{ Section, GlyphBrushBuilder };
 
 use rusttype::*;
 use rusttype::gpu_cache::*;
@@ -38,7 +41,7 @@ gfx_defines! {
 
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
-        font: gfx::TextureSampler<[f32; 4]> = "t_font",
+        //font: gfx::TextureSampler<[f32; 4]> = "t_font",
         proj: gfx::Global<[[f32; 4]; 4]> = "u_proj",
         out: gfx::RenderTarget<gfx::format::Srgba8> = "out_color",
     }
@@ -66,7 +69,7 @@ impl GLWindow {
         let window_builder = glutin::WindowBuilder::new()
             .with_title("yarn")
             .with_class("yarn2".to_owned(), "yarn2".to_owned())
-            .with_transparency(true)
+            .with_transparency(false)
             .with_always_on_top(true)
             .with_x11_window_type(glutin::os::unix::XWindowType::Utility);
         let context_builder = glutin::ContextBuilder::new()
@@ -108,38 +111,23 @@ impl VertexConstructor<FillVertex, Vertex> for VertexCtor2 {
     }
 }
 
-
-#[derive(Debug)]
-struct Mouse {
-    delta: (f64, f64),
-    down: bool,
-}
-
-impl Mouse {
-    fn update_press(&mut self, state: &glutin::ElementState) {
-        self.down = &glutin::ElementState::Pressed == state;
-    }
-}
-
 fn main() {
-    let font_data = include_bytes!("../arial.ttf");
-    let font = Font::from_bytes(font_data as &[u8]).expect("UHHH");
-
-    let scale = Scale::uniform(32.0);
-    let text = "Hello world and goodbye world.";
-    let color = [1.0, 0.0, 0.0, 1.0];
-
-    let v_metrics = font.v_metrics(scale);
-
-    let glyphs: Vec<_> = font.layout(text, scale, point(20.0, 20.0 + v_metrics.ascent)).collect();
-
-
     // Window constructor.
     let mut glutin_window = GLWindow::build_window();
+
+    let arial: &[u8] = include_bytes!("../arial.ttf");
+    let mut glyph_brush = GlyphBrushBuilder::using_font_bytes(arial).build(glutin_window.factory.clone());
+
+    let section = Section {
+        text: "Hello world, this is me.",
+        ..Section::default()
+    };
+
 
     // TODO: maybe move these to GLWindow.
     // Using an encoder avoids having to use raw OpenGL procedures.
     let mut encoder: gfx::Encoder<_, _> = glutin_window.factory.create_command_buffer().into();
+
 
     // To my understanding, pipeline state objects essentially batch shader commands.
     // TODO: better explanation.
@@ -149,80 +137,9 @@ fn main() {
         pipe::new()
     ).unwrap();
 
-    /*
-    let (cache_tex, cache_tex_view) = {
-        let w = 256 as u16;
-        let h = 256 as u16;
-        let data = &[0; (256 * 256 * 4) as usize];
-        let kind = gfx::texture::Kind::D2(w, h, gfx::texture::AaMode::Single);
-        glutin_window.factory.create_texture_immutable_u8::<(gfx::format::R8_G8_B8_A8, gfx::format::Unorm)>(
-            kind,
-            gfx::texture::Mipmap::Allocated,
-            &[data]
-        ).unwrap()
-    };
-    */
-
-    let cache_texture = glutin_window.factory.create_texture::<gfx::format::R8_G8_B8_A8>(
-        gfx::texture::Kind::D2(256, 256, gfx::texture::AaMode::Single),
-        1,
-        gfx::memory::Bind::all(),
-        gfx::memory::Usage::Dynamic,
-        Some(gfx::format::ChannelType::Srgb),
-    ).expect("Couldn't create a texture.");
-
-    let view_texture = glutin_window.factory.view_texture_as_shader_resource::<gfx::format::Rgba8> (
-            &cache_texture,
-            (0, 0),
-            gfx::format::Swizzle::new()
-        );
-
-
-    let mut cache = Cache::builder().build();
-
-    for g in glyphs.iter() {
-        cache.queue_glyph(0, g.clone());
-    }
-
-    cache.cache_queued(|rect, data| {
-        let info = gfx::texture::ImageInfoCommon {
-            xoffset: rect.min.x as u16,
-            yoffset: rect.min.y as u16,
-            zoffset: 0,
-            width: rect.width() as u16,
-            height: rect.height() as u16,
-            depth: 0,
-            format: (),
-            mipmap: 0,
-        };
-
-        let mut newdat = Vec::new();
-        let mut i = 0;
-        while i < data.len() {
-            newdat.push([0,0,0,data[i]]);
-            i+=1;
-        }
-
-        encoder.update_texture::<gfx::format::R8_G8_B8_A8, (gfx::format::R8_G8_B8_A8, gfx::format::Unorm)>(
-            &cache_texture,
-            None,
-            info,
-            newdat.as_slice(),
-        ).expect("nup");
-    }).expect("fail");
-
     let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
     let options = FillOptions::tolerance(0.01);
 
-    /*
-    let mut buffer = BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
-        Vertex {
-            position: vertex.position.to_array(),
-            normal: vertex.normal.to_array(),
-            color: WHITE,
-        }
-    });
-    */
     fill_rounded_rectangle(
         &rect(0.0, 0.0, 640.0, 720.0),
         &BorderRadii {
@@ -257,100 +174,30 @@ fn main() {
 
     let mut data = pipe::Data {
         vbuf: vertex_buffer,
-        font: (view_texture.unwrap(), sampler),
+        //font: (glyph_brush.into, sampler),
         proj: ortho.to_homogeneous().into(),
-        out: glutin_window.render_target,
+        out: glutin_window.render_target.clone(),
     };
-
-    // Mouse struct to wrap some convenient info.
-    let mut mouse = Mouse { delta: (0.0, 0.0), down: false };
 
     // Run until manual intervention.
     let mut running = true;
     while running {
-        let mut vertices = Vec::<Vertex>::new();
-        let mut indices = Vec::<u16>::new();
-        let mut index = 0;
-
-        for g in glyphs.iter() {
-            let rect = cache.rect_for(0, g);
-            //dbg!(&rect);
-            let (uv_rect, screen_rect) = match rect {
-                Ok(Some(r)) => r,
-                _ => continue,
-            };
-
-            let bounds = g.pixel_bounding_box().unwrap();
-
-            //let bounds = bounds.unwrap();
-            vertices.push(
-                Vertex {
-                    position: [bounds.min.x as f32, bounds.max.y as f32],
-                    texcoords: [uv_rect.min.x, uv_rect.max.y],
-                    normal: [0.0, 0.0],
-                    color,
-                });
-            vertices.push(
-                Vertex {
-                    position: [bounds.min.x as f32, bounds.min.y as f32],
-                    texcoords: [uv_rect.min.x, uv_rect.min.y],
-                    normal: [0.0, 0.0],
-                    color,
-                });
-            vertices.push(
-                Vertex {
-                    position: [bounds.max.x as f32, bounds.min.y as f32],
-                    texcoords: [uv_rect.max.x, uv_rect.min.y],
-                    normal: [0.0, 0.0],
-                    color,
-                });
-            vertices.push(
-                Vertex {
-                    position: [bounds.max.x as f32, bounds.min.y as f32],
-                    texcoords: [uv_rect.max.x, uv_rect.min.y],
-                    normal: [0.0, 0.0],
-                    color,
-                });
-            vertices.push(
-                Vertex {
-                    position: [bounds.max.x as f32, bounds.max.y as f32],
-                    texcoords: [uv_rect.max.x, uv_rect.max.y],
-                    normal: [0.0, 0.0],
-                    color,
-                });
-            vertices.push(
-                Vertex {
-                    position: [bounds.min.x as f32, bounds.max.y as f32],
-                    texcoords: [uv_rect.min.x, uv_rect.max.y],
-                    normal: [0.0, 0.0],
-                    color,
-                });
-
-            indices.push(index + 0);
-            indices.push(index + 1);
-            indices.push(index + 2);
-            indices.push(index + 3);
-            indices.push(index + 4);
-            indices.push(index + 5);
-
-            index += 6;
-        };
-
-        let (vertex_buffer, slice) = glutin_window.factory.create_vertex_buffer_with_slice(vertices.as_slice(), indices.as_slice());
-
         glutin_window.events_loop.poll_events(|event| {
             if let glutin::Event::WindowEvent { event, .. } = &event {
                 match event {
                     CloseRequested => running = false,
-                    MouseInput { state, .. } => mouse.update_press(state),
                     _ => {}
                 }
             }
         });
 
-        data.vbuf = vertex_buffer;
-
-        encoder.clear(&data.out, BLACK);
+        encoder.clear(&data.out, WHITE);
+        encoder.clear_depth(&glutin_window.depth_target, 0.0);
+        glyph_brush.queue(section);
+        glyph_brush.draw_queued(
+            &mut encoder,
+            &glutin_window.render_target,
+            &glutin_window.depth_target).expect("FAIL");
         encoder.draw(&slice, &pso, &data);
         encoder.flush(&mut glutin_window.device);
         glutin_window.context.swap_buffers().unwrap();

@@ -299,6 +299,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gfx_glyph"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "backtrace 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gfx 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gfx_core 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glyph_brush 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "gfx_window_glutin"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -398,6 +410,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "gl_generator 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.51 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "glyph_brush"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "glyph_brush_layout 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hashbrown 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ordered-float 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rusttype 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "twox-hash 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "glyph_brush_layout"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "rusttype 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "xi-unicode 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "byteorder 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "scopeguard 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -925,6 +968,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "twox-hash"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "typenum"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1069,6 +1120,11 @@ version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "xi-unicode"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "xml-rs"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1088,6 +1144,7 @@ dependencies = [
  "gfx 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_core 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_device_gl 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gfx_glyph 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfx_window_glutin 0.30.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lyon 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1132,6 +1189,7 @@ dependencies = [
 "checksum gfx_core 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "559a7b438248707675721519065be39ae47756cea1324d68c90fbd63adcf64ac"
 "checksum gfx_device_gl 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2229b46c5630717e9aeb330561374594ffb30749a314c1c2f5a6514eab5ed53f"
 "checksum gfx_gl 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3e8a920f8f6c1025a7ddf9dd25502bf059506fd3cd765dfbe8dba0b56b7eeecb"
+"checksum gfx_glyph 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7b5e01fbfd6df13fbf68b9afad2ea73ae0a042faea7d5812563d7a464116f3c2"
 "checksum gfx_window_glutin 0.30.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f415d3534e6ea92f3ded1683e9e00592a76e2e67050e33244bb507719a211eb2"
 "checksum gl_generator 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a0ffaf173cf76c73a73e080366bf556b4776ece104b06961766ff11449f38604"
 "checksum gl_generator 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7a795170cbd85b5a7baa58d6d7525cae6a03e486859860c220f7ebbbdd379d0a"
@@ -1141,6 +1199,9 @@ dependencies = [
 "checksum glutin_gles2_sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b33e192f35b6f76ad3efb2ddf2184a1ff17106c42f11269f66151ba3036996a8"
 "checksum glutin_glx_sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1ee3e318f8dc8eb5a6c3a6b98a22d574a54f4f8c136bdae38d7e0e42ca810ebc"
 "checksum glutin_wgl_sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2d0f023d00cfb4a100f6af038c9d03e182daa328796a915b56b0d69942066c8d"
+"checksum glyph_brush 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "251da826bd4f47fc73608a142a1bd2b3e3e36ceb6edae1eb2f10251529e05f0e"
+"checksum glyph_brush_layout 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "d516ee098e2f7f9010020f20c85ebf980ae782aabe08221759f6078cf0ce75e8"
+"checksum hashbrown 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "3bae29b6653b3412c2e71e9d486db9f9df5d701941d86683005efb9f2d28e3da"
 "checksum khronos_api 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "037ab472c33f67b5fbd3e9163a2645319e5356fcd355efa6d4eb7fff4bbcb554"
 "checksum khronos_api 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "62237e6d326bd5871cd21469323bf096de81f1618cd82cbaf5d87825335aeb49"
 "checksum lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bc5729f27f159ddd61f4df6228e827e86643d4d3e7c32183cb30a1c08f604a14"
@@ -1205,6 +1266,7 @@ dependencies = [
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 "checksum stb_truetype 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "69b7df505db8e81d54ff8be4693421e5b543e08214bd8d99eb761fcb4d5668ba"
 "checksum syn 0.15.29 (registry+https://github.com/rust-lang/crates.io-index)" = "1825685f977249735d510a242a6727b46efe914bb67e38d30c071b1b72b1d5c2"
+"checksum twox-hash 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "555cd4909480122bbbf21e34faac4cb08a171f324775670447ed116726c474af"
 "checksum typenum 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "612d636f949607bdf9b123b4a6f6d966dedf3ff669f7f045890d3a4a73948169"
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
 "checksum void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
@@ -1221,5 +1283,6 @@ dependencies = [
 "checksum winit 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6175dab24830b5b69adfa6e1c36b26784bd038a3ac883b29c3ef3df5f3f9daed"
 "checksum x11-dl 2.18.3 (registry+https://github.com/rust-lang/crates.io-index)" = "940586acb859ea05c53971ac231685799a7ec1dee66ac0bccc0e6ad96e06b4e3"
 "checksum xdg 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d089681aa106a86fade1b0128fb5daf07d5867a509ab036d99988dec80429a57"
+"checksum xi-unicode 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "12ea8eda4b1eb72f02d148402e23832d56a33f55d8c1b2d5bcdde91d79d47cb1"
 "checksum xml-rs 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3c1cb601d29fe2c2ac60a2b2e5e293994d87a1f6fa9687a31a15270f909be9c2"
 "checksum xml-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "541b12c998c5b56aa2b4e6f18f03664eef9a4fd0a246a55594efae6cc2d964b5"
