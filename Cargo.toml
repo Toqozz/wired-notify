@@ -13,4 +13,5 @@ glutin = "*"
 nalgebra = "*"
 lyon = "*"
 gfx_glyph = "0.14.0"
-rusttype = { version = "0.7.5", features = ["gpu_cache"] }
+dbus = "0.6.4"
+

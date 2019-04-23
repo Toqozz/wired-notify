@@ -5,16 +5,11 @@ extern crate gfx_window_glutin;
 extern crate glutin;
 extern crate nalgebra;
 extern crate lyon;
-extern crate rusttype;
 extern crate gfx_glyph;
 
-use gfx_glyph::{ Section, GlyphBrushBuilder };
-
-use rusttype::*;
-use rusttype::gpu_cache::*;
+use gfx_glyph::{ Section, GlyphBrushBuilder, Scale };
 
 use gfx::Device;
-use gfx::Factory as gFactory;
 use gfx::traits::FactoryExt;
 use glutin::os::unix::WindowBuilderExt;
 use gfx_device_gl::{Device as glDevice, Factory, Resources};
@@ -31,9 +26,11 @@ use lyon::tessellation::basic_shapes::*;
 use lyon::tessellation::geometry_builder::VertexConstructor;
 use lyon::tessellation::BuffersBuilder;
 
+mod bus;
+
 gfx_defines! {
     vertex Vertex {
-        position: [f32; 2] = "v_pos",
+        position: [f32; 3] = "v_pos",
         texcoords: [f32; 2] = "v_texcoords",
         normal: [f32; 2] = "v_normal",
         color: [f32; 4] = "v_color",
@@ -44,6 +41,7 @@ gfx_defines! {
         //font: gfx::TextureSampler<[f32; 4]> = "t_font",
         proj: gfx::Global<[[f32; 4]; 4]> = "u_proj",
         out: gfx::RenderTarget<gfx::format::Srgba8> = "out_color",
+        out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
     }
 }
 
@@ -90,8 +88,9 @@ impl GLWindow {
 struct VertexCtor;
 impl VertexConstructor<FillVertex, Vertex> for VertexCtor {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
+        let vert = [vertex.position.x, vertex.position.y, 0.0];
         Vertex {
-            position: vertex.position.to_array(),
+            position: vert,
             normal: vertex.normal.to_array(),
             texcoords: [0.0, 0.0],
             color: WHITE,
@@ -102,8 +101,9 @@ impl VertexConstructor<FillVertex, Vertex> for VertexCtor {
 struct VertexCtor2;
 impl VertexConstructor<FillVertex, Vertex> for VertexCtor2 {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
+        let vert = [vertex.position.x, vertex.position.y, 0.0];
         Vertex {
-            position: vertex.position.to_array(),
+            position: vert,
             normal: vertex.normal.to_array(),
             texcoords: [0.0, 0.0],
             color: GREEN,
@@ -116,10 +116,16 @@ fn main() {
     let mut glutin_window = GLWindow::build_window();
 
     let arial: &[u8] = include_bytes!("../arial.ttf");
-    let mut glyph_brush = GlyphBrushBuilder::using_font_bytes(arial).build(glutin_window.factory.clone());
+    let mut glyph_brush = GlyphBrushBuilder::using_font_bytes(arial)
+        .depth_test(gfx::preset::depth::LESS_EQUAL_WRITE)
+        .build(glutin_window.factory.clone());
 
     let section = Section {
         text: "Hello world, this is me.",
+        screen_position: (10.0, 10.0),
+        scale: Scale::uniform(32.0),
+        color: [1.0, 0.0, 0.0, 1.0],
+        z: -1.0,
         ..Section::default()
     };
 
@@ -168,16 +174,26 @@ fn main() {
 
     // Create vertex buffer and slice from supplied vertices.
     // A slice dictates what and in what order vertices are processed.
-    //let (vertex_buffer, slice) = glutin_window.factory.create_vertex_buffer_with_slice(&geometry.vertices.as_slice(), geometry.indices.as_slice());
-    let sampler = glutin_window.factory.create_sampler_linear();
-    let (vertex_buffer, slice) = glutin_window.factory.create_vertex_buffer_with_slice(Vec::<Vertex>::new().as_slice(), Vec::<u16>::new().as_slice());
+    let (vertex_buffer, slice) = glutin_window.factory.create_vertex_buffer_with_slice(&geometry.vertices.as_slice(), geometry.indices.as_slice());
+    //let sampler = glutin_window.factory.create_sampler_linear();
+    //let (vertex_buffer, slice) = glutin_window.factory.create_vertex_buffer_with_slice(Vec::<Vertex>::new().as_slice(), Vec::<u16>::new().as_slice());
 
     let mut data = pipe::Data {
         vbuf: vertex_buffer,
         //font: (glyph_brush.into, sampler),
         proj: ortho.to_homogeneous().into(),
         out: glutin_window.render_target.clone(),
+        out_depth: glutin_window.depth_target.clone(),
     };
+
+    use std::sync::mpsc::channel;
+    use std::thread;
+    use bus;
+    let (sender, receiver) = channel();
+    let handler = thread::spawn(move || {
+        bus::dbus::dbus_loop(sender, receiver);
+    });
+
 
     // Run until manual intervention.
     let mut running = true;
@@ -191,15 +207,20 @@ fn main() {
             }
         });
 
-        encoder.clear(&data.out, WHITE);
-        encoder.clear_depth(&glutin_window.depth_target, 0.0);
+        encoder.clear(&data.out, BLACK);
+        encoder.clear_depth(&glutin_window.depth_target, 1.0);
+
         glyph_brush.queue(section);
+        encoder.draw(&slice, &pso, &data);
+
+        // Always draw text last because it's the most prone to fuzzing the depth test.
         glyph_brush.draw_queued(
             &mut encoder,
             &glutin_window.render_target,
             &glutin_window.depth_target).expect("FAIL");
-        encoder.draw(&slice, &pso, &data);
         encoder.flush(&mut glutin_window.device);
+
+
         glutin_window.context.swap_buffers().unwrap();
         glutin_window.device.cleanup();
     }
