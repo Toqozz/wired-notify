@@ -7,6 +7,9 @@ extern crate nalgebra;
 extern crate lyon;
 extern crate gfx_glyph;
 
+use std::sync::mpsc::channel;
+use std::thread;
+
 use gfx_glyph::{ Section, GlyphBrushBuilder, Scale };
 
 use gfx::Device;
@@ -18,7 +21,6 @@ use gfx::format::{Srgba8, DepthStencil};
 use glutin::{WindowedContext, EventsLoop};
 use glutin::WindowEvent::*;
 use nalgebra::geometry::Orthographic3;
-//use nalgebra::base::*;
 
 use lyon::math::rect;
 use lyon::tessellation::{ VertexBuffers, FillOptions, FillVertex };
@@ -27,6 +29,9 @@ use lyon::tessellation::geometry_builder::VertexConstructor;
 use lyon::tessellation::BuffersBuilder;
 
 mod bus;
+mod rendering;
+use rendering::window;
+use rendering::font;
 
 gfx_defines! {
     vertex Vertex {
@@ -45,51 +50,14 @@ gfx_defines! {
     }
 }
 
-const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-
-struct GLWindow {
-    context: WindowedContext,
-    events_loop: EventsLoop,
-    device: glDevice,
-    factory: Factory,
-    render_target: RenderTargetView<Resources, Srgba8>,
-    depth_target: DepthStencilView<Resources, DepthStencil>
-}
-
-impl GLWindow {
-    fn build_window() -> GLWindow {
-        // Events loop to caputer window events (clicked, moved, resized, etc).
-        let events_loop = glutin::EventsLoop::new();
-
-        // Initialize a window and context but don't build them yet.
-        let window_builder = glutin::WindowBuilder::new()
-            .with_title("yarn")
-            .with_class("yarn2".to_owned(), "yarn2".to_owned())
-            .with_transparency(false)
-            .with_always_on_top(true)
-            .with_x11_window_type(glutin::os::unix::XWindowType::Utility);
-        let context_builder = glutin::ContextBuilder::new()
-            .with_vsync(true);
-
-        // Build the window using the glutin backend for gfx-rs.
-        // window -- obvious, device -- rendering device, factory -- creation?, color_view -- base
-        // color, depth_view -- ?
-        let (window, device, factory, color_view, depth_view) =
-            gfx_window_glutin::init::<Srgba8, DepthStencil>(window_builder, context_builder, &events_loop)
-                .expect("Failed to create a window.");
-
-        GLWindow { context: window, events_loop, device, factory, render_target: color_view, depth_target: depth_view }
-    }
-}
-
+const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 struct VertexCtor;
-impl VertexConstructor<FillVertex, Vertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
+impl VertexConstructor<FillVertex, rendering::window::Vertex> for VertexCtor {
+    fn new_vertex(&mut self, vertex: FillVertex) -> rendering::window::Vertex {
         let vert = [vertex.position.x, vertex.position.y, 0.0];
-        Vertex {
+        rendering::window::Vertex {
             position: vert,
             normal: vertex.normal.to_array(),
             texcoords: [0.0, 0.0],
@@ -99,10 +67,10 @@ impl VertexConstructor<FillVertex, Vertex> for VertexCtor {
 }
 
 struct VertexCtor2;
-impl VertexConstructor<FillVertex, Vertex> for VertexCtor2 {
-    fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
+impl VertexConstructor<FillVertex, rendering::window::Vertex> for VertexCtor2 {
+    fn new_vertex(&mut self, vertex: FillVertex) -> rendering::window::Vertex {
         let vert = [vertex.position.x, vertex.position.y, 0.0];
-        Vertex {
+        rendering::window::Vertex {
             position: vert,
             normal: vertex.normal.to_array(),
             texcoords: [0.0, 0.0],
@@ -113,39 +81,14 @@ impl VertexConstructor<FillVertex, Vertex> for VertexCtor2 {
 
 fn main() {
     // Window constructor.
-    let mut glutin_window = GLWindow::build_window();
-
-    let arial: &[u8] = include_bytes!("../arial.ttf");
-    let mut glyph_brush = GlyphBrushBuilder::using_font_bytes(arial)
-        .depth_test(gfx::preset::depth::LESS_EQUAL_WRITE)
-        .build(glutin_window.factory.clone());
-
-    let section = Section {
-        text: "Hello world, this is me.",
-        screen_position: (10.0, 10.0),
-        scale: Scale::uniform(32.0),
-        color: [1.0, 0.0, 0.0, 1.0],
-        z: -1.0,
-        ..Section::default()
-    };
+    let mut gl_window = window::GLWindow::build_window();
 
 
-    // TODO: maybe move these to GLWindow.
-    // Using an encoder avoids having to use raw OpenGL procedures.
-    let mut encoder: gfx::Encoder<_, _> = glutin_window.factory.create_command_buffer().into();
 
 
-    // To my understanding, pipeline state objects essentially batch shader commands.
-    // TODO: better explanation.
-    let pso = glutin_window.factory.create_pipeline_simple(
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/base.glslv")),
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaders/base.glslf")),
-        pipe::new()
-    ).unwrap();
 
-    let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+    let mut geometry: VertexBuffers<rendering::window::Vertex, u16> = VertexBuffers::new();
     let options = FillOptions::tolerance(0.01);
-
     fill_rounded_rectangle(
         &rect(0.0, 0.0, 640.0, 720.0),
         &BorderRadii {
@@ -170,35 +113,57 @@ fn main() {
         &mut BuffersBuilder::new(&mut geometry, VertexCtor2),
     ).expect("Could not build rectangle.");
 
+
+
+
+
+
     let ortho = Orthographic3::new(0.0, 1280.0, 0.0, 720.0, -1.0, 1.0);
+
+
 
     // Create vertex buffer and slice from supplied vertices.
     // A slice dictates what and in what order vertices are processed.
-    let (vertex_buffer, slice) = glutin_window.factory.create_vertex_buffer_with_slice(&geometry.vertices.as_slice(), geometry.indices.as_slice());
-    //let sampler = glutin_window.factory.create_sampler_linear();
-    //let (vertex_buffer, slice) = glutin_window.factory.create_vertex_buffer_with_slice(Vec::<Vertex>::new().as_slice(), Vec::<u16>::new().as_slice());
-
-    let mut data = pipe::Data {
+    let (vertex_buffer, slice) = gl_window.factory.create_vertex_buffer_with_slice(&geometry.vertices.as_slice(), geometry.indices.as_slice());
+    let data = rendering::window::pipe::Data {
         vbuf: vertex_buffer,
         //font: (glyph_brush.into, sampler),
         proj: ortho.to_homogeneous().into(),
-        out: glutin_window.render_target.clone(),
-        out_depth: glutin_window.depth_target.clone(),
+        out: gl_window.render_target.clone(),
+        out_depth: gl_window.depth_target.clone(),
     };
+    gl_window.set_data(data);
+    gl_window.set_slice(slice);
 
-    use std::sync::mpsc::channel;
-    use std::thread;
-    use bus;
+
+
+
+
+
+    // Loop through dbus messages.
     let (sender, receiver) = channel();
     let handler = thread::spawn(move || {
         bus::dbus::dbus_loop(sender, receiver);
     });
 
+    let arial: &[u8] = include_bytes!("../arial.ttf");
+    let mut glyph_brush = GlyphBrushBuilder::using_font_bytes(arial)
+        .depth_test(gfx::preset::depth::LESS_EQUAL_WRITE)
+        .build(gl_window.factory.clone());
+
+    let section = Section {
+        text: "Hello world, this is me.",
+        screen_position: (10.0, 10.0),
+        scale: Scale::uniform(32.0),
+        color: [1.0, 0.0, 0.0, 1.0],
+        z: -1.0,
+        ..Section::default()
+    };
 
     // Run until manual intervention.
     let mut running = true;
     while running {
-        glutin_window.events_loop.poll_events(|event| {
+        gl_window.events_loop.poll_events(|event| {
             if let glutin::Event::WindowEvent { event, .. } = &event {
                 match event {
                     CloseRequested => running = false,
@@ -207,21 +172,6 @@ fn main() {
             }
         });
 
-        encoder.clear(&data.out, BLACK);
-        encoder.clear_depth(&glutin_window.depth_target, 1.0);
-
-        glyph_brush.queue(section);
-        encoder.draw(&slice, &pso, &data);
-
-        // Always draw text last because it's the most prone to fuzzing the depth test.
-        glyph_brush.draw_queued(
-            &mut encoder,
-            &glutin_window.render_target,
-            &glutin_window.depth_target).expect("FAIL");
-        encoder.flush(&mut glutin_window.device);
-
-
-        glutin_window.context.swap_buffers().unwrap();
-        glutin_window.device.cleanup();
+        gl_window.draw();
     }
 }

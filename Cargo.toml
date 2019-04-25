@@ -1,5 +1,5 @@
 [package]
-name = "yarn_rust"
+name = "wiry"
 version = "0.1.0"
 authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"

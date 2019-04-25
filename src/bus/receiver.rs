@@ -51,7 +51,6 @@ impl OrgFreedesktopNotifications for BusNotification {
         _hints: HashMap<&str, arg::Variant<Box<arg::RefArg>>>,
         expire_timeout: i32,
         ) -> Result<u32, Self::Err> {
-
         let notification = Notification::new(
             app_name.to_owned(),
             replaces_id,

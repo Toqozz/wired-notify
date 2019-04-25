@@ -5,7 +5,7 @@ use dbus;
 use dbus::tree;
 use dbus::tree::{ DataType, Interface, Factory, Tree };
 
-use super::message::BusNotification;
+use super::receiver::BusNotification;
 use super::dbus_codegen::org_freedesktop_notifications_server;
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -53,8 +53,6 @@ pub fn init_bus(sender: Sender<Notification>) -> dbus::Connection {
     c
 }
 
-//static mut DBUS_SENDER: Option<Sender<Notification>> = None;
-
 #[derive(Debug)]
 pub struct Notification {
     app_name: String,
@@ -66,7 +64,15 @@ pub struct Notification {
 }
 
 impl Notification {
-    pub fn new(app_name: String, replaces_id: u32, app_icon: String, summary: String, body: String, expire_timeout: i32) -> Notification {
+    pub fn new(
+        app_name: String,
+        replaces_id: u32,
+        app_icon: String,
+        summary: String,
+        body: String,
+        expire_timeout: i32
+        ) -> Notification {
+
         Notification { app_name, replaces_id, app_icon, summary, body, expire_timeout }
     }
 }
