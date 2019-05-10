@@ -7,19 +7,11 @@ extern crate nalgebra;
 extern crate lyon;
 extern crate gfx_glyph;
 
+use std::collections::HashMap;
 use std::sync::mpsc::channel;
 use std::thread;
 
-use gfx_glyph::{ Section, GlyphBrushBuilder, Scale };
-
-use gfx::Device;
 use gfx::traits::FactoryExt;
-use glutin::os::unix::WindowBuilderExt;
-use gfx_device_gl::{Device as glDevice, Factory, Resources};
-use gfx::handle::{RenderTargetView, DepthStencilView};
-use gfx::format::{Srgba8, DepthStencil};
-use glutin::{WindowedContext, EventsLoop};
-use glutin::WindowEvent::*;
 use nalgebra::geometry::Orthographic3;
 
 use lyon::math::rect;
@@ -31,7 +23,6 @@ use lyon::tessellation::BuffersBuilder;
 mod bus;
 mod rendering;
 use rendering::window;
-use rendering::font;
 
 gfx_defines! {
     vertex Vertex {
@@ -79,10 +70,17 @@ impl VertexConstructor<FillVertex, rendering::window::Vertex> for VertexCtor2 {
     }
 }
 
+
+pub fn spawn_window<'a>(name: &'a str, map: &mut HashMap<glutin::WindowId, window::GLWindow<'a>>) {
+    let (mut window, _) = window::GLWindow::build_window();
+    window.set_text(name);
+
+    map.insert(window.context.window().id(), window);
+}
+
 fn main() {
     // Window constructor.
-    let mut gl_window = window::GLWindow::build_window();
-
+    let (mut gl_window, mut events_loop) = window::GLWindow::build_window();
 
 
 
@@ -132,9 +130,11 @@ fn main() {
         out: gl_window.render_target.clone(),
         out_depth: gl_window.depth_target.clone(),
     };
-    gl_window.set_data(data);
+
+    gl_window.data = Some(data);
     gl_window.set_slice(slice);
 
+    gl_window.set_text("Hello world!");
 
 
 
@@ -142,36 +142,64 @@ fn main() {
 
     // Loop through dbus messages.
     let (sender, receiver) = channel();
-    let handler = thread::spawn(move || {
+    let _handler = thread::spawn(move || {
         bus::dbus::dbus_loop(sender, receiver);
     });
 
-    let arial: &[u8] = include_bytes!("../arial.ttf");
-    let mut glyph_brush = GlyphBrushBuilder::using_font_bytes(arial)
-        .depth_test(gfx::preset::depth::LESS_EQUAL_WRITE)
-        .build(gl_window.factory.clone());
+    let mut windows: HashMap<glutin::WindowId, window::GLWindow> = HashMap::new();
+    windows.insert(gl_window.context.window().id(), gl_window);
 
-    let section = Section {
-        text: "Hello world, this is me.",
-        screen_position: (10.0, 10.0),
-        scale: Scale::uniform(32.0),
-        color: [1.0, 0.0, 0.0, 1.0],
-        z: -1.0,
-        ..Section::default()
-    };
+
+    loop {
+        events_loop.poll_events(|event| {
+            match event {
+                glutin::Event::WindowEvent {
+                    event: glutin::WindowEvent::CloseRequested,
+                    window_id,
+                } => {
+                    let window = windows.remove(&window_id).unwrap();
+                    drop(window);
+                }
+                _ => (),
+            }
+        });
+
+        for (_id, window) in windows.iter_mut() {
+            window.draw();
+        }
+    }
+
+        /*
+        for i in kill_list {
+            dbg!(i);
+            let w = window_list.get_mut(i);
+            drop(w.unwrap());
+        }
+    }
+        */
+
 
     // Run until manual intervention.
-    let mut running = true;
+    /*
     while running {
         gl_window.events_loop.poll_events(|event| {
+
             if let glutin::Event::WindowEvent { event, .. } = &event {
                 match event {
                     CloseRequested => running = false,
+                    Resized(size) => resize = Some(size.clone()),
                     _ => {}
                 }
             }
         });
 
+        if let Some(size) = resize {
+            gl_window.resize(&size);
+            resize = None;
+        }
+
+        //gl_window.resize(size);
         gl_window.draw();
     }
+    */
 }

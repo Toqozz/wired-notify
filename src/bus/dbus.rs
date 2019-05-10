@@ -41,7 +41,7 @@ fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TD
 }
 
 pub fn init_bus(sender: Sender<Notification>) -> dbus::Connection {
-    let f = Factory::new_fn::<()>();
+    //let f = Factory::new_fn::<()>();
     let iface = create_iface(sender);
     let tree = create_tree(iface);
 
@@ -81,8 +81,10 @@ pub fn dbus_loop(sender: Sender<Notification>, receiver: Receiver<Notification>)
     let c = init_bus(sender);
 
     loop {
-        // TODO: can get found name messages here.
-        c.incoming(500).next();
+        let signal = c.incoming(500).next();
+        if let Some(s) = signal {
+            dbg!(s);
+        }
 
         if let Ok(x) = receiver.try_recv() {
             dbg!(x);
