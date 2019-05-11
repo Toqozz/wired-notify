@@ -7,18 +7,8 @@ extern crate nalgebra;
 extern crate lyon;
 extern crate gfx_glyph;
 
-use std::collections::HashMap;
-use std::sync::mpsc::channel;
-use std::thread;
+use std::sync::mpsc;
 
-use gfx::traits::FactoryExt;
-use nalgebra::geometry::Orthographic3;
-
-use lyon::math::rect;
-use lyon::tessellation::{ VertexBuffers, FillOptions, FillVertex };
-use lyon::tessellation::basic_shapes::*;
-use lyon::tessellation::geometry_builder::VertexConstructor;
-use lyon::tessellation::BuffersBuilder;
 
 mod bus;
 mod rendering;
@@ -41,165 +31,54 @@ gfx_defines! {
     }
 }
 
-const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
-
-struct VertexCtor;
-impl VertexConstructor<FillVertex, rendering::window::Vertex> for VertexCtor {
-    fn new_vertex(&mut self, vertex: FillVertex) -> rendering::window::Vertex {
-        let vert = [vertex.position.x, vertex.position.y, 0.0];
-        rendering::window::Vertex {
-            position: vert,
-            normal: vertex.normal.to_array(),
-            texcoords: [0.0, 0.0],
-            color: WHITE,
-        }
-    }
-}
-
-struct VertexCtor2;
-impl VertexConstructor<FillVertex, rendering::window::Vertex> for VertexCtor2 {
-    fn new_vertex(&mut self, vertex: FillVertex) -> rendering::window::Vertex {
-        let vert = [vertex.position.x, vertex.position.y, 0.0];
-        rendering::window::Vertex {
-            position: vert,
-            normal: vertex.normal.to_array(),
-            texcoords: [0.0, 0.0],
-            color: GREEN,
-        }
-    }
-}
-
-
-pub fn spawn_window<'a>(name: &'a str, map: &mut HashMap<glutin::WindowId, window::GLWindow<'a>>) {
-    let (mut window, _) = window::GLWindow::build_window();
-    window.set_text(name);
-
-    map.insert(window.context.window().id(), window);
+pub fn spawn_window(notification: bus::dbus::Notification, el: &glutin::EventsLoop, factory: &mut window::WindowFactory) {
+    let window = factory.create_window(el);
+    window.set_notification(notification);
+    window.draw_rectangle();
 }
 
 fn main() {
-    // Window constructor.
-    let (mut gl_window, mut events_loop) = window::GLWindow::build_window();
+    let (mut window_factory, mut events_loop) = window::WindowFactory::new();
 
-
-
-
-    let mut geometry: VertexBuffers<rendering::window::Vertex, u16> = VertexBuffers::new();
-    let options = FillOptions::tolerance(0.01);
-    fill_rounded_rectangle(
-        &rect(0.0, 0.0, 640.0, 720.0),
-        &BorderRadii {
-            top_left: 50.0,
-            top_right: 50.0,
-            bottom_left: 50.0,
-            bottom_right: 50.0,
-        },
-        &options,
-        &mut BuffersBuilder::new(&mut geometry, VertexCtor),
-    ).expect("Could not build rectangle.");
-
-    fill_rounded_rectangle(
-        &rect(500.0, 0.0, 640.0, 720.0),
-        &BorderRadii {
-            top_left: 50.0,
-            top_right: 50.0,
-            bottom_left: 50.0,
-            bottom_right: 50.0,
-        },
-        &options,
-        &mut BuffersBuilder::new(&mut geometry, VertexCtor2),
-    ).expect("Could not build rectangle.");
-
-
-
-
-
-
-    let ortho = Orthographic3::new(0.0, 1280.0, 0.0, 720.0, -1.0, 1.0);
-
-
-
-    // Create vertex buffer and slice from supplied vertices.
-    // A slice dictates what and in what order vertices are processed.
-    let (vertex_buffer, slice) = gl_window.factory.create_vertex_buffer_with_slice(&geometry.vertices.as_slice(), geometry.indices.as_slice());
-    let data = rendering::window::pipe::Data {
-        vbuf: vertex_buffer,
-        //font: (glyph_brush.into, sampler),
-        proj: ortho.to_homogeneous().into(),
-        out: gl_window.render_target.clone(),
-        out_depth: gl_window.depth_target.clone(),
-    };
-
-    gl_window.data = Some(data);
-    gl_window.set_slice(slice);
-
-    gl_window.set_text("Hello world!");
-
-
-
-
+    let gl_window = window_factory.create_window(&events_loop);
+    gl_window.set_text("Hello world!".to_string());
+    gl_window.draw_rectangle();
 
     // Loop through dbus messages.
-    let (sender, receiver) = channel();
-    let _handler = thread::spawn(move || {
-        bus::dbus::dbus_loop(sender, receiver);
-    });
-
-    let mut windows: HashMap<glutin::WindowId, window::GLWindow> = HashMap::new();
-    windows.insert(gl_window.context.window().id(), gl_window);
+    let (sender, receiver) = mpsc::channel();
+    let connection = bus::dbus::dbus_loop(sender);
 
 
     loop {
+        // Poll window events.
         events_loop.poll_events(|event| {
             match event {
                 glutin::Event::WindowEvent {
                     event: glutin::WindowEvent::CloseRequested,
                     window_id,
                 } => {
-                    let window = windows.remove(&window_id).unwrap();
+                    let window = window_factory.window_map.remove(&window_id)
+                        .expect("Trying to drop a window that doesn't exist in the window list.");
                     drop(window);
                 }
                 _ => (),
             }
         });
 
-        for (_id, window) in windows.iter_mut() {
+        // Draw windows.
+        for (_id, window) in window_factory.window_map.iter_mut() {
             window.draw();
         }
-    }
 
-        /*
-        for i in kill_list {
-            dbg!(i);
-            let w = window_list.get_mut(i);
-            drop(w.unwrap());
-        }
-    }
-        */
-
-
-    // Run until manual intervention.
-    /*
-    while running {
-        gl_window.events_loop.poll_events(|event| {
-
-            if let glutin::Event::WindowEvent { event, .. } = &event {
-                match event {
-                    CloseRequested => running = false,
-                    Resized(size) => resize = Some(size.clone()),
-                    _ => {}
-                }
-            }
-        });
-
-        if let Some(size) = resize {
-            gl_window.resize(&size);
-            resize = None;
+        // Check dbus signals.
+        // TODO: do this somewhere else.
+        let signal = connection.incoming(0).next();
+        if let Some(s) = signal {
+            dbg!(s);
         }
 
-        //gl_window.resize(size);
-        gl_window.draw();
+        if let Ok(x) = receiver.try_recv() {
+            spawn_window(x, &events_loop, &mut window_factory);
+        }
     }
-    */
 }

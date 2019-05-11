@@ -1,4 +1,4 @@
-use glutin::{WindowedContext, EventsLoop};
+use glutin::WindowedContext;
 use glutin::os::unix::WindowBuilderExt;
 use glutin::dpi::LogicalSize;
 
@@ -14,60 +14,79 @@ use gfx::format::DepthStencil as DepthFormat;
 use gfx::Encoder;
 use gfx_device_gl::{Device as GLDevice, Factory, Resources, CommandBuffer};
 
-use gfx_glyph::{ Section, GlyphBrushBuilder, Scale };
+use gfx_glyph::{ OwnedVariedSection, OwnedSectionText, GlyphBrushBuilder, Scale };
 
-use glutin::WindowEvent::*;
+use crate::bus;
 
-gfx_defines! {
-    vertex Vertex {
-        position: [f32; 3] = "v_pos",
-        texcoords: [f32; 2] = "v_texcoords",
-        normal: [f32; 2] = "v_normal",
-        color: [f32; 4] = "v_color",
-    }
+// Window factory.
+use std::collections::HashMap;
+use crate::window;
 
-    pipeline pipe {
-        vbuf: gfx::VertexBuffer<Vertex> = (),
-        //font: gfx::TextureSampler<[f32; 4]> = "t_font",
-        proj: gfx::Global<[[f32; 4]; 4]> = "u_proj",
-        out: gfx::RenderTarget<gfx::format::Srgba8> = "out_color",
-        out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
-    }
+// draw_rectangle
+use lyon::math::rect;
+use lyon::tessellation::{ VertexBuffers, FillOptions, FillVertex };
+use lyon::tessellation::basic_shapes::*;
+use lyon::tessellation::geometry_builder::VertexConstructor;
+use lyon::tessellation::BuffersBuilder;
+
+
+pub struct WindowFactory {
+    pub window_map: HashMap<glutin::WindowId, window::GLWindow>,
+
+    //pub events_loop: glutin::EventsLoop,
 }
 
-const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+impl WindowFactory {
+    pub fn new() -> (WindowFactory, glutin::EventsLoop) {
+        let window_map = HashMap::new();
 
-pub struct GLWindow<'a> {
-    pub context: WindowedContext,
-    //pub events_loop: EventsLoop,
-    pub device: GLDevice,
-    pub factory: Factory,
-    pub render_target: RenderTargetView<Resources, ColorFormat>,
-    pub depth_target: DepthStencilView<Resources, DepthFormat>,
-    pub encoder: Encoder<Resources, CommandBuffer>,
-    pub pso: gfx::PipelineState<Resources, pipe::Meta>,
-
-    glyph_brush: gfx_glyph::GlyphBrush<'static, Resources, Factory>,
-    // TODO: section probably shouldn't be here.
-    section: Option<Section<'a>>,
-
-    pub data: Option<pipe::Data<Resources>>,
-    slice: Option<Slice<Resources>>,
-
-    pub running: bool,
-}
-
-impl<'a> GLWindow<'a> {
-    pub fn build_window() -> (GLWindow<'a>, glutin::EventsLoop) {
         // Events loop to caputer window events (clicked, moved, resized, etc).
         let events_loop = glutin::EventsLoop::new();
 
+        (WindowFactory {
+            window_map,
+        }, events_loop)
+    }
+
+    pub fn create_window(&mut self, events_loop: &glutin::EventsLoop) -> &mut GLWindow {
+        let window = GLWindow::new(events_loop);
+
+        let id = window.windowed_context.window().id();
+        self.window_map.insert(id, window);
+
+        // TODO: keep window reference instead of fetching.
+        self.window_map.get_mut(&id)
+            .expect("Failed to create window.")
+    }
+}
+
+pub struct GLWindow {
+    pub windowed_context: WindowedContext,
+    pub device: GLDevice,
+    pub factory: Factory,
+    pub encoder: Encoder<Resources, CommandBuffer>,
+    pub pso: gfx::PipelineState<Resources, pipe::Meta>,
+    pub color_view: RenderTargetView<Resources, ColorFormat>,
+    pub depth_view: DepthStencilView<Resources, DepthFormat>,
+
+    glyph_brush: gfx_glyph::GlyphBrush<'static, Resources, Factory>,
+    // TODO: section probably shouldn't be here.
+    section: Option<OwnedVariedSection>,
+
+    pub data: Option<pipe::Data<Resources>>,
+    pub slice: Option<Slice<Resources>>,
+
+    pub notification: Option<bus::dbus::Notification>,
+}
+
+impl GLWindow {
+    pub fn new(events_loop: &glutin::EventsLoop) -> GLWindow {
         // Initialize a window and context but don't build them yet.
         let window_builder = glutin::WindowBuilder::new()
-            .with_dimensions(LogicalSize { width: 1280.0, height: 720.0 })
+            .with_dimensions(LogicalSize { width: 300.0, height: 23.0 })
             .with_title("wiry")
             .with_class("wiry".to_owned(), "wiry".to_owned())
-            .with_transparency(false)
+            .with_transparency(true)
             .with_always_on_top(true)
             .with_x11_window_type(glutin::os::unix::XWindowType::Utility);
         let context_builder = glutin::ContextBuilder::new()
@@ -76,12 +95,9 @@ impl<'a> GLWindow<'a> {
         // Build the window using the glutin backend for gfx-rs.
         // window -- obvious, device -- rendering device, factory -- creation?, color_view -- base
         // color, depth_view -- ?
-        let (window, device, mut factory, color_view, depth_view) =
-            gfx_window_glutin::init::<ColorFormat, DepthFormat>(window_builder, context_builder, &events_loop)
+        let (windowed_context, device, mut factory, color_view, depth_view) =
+            gfx_window_glutin::init::<ColorFormat, DepthFormat>(window_builder, context_builder, events_loop)
                 .expect("Failed to create a window.");
-
-        // This may need to change with multiple windows/threads?
-        //window.make_current();
 
         // Using an encoder avoids having to use raw OpenGL procedures.
         let encoder = factory.create_command_buffer().into();
@@ -99,39 +115,114 @@ impl<'a> GLWindow<'a> {
             .depth_test(gfx::preset::depth::LESS_EQUAL_WRITE)
             .build(factory.clone());
 
-        (GLWindow {
-            context: window,
+        let ortho = nalgebra::Orthographic3::new(0.0, 300.0, 0.0, 23.0, -1.0, 1.0);
+
+        // Create vertex buffer and slice from supplied vertices.
+        // A slice dictates what and in what order vertices are processed.
+        let vertex = Vertex {
+            position: [0.0, 0.0, 0.0],
+            texcoords: [0.0, 0.0],
+            normal: [0.0, 0.0],
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        let (vertex_buffer, _slice) = factory.create_vertex_buffer_with_slice(&[vertex; 4], ());
+        let data = pipe::Data {
+            vbuf: vertex_buffer,
+            //font: (glyph_brush.into, sampler),
+            proj: ortho.to_homogeneous().into(),
+            out: color_view.clone(),
+            out_depth: depth_view.clone(),
+        };
+
+        GLWindow {
+            windowed_context,
             device,
             factory,
-            render_target: color_view,
-            depth_target: depth_view,
+            color_view,
+            depth_view,
             encoder,
             pso,
             glyph_brush,
             section: None,
-            data: None,
+            data: Some(data),
             slice: None,
-            running: true,
-        }, events_loop)
+            notification: None,
+        }
+    }
+
+    pub fn set_notification(&mut self, notification: bus::dbus::Notification) {
+        self.set_text(notification.summary.clone());
+        self.notification = Some(notification);
     }
 
     pub fn set_slice(&mut self, slice: Slice<Resources>) {
         self.slice = Some(slice);
     }
 
-    pub fn set_text(&mut self, text: &'a str) {
-        let section = Section {
+    pub fn set_text(&mut self, text: String) {
+        let section = OwnedSectionText {
             text: text,
-            screen_position: (10.0, 10.0),
-            scale: Scale::uniform(32.0),
+            scale: Scale::uniform(12.0),
             color: [1.0, 0.0, 0.0, 1.0],
-            z: -1.0,
-            ..Section::default()
+            ..OwnedSectionText::default()
         };
 
-        self.section = Some(section);
+        let varied_section = OwnedVariedSection {
+            text: vec![section],
+            screen_position: (10.0, 10.0),
+            z: -1.0,
+            ..OwnedVariedSection::default()
+        };
+
+        self.section = Some(varied_section);
     }
 
+    // TODO: theres much better ways of doing this.  Also, add parameters.
+    pub fn draw_rectangle(&mut self) {
+        let mut geometry: VertexBuffers<Vertex, u16> = VertexBuffers::new();
+        let options = FillOptions::tolerance(0.01);
+        fill_rounded_rectangle(
+            &rect(0.0, 0.0, 300.0, 23.0),
+            &BorderRadii {
+                top_left: 50.0,
+                top_right: 50.0,
+                bottom_left: 50.0,
+                bottom_right: 50.0,
+            },
+            &options,
+            &mut BuffersBuilder::new(&mut geometry, VertexCtor { color: [0.0, 1.0, 0.0, 1.0] }),
+        ).expect("Could not build rectangle.");
+
+        let (vertex_buffer, slice) = self.factory.create_vertex_buffer_with_slice(&geometry.vertices.as_slice(), geometry.indices.as_slice());
+
+        self.data.as_mut().unwrap().vbuf = vertex_buffer;
+        self.set_slice(slice);
+    }
+
+    pub fn draw(&mut self) {
+        if let (Some(data), Some(slice)) = (&self.data, &self.slice) {
+            self.encoder.clear(&data.out, BLACK);
+            self.encoder.clear_depth(&data.out_depth, 1.0);
+
+            //glyph_brush.queue(section);
+            self.encoder.draw(slice, &self.pso, data);
+
+            // Always draw text last because it's the most prone to fuzzing the depth test.
+            if let Some(section) = &self.section {
+                self.glyph_brush.queue(section.to_borrowed());
+                self.glyph_brush.draw_queued(&mut self.encoder, &self.color_view, &self.depth_view)
+                    .expect("Failed to draw font.");
+            }
+
+            self.encoder.flush(&mut self.device);
+
+            self.windowed_context.swap_buffers().unwrap();
+            self.device.cleanup();
+        }
+    }
+
+    /*
     pub fn resize(&mut self, size: &glutin::dpi::LogicalSize) {
         gfx_window_glutin::update_views(
             &self.context,
@@ -150,24 +241,5 @@ impl<'a> GLWindow<'a> {
             self.data = Some(d);
         }
     }
-
-    pub fn draw(&mut self) {
-        if let (Some(data), Some(slice)) = (&self.data, &self.slice) {
-            self.encoder.clear(&data.out, BLACK);
-            self.encoder.clear_depth(&data.out_depth, 1.0);
-
-            //glyph_brush.queue(section);
-            self.encoder.draw(slice, &self.pso, data);
-
-            // Always draw text last because it's the most prone to fuzzing the depth test.
-            self.glyph_brush.queue(self.section.unwrap());
-            self.glyph_brush.draw_queued(&mut self.encoder, &self.render_target, &self.depth_target)
-                .expect("Failed to draw font.");
-
-            self.encoder.flush(&mut self.device);
-
-            self.context.swap_buffers().unwrap();
-            self.device.cleanup();
-        }
-    }
+    */
 }

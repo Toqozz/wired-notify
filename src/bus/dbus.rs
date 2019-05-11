@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::mpsc::{ Sender, Receiver };
+use std::sync::mpsc;
 
 use dbus;
 use dbus::tree;
@@ -19,7 +19,7 @@ impl DataType for TData {
     type Signal = ();
 }
 
-fn create_iface(sender: Sender<Notification>) -> Interface<tree::MTFn<TData>, TData> {
+fn create_iface(sender: mpsc::Sender<Notification>) -> Interface<tree::MTFn<TData>, TData> {
     let f = Factory::new_fn();
     org_freedesktop_notifications_server(sender, &f, (), |m| {
         let a: &Arc<BusNotification> = m.path.get_data();
@@ -40,7 +40,7 @@ fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TD
     tree
 }
 
-pub fn init_bus(sender: Sender<Notification>) -> dbus::Connection {
+pub fn init_bus(sender: mpsc::Sender<Notification>) -> dbus::Connection {
     //let f = Factory::new_fn::<()>();
     let iface = create_iface(sender);
     let tree = create_tree(iface);
@@ -55,12 +55,12 @@ pub fn init_bus(sender: Sender<Notification>) -> dbus::Connection {
 
 #[derive(Debug)]
 pub struct Notification {
-    app_name: String,
-    replaces_id: u32,
-    app_icon: String,
-    summary: String,
-    body: String,
-    expire_timeout: i32,
+    pub app_name: String,
+    pub replaces_id: u32,
+    pub app_icon: String,
+    pub summary: String,
+    pub body: String,
+    pub expire_timeout: i32,
 }
 
 impl Notification {
@@ -77,9 +77,11 @@ impl Notification {
     }
 }
 
-pub fn dbus_loop(sender: Sender<Notification>, receiver: Receiver<Notification>) {
+pub fn dbus_loop(sender: mpsc::Sender<Notification>) -> dbus::Connection {
     let c = init_bus(sender);
+    c
 
+    /*
     loop {
         let signal = c.incoming(500).next();
         if let Some(s) = signal {
@@ -90,4 +92,5 @@ pub fn dbus_loop(sender: Sender<Notification>, receiver: Receiver<Notification>)
             dbg!(x);
         }
     }
+    */
 }

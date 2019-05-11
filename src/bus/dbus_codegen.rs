@@ -25,7 +25,7 @@ impl<'a, C: ::std::ops::Deref<Target=dbus::Connection>> OrgFreedesktopNotificati
         Ok(capabilities)
     }
 
-    fn notify(&self, sender: Sender<Notification>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: ::std::collections::HashMap<&str, arg::Variant<Box<arg::RefArg>>>, expire_timeout: i32) -> Result<u32, Self::Err> {
+    fn notify(&self, _sender: Sender<Notification>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: ::std::collections::HashMap<&str, arg::Variant<Box<arg::RefArg>>>, expire_timeout: i32) -> Result<u32, Self::Err> {
         let mut m = self.method_call_with_args(&"org.freedesktop.Notifications".into(), &"Notify".into(), |msg| {
             let mut i = arg::IterAppend::new(msg);
             i.append(app_name);
