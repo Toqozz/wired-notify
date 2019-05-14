@@ -5,13 +5,12 @@ authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
-gfx = "0.18"
-gfx_core = "*"
-gfx_device_gl = "*"
-gfx_window_glutin = "0.31.0"
-glutin = "0.21.0"
-nalgebra = "*"
-lyon = "*"
-gfx_glyph = "0.15.0"
 dbus = "0.6.4"
+toml = "0.5.0"
+serde = { version = "1.0", features = ["derive"] }
+#gl = "0.6.0"
 
+[dependencies.sdl2]
+version = "0.32"
+default-features = false
+features = ["ttf", "gfx"]
