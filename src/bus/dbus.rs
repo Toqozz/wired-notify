@@ -53,30 +53,6 @@ pub fn init_bus(sender: mpsc::Sender<Notification>) -> dbus::Connection {
     c
 }
 
-#[derive(Debug)]
-pub struct Notification {
-    pub app_name: String,
-    pub replaces_id: u32,
-    pub app_icon: String,
-    pub summary: String,
-    pub body: String,
-    pub expire_timeout: i32,
-}
-
-impl Notification {
-    pub fn new(
-        app_name: String,
-        replaces_id: u32,
-        app_icon: String,
-        summary: String,
-        body: String,
-        expire_timeout: i32
-        ) -> Notification {
-
-        Notification { app_name, replaces_id, app_icon, summary, body, expire_timeout }
-    }
-}
-
 pub fn dbus_loop(sender: mpsc::Sender<Notification>) -> dbus::Connection {
     let c = init_bus(sender);
     c
@@ -93,4 +69,29 @@ pub fn dbus_loop(sender: mpsc::Sender<Notification>) -> dbus::Connection {
         }
     }
     */
+}
+
+#[derive(Debug)]
+pub struct Notification {
+    // Notification info.
+    pub app_name: String,
+    pub replaces_id: u32,
+    pub app_icon: String,
+    pub summary: String,
+    pub body: String,
+    pub expire_timeout: i32,
+}
+
+impl Notification {
+    pub fn new(
+        app_name: String,
+        replaces_id: u32,
+        app_icon: String,
+        summary: String,
+        body: String,
+        expire_timeout: i32
+        ) -> Self {
+
+        Self { app_name, replaces_id, app_icon, summary, body, expire_timeout }
+    }
 }

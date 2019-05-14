@@ -4,6 +4,8 @@
 use dbus;
 use dbus::arg;
 use dbus::tree;
+use crate::bus::dbus::Notification;
+use std::sync::mpsc::Sender;
 
 pub trait OrgFreedesktopNotifications {
     type Err;
@@ -65,8 +67,6 @@ impl<'a, C: ::std::ops::Deref<Target=dbus::Connection>> OrgFreedesktopNotificati
     }
 }
 
-use super::dbus::Notification;
-use std::sync::mpsc::Sender;
 pub fn org_freedesktop_notifications_server<F, T, D>(sender: Sender<Notification>, factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F) -> tree::Interface<tree::MTFn<D>, D>
 where
     D: tree::DataType,

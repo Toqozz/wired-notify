@@ -1,84 +1,95 @@
-#[macro_use] extern crate gfx;
-extern crate gfx_core;
-extern crate gfx_device_gl;
-extern crate gfx_window_glutin;
-extern crate glutin;
-extern crate nalgebra;
-extern crate lyon;
-extern crate gfx_glyph;
+extern crate sdl2;
+//extern crate gl;
+
+mod rendering;
+mod notification;
+mod bus;
+mod config;
 
 use std::sync::mpsc;
 
+use sdl2::{
+    event::Event,
+    keyboard::Keycode,
+};
 
-mod bus;
-mod rendering;
-use rendering::window;
 
-gfx_defines! {
-    vertex Vertex {
-        position: [f32; 3] = "v_pos",
-        texcoords: [f32; 2] = "v_texcoords",
-        normal: [f32; 2] = "v_normal",
-        color: [f32; 4] = "v_color",
-    }
+use notification::management::NotifyWindowManager;
+use bus::dbus::Notification;
 
-    pipeline pipe {
-        vbuf: gfx::VertexBuffer<Vertex> = (),
-        //font: gfx::TextureSampler<[f32; 4]> = "t_font",
-        proj: gfx::Global<[[f32; 4]; 4]> = "u_proj",
-        out: gfx::RenderTarget<gfx::format::Srgba8> = "out_color",
-        out_depth: gfx::DepthTarget<gfx::format::DepthStencil> = gfx::preset::depth::LESS_EQUAL_WRITE,
-    }
-}
-
-pub fn spawn_window(notification: bus::dbus::Notification, el: &glutin::EventsLoop, factory: &mut window::WindowFactory) {
-    let window = factory.create_window(el);
-    window.set_notification(notification);
-    window.draw_rectangle();
+fn spawn_window(notification: Notification, manager: &mut NotifyWindowManager) {
+    manager.new_notification(notification);
 }
 
 fn main() {
-    let (mut window_factory, mut events_loop) = window::WindowFactory::new();
+/*
+    let mut sdl = SDL2State::new()
+        .expect("Failed to create sdl state.");
+    let mut window = SDL2Window::new(&sdl)
+        .expect("Failed to create a new window.");
+    let mut window2 = SDL2Window::new(&sdl)
+        .expect("Failed to create a new window.");
+    // Clear canvas before rendering.
+    window.canvas.set_draw_color(Color::RGB(0, 0, 0));
+    window.canvas.clear();
+    window.canvas.present();
+*/
 
-    let gl_window = window_factory.create_window(&events_loop);
-    gl_window.set_text("Hello world!".to_string());
-    gl_window.draw_rectangle();
+/*
+    //let texture_creator = window.canvas.texture_creator();
+    //let font_path = std::path::Path::new("./arial.ttf");
+    //let font = sdl.ttf_context.load_font(&font_path, 32).unwrap();
+    //font.set_style(sdl2::ttf::FontStyle::BOLD);
 
-    // Loop through dbus messages.
+    // render a surface and convert it to a texture bound to the canvas.
+    //let surface = font.render("Hello world!")
+        //.blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+    //let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
+
+    //let sdl2::render::TextureQuery { width, height, .. } = texture.query();
+    //window.canvas.copy(&texture, None, Some(sdl2::rect::Rect::new(640 as i32, 360 as i32, width as u32, height as u32))).unwrap();
+    //window.canvas.present();
+*/
+
+    // Load config.
+    let config: config::Config = toml::from_str(include_str!("config.toml"))
+        .expect("Failed to load config.\n");
+
+    let (mut manager, mut event_pump) = NotifyWindowManager::new(&config);
+
     let (sender, receiver) = mpsc::channel();
     let connection = bus::dbus::dbus_loop(sender);
 
 
-    loop {
-        // Poll window events.
-        events_loop.poll_events(|event| {
+    'main: loop {
+        for event in event_pump.poll_iter() {
             match event {
-                glutin::Event::WindowEvent {
-                    event: glutin::WindowEvent::CloseRequested,
-                    window_id,
-                } => {
-                    let window = window_factory.window_map.remove(&window_id)
-                        .expect("Trying to drop a window that doesn't exist in the window list.");
-                    drop(window);
-                }
-                _ => (),
+                // This is called on ^C.
+                Event::Quit { .. } => break 'main,
+                Event::KeyDown { keycode: Some(Keycode::Escape), window_id, .. } => manager.drop_window(window_id),
+                //Event::MouseButtonDown {x, y, ..} => {
+                //}
+                _ => {}
             }
-        });
-
-        // Draw windows.
-        for (_id, window) in window_factory.window_map.iter_mut() {
-            window.draw();
         }
 
+        manager.draw_windows();
+
         // Check dbus signals.
-        // TODO: do this somewhere else.
         let signal = connection.incoming(0).next();
         if let Some(s) = signal {
             dbg!(s);
         }
 
         if let Ok(x) = receiver.try_recv() {
-            spawn_window(x, &events_loop, &mut window_factory);
+            spawn_window(x, &mut manager);
         }
+
+        //std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+
+        // Clear frame.
+        //canvas.set_draw_color(Color::RGB(0, 0, 0));
+        //canvas.clear();
+        //canvas.present();
     }
 }

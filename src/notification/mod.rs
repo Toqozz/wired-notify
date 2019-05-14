@@ -1,2 +1,1 @@
-mod drawing;
-mod notification;
+pub mod management;
