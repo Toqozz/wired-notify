@@ -1,0 +1,37 @@
+max_notifications = 4
+gap = 8
+
+[notification]
+width = 300
+height = 60
+x = 100
+y = 100
+
+summary_width = 300
+body_width = 300
+border_width = 3
+
+# colors
+summary_color = { r = 255, g = 255, b = 255, a = 255 }
+body_color = { r = 0, g = 0, b = 0, a = 255 }
+background_color = { r = 40, g = 40, b = 40, a = 255 }
+border_color = { r = 0, g = 0, b = 0, a = 255 }
+
+timeout = 10.0
+
+font = "Arial"
+scroll_speed = 1.0
+bounce = false
+
+left_margin = 8
+middle_margin = 8
+right_margin = 8
+
+[shortcuts]
+# TODO= use real values here
+notification_close = 1
+notification_closeall = 2
+notification_pause = 3
+notification_url = 4
+
+
