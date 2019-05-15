@@ -1,4 +1,5 @@
 extern crate sdl2;
+extern crate winit;
 //extern crate gl;
 
 mod rendering;
@@ -8,33 +9,16 @@ mod config;
 
 use std::sync::mpsc;
 
-use sdl2::{
-    event::Event,
-    keyboard::Keycode,
-};
-
+use winit::EventsLoop;
 
 use notification::management::NotifyWindowManager;
 use bus::dbus::Notification;
 
-fn spawn_window(notification: Notification, manager: &mut NotifyWindowManager) {
-    manager.new_notification(notification);
+fn spawn_window(notification: Notification, manager: &mut NotifyWindowManager, el: &EventsLoop) {
+    manager.new_notification(notification, el);
 }
 
 fn main() {
-/*
-    let mut sdl = SDL2State::new()
-        .expect("Failed to create sdl state.");
-    let mut window = SDL2Window::new(&sdl)
-        .expect("Failed to create a new window.");
-    let mut window2 = SDL2Window::new(&sdl)
-        .expect("Failed to create a new window.");
-    // Clear canvas before rendering.
-    window.canvas.set_draw_color(Color::RGB(0, 0, 0));
-    window.canvas.clear();
-    window.canvas.present();
-*/
-
 /*
     //let texture_creator = window.canvas.texture_creator();
     //let font_path = std::path::Path::new("./arial.ttf");
@@ -50,28 +34,40 @@ fn main() {
     //window.canvas.copy(&texture, None, Some(sdl2::rect::Rect::new(640 as i32, 360 as i32, width as u32, height as u32))).unwrap();
     //window.canvas.present();
 */
+    // TODO: maybe use EventsLoop::new_x11();
+    // winit events loop.
+    let mut events_loop = EventsLoop::new();
+
 
     // Load config.
     let config: config::Config = toml::from_str(include_str!("config.toml"))
         .expect("Failed to load config.\n");
 
-    let (mut manager, mut event_pump) = NotifyWindowManager::new(&config);
+    let mut manager = NotifyWindowManager::new(&config);
 
     let (sender, receiver) = mpsc::channel();
     let connection = bus::dbus::dbus_loop(sender);
 
 
-    'main: loop {
-        for event in event_pump.poll_iter() {
+    let mut running = true;
+    while running {
+        events_loop.poll_events(|event| {
             match event {
-                // This is called on ^C.
-                Event::Quit { .. } => break 'main,
-                Event::KeyDown { keycode: Some(Keycode::Escape), window_id, .. } => manager.drop_window(window_id),
-                //Event::MouseButtonDown {x, y, ..} => {
-                //}
+                winit::Event::WindowEvent {
+                    event: winit::WindowEvent::CloseRequested,
+                    ..
+                } => running = false,
+                winit::Event::WindowEvent {
+                    window_id,
+                    // NOTE: can use modifiers here, like ctrl, shift, etc.
+                    event: winit::WindowEvent::MouseInput { .. },
+                } => {
+                    println!("got mouse input, dropping a window.");
+                    manager.drop_window(window_id);
+                },
                 _ => {}
             }
-        }
+        });
 
         manager.draw_windows();
 
@@ -82,14 +78,7 @@ fn main() {
         }
 
         if let Ok(x) = receiver.try_recv() {
-            spawn_window(x, &mut manager);
+            spawn_window(x, &mut manager, &events_loop);
         }
-
-        //std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
-
-        // Clear frame.
-        //canvas.set_draw_color(Color::RGB(0, 0, 0));
-        //canvas.clear();
-        //canvas.present();
     }
 }

@@ -1,4 +1,5 @@
-use sdl2::EventPump;
+use winit::EventsLoop;
+use winit::WindowId;
 
 use crate::rendering::window::{ SDL2Window, };
 use crate::rendering::sdl::{ SDL2State, };
@@ -41,21 +42,22 @@ pub struct NotifyWindowManager<'a> {
     pub notify_windows: Vec<NotifyWindow>,
 
     pub config: &'a Config,
+    //pub events_loop: &'a EventsLoop,
 }
 
 
 impl<'a> NotifyWindowManager<'a> {
-    pub fn new(config: &'a Config) -> (Self, EventPump) {
-        let (sdl, ev) = SDL2State::new()
+    pub fn new(config: &'a Config) -> Self {
+        let sdl = SDL2State::new()
             .expect("Failed to create SDL2State.");
 
         let notify_windows = Vec::new();
 
-        (Self { sdl, notify_windows, config }, ev)
+        Self { sdl, notify_windows, config }
     }
 
-    pub fn drop_window(&mut self, window_id: u32) {
-        let position = self.notify_windows.iter().position(|n| n.window.canvas.window().id() == window_id);
+    pub fn drop_window(&mut self, window_id: WindowId) {
+        let position = self.notify_windows.iter().position(|n| n.window.id == window_id);
         if let Some(pos) = position {
             self.notify_windows.remove(pos);
         }
@@ -67,8 +69,8 @@ impl<'a> NotifyWindowManager<'a> {
         }
     }
 
-    pub fn new_notification(&mut self, notification: Notification) {
-        let window = SDL2Window::new(&self.sdl, &self.config)
+    pub fn new_notification(&mut self, notification: Notification, el: &EventsLoop) {
+        let window = SDL2Window::new(&self.sdl, &self.config, el)
             .expect("Could not create SDL2Window.");
         let notify_window = NotifyWindow::new(window, notification);
 

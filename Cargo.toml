@@ -5,6 +5,9 @@ authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
+#glutin = "*"
+winit = "0.19.1"
+x11 = { version = "2.18.1", features = ["xlib"] }
 dbus = "0.6.4"
 toml = "0.5.0"
 serde = { version = "1.0", features = ["derive"] }
