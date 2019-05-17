@@ -22,8 +22,6 @@ impl SDL2State {
         gl_attr.set_context_profile(GLProfile::Core);
         gl_attr.set_context_version(3, 3);
 
-        // While events_loop isn't technically part of sdl2, it is utimately used in building
-        // windows which are converted to sdl2 windows.
         let state = Self {
             context,
             video_subsys,

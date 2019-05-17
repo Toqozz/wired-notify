@@ -7,6 +7,9 @@ mod notification;
 mod bus;
 mod config;
 
+use sdl2::event::Event;
+use rendering::sdl::SDL2State;
+
 use std::sync::mpsc;
 
 use winit::EventsLoop;
@@ -18,7 +21,7 @@ fn spawn_window(notification: Notification, manager: &mut NotifyWindowManager, e
     manager.new_notification(notification, el);
 }
 
-fn main() {
+fn main() -> Result<(), String> {
 /*
     //let texture_creator = window.canvas.texture_creator();
     //let font_path = std::path::Path::new("./arial.ttf");
@@ -34,37 +37,39 @@ fn main() {
     //window.canvas.copy(&texture, None, Some(sdl2::rect::Rect::new(640 as i32, 360 as i32, width as u32, height as u32))).unwrap();
     //window.canvas.present();
 */
-    // TODO: maybe use EventsLoop::new_x11();
-    // winit events loop.
-    let mut events_loop = EventsLoop::new();
+    let sdl = SDL2State::new()?;
 
+    /* We need 2 event receivers.  One for our program (receives SIGTERM) and one for the windows.
+     * This would not be necessary if we could use purely SDL2 for windowing, but unfortunately we
+     * can't just yet: https://bugzilla.libsdl.org/show_bug.cgi?id=4630 */
+    let mut events_pump =  sdl.context.event_pump()?;
+    let mut events_loop = EventsLoop::new();    // TODO: maybe use `EventsLoop::new_x11()` ?
 
-    // Load config.
     let config: config::Config = toml::from_str(include_str!("config.toml"))
         .expect("Failed to load config.\n");
 
-    let mut manager = NotifyWindowManager::new(&config);
+    let mut manager = NotifyWindowManager::new(&config, &sdl);
 
+    // Allows us to receive messages from dbus.
     let (sender, receiver) = mpsc::channel();
     let connection = bus::dbus::dbus_loop(sender);
 
 
     let mut running = true;
     while running {
+        for event in events_pump.poll_iter() {
+            match event {
+                Event::Quit { .. } => running = false,
+                _ => {}
+            }
+        }
+
         events_loop.poll_events(|event| {
             match event {
                 winit::Event::WindowEvent {
-                    event: winit::WindowEvent::CloseRequested,
-                    ..
-                } => running = false,
-                winit::Event::WindowEvent {
                     window_id,
-                    // NOTE: can use modifiers here, like ctrl, shift, etc.
-                    event: winit::WindowEvent::MouseInput { .. },
-                } => {
-                    println!("got mouse input, dropping a window.");
-                    manager.drop_window(window_id);
-                },
+                    event: winit::WindowEvent::MouseInput { .. },   // NOTE: Can use modifiers here, like ctrl, shift, alt.
+                } => manager.drop_window(window_id),
                 _ => {}
             }
         });
@@ -81,4 +86,6 @@ fn main() {
             spawn_window(x, &mut manager, &events_loop);
         }
     }
+
+    Ok(())
 }

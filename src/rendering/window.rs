@@ -1,6 +1,7 @@
 use sdl2::sys::SDL_WindowFlags;
 use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 
 use super::sdl::{ SDL2State };
 
@@ -13,7 +14,6 @@ use winit::os::unix::WindowExt;
 use winit::dpi::LogicalSize;
 use winit::dpi::LogicalPosition;
 use winit::EventsLoop;
-use winit::WindowId;
 use winit::Window;
 
 
@@ -21,11 +21,6 @@ pub struct SDL2Window {
     pub winit_window: Window,
     pub canvas: WindowCanvas,
     clear_color: Color,
-
-    pub id: WindowId,
-
-    //pub window: sdl2::video::Window,
-    //pub ctx: sdl2::video::GLContext,
 }
 
 impl SDL2Window {
@@ -34,26 +29,25 @@ impl SDL2Window {
     }
 
     fn new_via_winit(sdl: &SDL2State, config: &Config, el: &EventsLoop) -> Result<SDL2Window, String> {
-        // Hack to avoid dpi scaling.
+        // Hack to avoid dpi scaling -- we just want pixels.
         std::env::set_var("WINIT_HIDPI_FACTOR", "1.0");
 
         let color = &config.notification.background_color;
         let clear_color = Color::RGBA(color.r, color.g, color.b, color.a);
         let (width, height) = (config.notification.width, config.notification.height);
 
-        // Dropping winit here is legal, but will cause crashes later, so we should keep it around.
+        // Dropping winit here is legal because we're using `unsafe`, but will cause crashes later.
         let winit_window = WindowBuilder::new()
             .with_dimensions(LogicalSize { width: width as f64, height: height as f64 })
             .with_title("wiry")
-            .with_transparency(false)
+            .with_transparency(true)
             .with_always_on_top(true)
             .with_x11_window_type(XWindowType::Utility)
             .with_x11_window_type(XWindowType::Notification)
             .build(el)
             .unwrap();
 
-        winit_window.set_position(LogicalPosition { x: 10.0, y: 874.0 });
-        let id = winit_window.id();
+        winit_window.set_position(LogicalPosition { x: config.notification.x as f64, y: config.notification.y as f64 });
 
         let xlib_id = winit_window.get_xlib_window().unwrap();
         let sdl2window = unsafe {
@@ -74,67 +68,56 @@ impl SDL2Window {
             winit_window,
             canvas,
             clear_color,
-            id,
         })
     }
-    /*
-    pub fn new_x11(x: i32, y: i32, w: u32, h: u32) -> u32 {
-        unsafe {
-            // Should we be using libc::PT_NULL?
-            let display = xlib::XOpenDisplay(std::ptr::null());
-            // Does this even work?
-            if display.is_null() {
-                return 0;
-            }
 
-            // use primary display.
-            // TODO: think about letting this be user-selectable.
-            let screen = xlib::XDefaultScreen(display);
-            let mut vinfo: xlib::XVisualInfo = std::mem::uninitialized();
-            let _result = xlib::XMatchVisualInfo(display, screen, 32, xlib::TrueColor, &mut vinfo);
-
-            let mut attr: xlib::XSetWindowAttributes = std::mem::uninitialized();
-            attr.colormap = xlib::XCreateColormap(display, xlib::XDefaultRootWindow(display), vinfo.visual, xlib::AllocNone);
-            attr.border_pixel = 0;
-            attr.backing_pixel = 0;
-
-            let window = xlib::XCreateWindow(
-                display,
-                xlib::XDefaultRootWindow(display),
-                x, y,
-                w, h,
-                0,
-                vinfo.depth, xlib::InputOutput as u32, vinfo.visual,
-                xlib::CWColormap | xlib::CWBorderPixel | xlib::CWBackPixel,
-                &mut attr
-            );
-
-            let wiry_cstring = CString::new("wiry").unwrap();
-
-            xlib::XStoreName(display, window, wiry_cstring.as_ptr());
-
-            let property1 = xlib::XInternAtom(display, CString::new("_NET_WM_NAME").unwrap().as_ptr(), false as i32);
-            let property2 = xlib::XInternAtom(display, CString::new("UTF8_STRING").unwrap().as_ptr(), false as i32);
-            xlib::XChangeProperty(display, window, property1, property2, 8, xlib::PropModeReplace, wiry_cstring.as_bytes().as_ptr(), 4);
-
-            let mut classhint = xlib::XClassHint {
-                res_name: CString::new("wiry").unwrap().into_raw(),
-                res_class: CString::new("wiry").unwrap().into_raw(),
-            };
-            xlib::XSetClassHint(display, window, &mut classhint);
-
-            let property2 = xlib::XInternAtom(display, CString::new("_NET_WM_WINDOW_TYPE").unwrap().as_ptr(), false as i32);
-            let property0 = xlib::XInternAtoms(display, CString::new("_NET_WM_WINDOW_TYPE_NOTIFICATION").unwrap().as_ptr(), false as i32);
-            let property1 = xlib::XInternAtom(display, CString::new("_NET_WM_WINDOW_TYPE_UTILITY").unwrap().as_ptr(), false as i32);
-        }
-
-        0
+    pub fn set_position(&mut self, position: LogicalPosition) {
+        self.winit_window.set_position(position);
     }
-    */
+
+    pub fn get_rect(&self) -> Rect {
+        let size = self.winit_window.get_inner_size().unwrap();
+
+        Rect::new(0, 0, size.width as u32, size.height as u32)
+    }
+
+    fn vertical_align_rect(text_rect: Rect, window_rect: Rect) -> Rect {
+        let mut dup = text_rect.clone();
+
+        dup.center_on(window_rect.center());
+        dup.set_x(0);
+
+        dup
+    }
+
+    pub fn draw_text(&mut self, sdl: &SDL2State, config: &Config, text: &str) {
+        let texture_creator = self.canvas.texture_creator();
+
+        let font_path = std::path::Path::new("./arial.ttf");
+        let font = sdl.ttf_context.load_font(&font_path, 18).unwrap();
+        //font.set_style(sdl2::ttf::FontStyle::ITALIC);
+
+        let surface = font.render(text)
+            .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+
+        let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
+
+        self.canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
+
+        let sdl2::render::TextureQuery { width, height, .. } = texture.query();
+        let rect = Rect::new(0, 0, width as u32, height as u32);
+
+        let centered_rect = SDL2Window::vertical_align_rect(rect, self.get_rect());
+
+
+        //let r = vertical_align_rect(rect, )
+        self.canvas.copy(&texture, None, Some(centered_rect)).unwrap();
+        self.canvas.present();
+    }
 
     pub fn draw(&mut self) {
         self.canvas.set_draw_color(self.clear_color);
         self.canvas.clear();
-        self.canvas.present();
+        //self.canvas.present();
     }
 }

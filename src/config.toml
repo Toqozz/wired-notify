@@ -3,11 +3,13 @@ gap = 8
 
 [notification]
 width = 300
-height = 60
-x = 100
-y = 100
+height = 40
+x = 10
+y = 874
 
 summary_width = 300
+summary_startx = 8
+summary_starty = 0.5
 body_width = 300
 border_width = 3
 
