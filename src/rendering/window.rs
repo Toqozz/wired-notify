@@ -81,43 +81,68 @@ impl SDL2Window {
         Rect::new(0, 0, size.width as u32, size.height as u32)
     }
 
-    fn vertical_align_rect(text_rect: Rect, window_rect: Rect) -> Rect {
-        let mut dup = text_rect.clone();
+    fn align_summary_body(summary_rect: &mut Rect, body_rect: &mut Rect, window_rect: Rect, config: &Config) {
+        //summary_rect.set_x(0);
+        //summary_rect.set_y(0);
+        //body_rect.set_x(0);
+        body_rect.set_y(summary_rect.bottom());
 
-        dup.center_on(window_rect.center());
-        dup.set_x(0);
+        let width = std::cmp::max(summary_rect.width(), body_rect.width());
+        let height = summary_rect.height() + body_rect.height() + config.notification.summary_body_gap;
 
-        dup
+        let mut bounds = Rect::new(summary_rect.x(), summary_rect.y(), width, height);
+        bounds.center_on(window_rect.center());
+        //bounds.set_x(0);
+
+        summary_rect.set_y(bounds.y());
+        body_rect.set_bottom(bounds.bottom());
     }
 
-    pub fn draw_text(&mut self, sdl: &SDL2State, config: &Config, text: &str) {
+    pub fn draw_text(&mut self, sdl: &SDL2State, config: &Config, summary: &str, body: &str) {
+        // Load font etc.
         let texture_creator = self.canvas.texture_creator();
-
         let font_path = std::path::Path::new("./arial.ttf");
-        let font = sdl.ttf_context.load_font(&font_path, 18).unwrap();
-        //font.set_style(sdl2::ttf::FontStyle::ITALIC);
+        let mut font = sdl.ttf_context.load_font(&font_path, 12).unwrap();
 
-        let surface = font.render(text)
+        // Render to textures.
+        font.set_style(sdl2::ttf::FontStyle::BOLD);
+        let sfc = font.render(summary)
             .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+        let summary_texture = texture_creator.create_texture_from_surface(&sfc).unwrap();
+        font.set_style(sdl2::ttf::FontStyle::NORMAL);
+        let sfc = font.render(body)
+            .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+        let body_texture = texture_creator.create_texture_from_surface(&sfc).unwrap();
 
-        let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
 
-        self.canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
+        let sdl2::render::TextureQuery { width, height, .. } = summary_texture.query();
+        let mut summary_rect = Rect::new(config.notification.left_margin as i32, 0, width as u32, height as u32);
+        let sdl2::render::TextureQuery { width, height, .. } = body_texture.query();
+        let mut body_rect = Rect::new(config.notification.left_margin as i32, 0, width as u32, height as u32);
 
-        let sdl2::render::TextureQuery { width, height, .. } = texture.query();
-        let rect = Rect::new(0, 0, width as u32, height as u32);
-
-        let centered_rect = SDL2Window::vertical_align_rect(rect, self.get_rect());
-
+        SDL2Window::align_summary_body(&mut summary_rect, &mut body_rect, self.get_rect(), config);
 
         //let r = vertical_align_rect(rect, )
-        self.canvas.copy(&texture, None, Some(centered_rect)).unwrap();
+        self.canvas.set_draw_color(Color::RGBA(255, 255, 255, 255));
+        self.canvas.copy(&summary_texture, None, Some(summary_rect)).unwrap();
+        self.canvas.copy(&body_texture, None, Some(body_rect)).unwrap();
         self.canvas.present();
     }
 
-    pub fn draw(&mut self) {
-        self.canvas.set_draw_color(self.clear_color);
+    pub fn draw(&mut self, config: &Config) {
+        let bc = &config.notification.border_color;
+        let border_color = Color::RGBA(bc.r, bc.g, bc.b, bc.a);
+        self.canvas.set_draw_color(border_color);
         self.canvas.clear();
+
+        self.canvas.set_draw_color(self.clear_color);
+        let bw = config.notification.border_width;
+        let w = config.notification.width;
+        let h = config.notification.height;
+
+        let inner_rect = Rect::new(bw as i32, bw as i32, w - (bw * 2), h - (bw * 2));
+        //self.canvas.draw_rect(inner_rect).unwrap();
+        self.canvas.fill_rect(inner_rect).unwrap();
         //self.canvas.present();
     }
 }

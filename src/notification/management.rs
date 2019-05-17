@@ -78,8 +78,8 @@ impl<'a> NotifyWindowManager<'a> {
 
     pub fn draw_windows(&mut self) {
         for notify_window in self.notify_windows.iter_mut() {
-            notify_window.window.draw();
-            notify_window.window.draw_text(self.sdl, self.config, notify_window.notification.summary.as_str());
+            notify_window.window.draw(self.config);
+            notify_window.window.draw_text(self.sdl, self.config, notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
         }
     }
 

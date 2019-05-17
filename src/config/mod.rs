@@ -16,9 +16,9 @@ pub struct NotificationConfig {
     pub x: u32,
     pub y: u32,
 
+    pub summary_body_gap: u32,
+
     pub summary_width: u32,
-    pub summary_startx: u32,
-    pub summary_starty: f32,
     pub body_width: u32,
     pub border_width: u32,
 

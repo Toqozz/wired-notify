@@ -7,9 +7,9 @@ height = 40
 x = 10
 y = 874
 
+summary_body_gap = 3
+
 summary_width = 300
-summary_startx = 8
-summary_starty = 0.5
 body_width = 300
 border_width = 3
 
@@ -17,7 +17,7 @@ border_width = 3
 summary_color = { r = 255, g = 255, b = 255, a = 255 }
 body_color = { r = 0, g = 0, b = 0, a = 255 }
 background_color = { r = 40, g = 40, b = 40, a = 255 }
-border_color = { r = 0, g = 0, b = 0, a = 255 }
+border_color = { r = 235, g = 219, b = 178, a = 255 }
 
 timeout = 10.0
 
