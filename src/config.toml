@@ -3,14 +3,16 @@ gap = 8
 
 [notification]
 width = 300
-height = 40
+height = 48
 x = 10
 y = 874
 
-summary_body_gap = 3
-
 summary_width = 300
+summary_max_lines = 3
+
 body_width = 300
+body_max_lines = 3
+
 border_width = 3
 
 # colors
@@ -25,9 +27,10 @@ font = "Arial"
 scroll_speed = 1.0
 bounce = false
 
+top_margin = 8
 left_margin = 8
-middle_margin = 8
 right_margin = 8
+bottom_margin = 8
 
 [shortcuts]
 # TODO= use real values here

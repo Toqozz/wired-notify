@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use sdl2::pixels;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -16,10 +17,12 @@ pub struct NotificationConfig {
     pub x: u32,
     pub y: u32,
 
-    pub summary_body_gap: u32,
-
     pub summary_width: u32,
+    pub summary_max_lines: u32,
+
     pub body_width: u32,
+    pub body_max_lines: u32,
+
     pub border_width: u32,
 
     pub summary_color: Color,
@@ -34,9 +37,10 @@ pub struct NotificationConfig {
     pub bounce: bool,
     //bounce_margin: u32,
 
+    pub top_margin: u32,
     pub left_margin: u32,
-    pub middle_margin: u32,
     pub right_margin: u32,
+    pub bottom_margin: u32,
 
     // markup?
 
@@ -51,10 +55,16 @@ pub struct ShortcutsConfig {
     pub notification_url: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
     pub a: u8,
+}
+
+impl From<Color> for pixels::Color {
+    fn from(c: Color) -> pixels::Color {
+        pixels::Color::RGBA(c.r, c.g, c.b, c.a)
+    }
 }

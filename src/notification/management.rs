@@ -14,8 +14,8 @@ struct Vec2 {
     y: f64,
 }
 
-pub struct NotifyWindow {
-    pub window: SDL2Window,
+pub struct NotifyWindow<'a> {
+    pub window: SDL2Window<'a>,
     pub notification: Notification,
 
     // Positioning.
@@ -26,8 +26,8 @@ pub struct NotifyWindow {
     //fuse: f32,
 }
 
-impl NotifyWindow {
-    pub fn new(window: SDL2Window, notification: Notification) -> Self {
+impl<'a> NotifyWindow<'a> {
+    pub fn new(window: SDL2Window<'a>, notification: Notification) -> Self {
         Self {
             window,
             notification,
@@ -40,7 +40,7 @@ impl NotifyWindow {
 
 pub struct NotifyWindowManager<'a> {
     pub sdl: &'a SDL2State,
-    pub notify_windows: Vec<NotifyWindow>,
+    pub notify_windows: Vec<NotifyWindow<'a>>,
 
     pub config: &'a Config,
     //pub events_loop: &'a EventsLoop,
@@ -78,8 +78,8 @@ impl<'a> NotifyWindowManager<'a> {
 
     pub fn draw_windows(&mut self) {
         for notify_window in self.notify_windows.iter_mut() {
-            notify_window.window.draw(self.config);
-            notify_window.window.draw_text(self.sdl, self.config, notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
+            notify_window.window.draw();
+            notify_window.window.draw_text(self.sdl, notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
         }
     }
 
