@@ -42,6 +42,8 @@ pub struct NotificationConfig {
     pub right_margin: u32,
     pub bottom_margin: u32,
 
+    pub summary_body_gap: i32,
+
     // markup?
 
     //rounding: u32,

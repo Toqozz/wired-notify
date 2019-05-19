@@ -3,7 +3,7 @@ gap = 8
 
 [notification]
 width = 300
-height = 48
+height = 100
 x = 10
 y = 874
 
@@ -31,6 +31,8 @@ top_margin = 8
 left_margin = 8
 right_margin = 8
 bottom_margin = 8
+
+summary_body_gap = 3
 
 [shortcuts]
 # TODO= use real values here

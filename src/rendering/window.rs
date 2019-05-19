@@ -1,10 +1,12 @@
-use sdl2::sys::SDL_WindowFlags;
 use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
+use sdl2::render::Texture;
+use sdl2::ttf::FontStyle;
+
 
 use super::sdl::{ SDL2State };
-
+use super::text::TextRenderer;
 use crate::config::Config;
 
 use winit::WindowBuilder;
@@ -84,56 +86,73 @@ impl<'a> SDL2Window<'a> {
         Rect::new(0, 0, size.width as u32, size.height as u32)
     }
 
-    fn align_summary_body(&self, summary_rect: &mut Rect, body_rect: &mut Rect, window_rect: Rect) {
-        summary_rect.set_y(self.config.notification.top_margin as i32);
-        body_rect.set_bottom(window_rect.height() as i32 - self.config.notification.bottom_margin as i32);
+    pub fn break_text_into_lines(&self, sdl: &SDL2State, text: &str, max_width: u32) -> Vec<String> {
+        let mut lines = Vec::new();
 
-        /*
-        //summary_rect.set_x(0);
-        //summary_rect.set_y(0);
-        //body_rect.set_x(0);
-        body_rect.set_y(summary_rect.bottom());
-
-        let width = std::cmp::max(summary_rect.width(), body_rect.width());
-        let height = summary_rect.height() + body_rect.height() + config.notification.summary_body_gap;
-
-        let mut bounds = Rect::new(summary_rect.x(), summary_rect.y(), width, height);
-        bounds.center_on(window_rect.center());
-        //bounds.set_x(0);
-
-        summary_rect.set_y(bounds.y());
-        body_rect.set_bottom(bounds.bottom());
-        */
-    }
-
-    pub fn draw_text(&mut self, sdl: &SDL2State, summary: &str, body: &str) {
-        // Load font etc.
-        let texture_creator = self.canvas.texture_creator();
         let font_path = std::path::Path::new("./arial.ttf");
         let mut font = sdl.ttf_context.load_font(&font_path, 12).unwrap();
 
-        // Render to textures.
         font.set_style(sdl2::ttf::FontStyle::BOLD);
-        let sfc = font.render(summary)
-            .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
-        let summary_texture = texture_creator.create_texture_from_surface(&sfc).unwrap();
-        font.set_style(sdl2::ttf::FontStyle::NORMAL);
-        let sfc = font.render(body)
-            .blended(Color::RGBA(255, 255, 255, 255)).unwrap();
-        let body_texture = texture_creator.create_texture_from_surface(&sfc).unwrap();
+
+        let mut last_whitespace = 0;
+        let mut last_cut = 0;
+        let mut line_history = String::from("");
+        for (i, c) in text.char_indices() {
+            if c.is_whitespace() {
+                last_whitespace = i;
+            }
 
 
-        let sdl2::render::TextureQuery { width, height, .. } = summary_texture.query();
-        let mut summary_rect = Rect::new(self.config.notification.left_margin as i32, 0, width as u32, height as u32);
-        let sdl2::render::TextureQuery { width, height, .. } = body_texture.query();
-        let mut body_rect = Rect::new(self.config.notification.left_margin as i32, 0, width as u32, height as u32);
+            let string = &text[last_cut..i+1];
+            let (width, _height) = font.size_of(&string).unwrap();
+            if width > max_width {
+                lines.push(text[last_cut..last_whitespace].to_owned());
+                last_cut = last_whitespace+1;
+            }
 
-        self.align_summary_body(&mut summary_rect, &mut body_rect, self.get_rect());
+            line_history = text[last_cut..i+1].to_owned();
+        }
 
-        //let r = vertical_align_rect(rect, )
+        if !line_history.is_empty() {
+            lines.push(line_history);
+        }
+
+        lines
+    }
+
+    fn align_summary_body(&self, summary_rects: &mut Vec<(String, Rect)>, body_rects: &mut Vec<(String, Rect)>, window_rect: Rect) {
+        let mut prev_y = self.config.notification.top_margin as i32;
+        for (_string, rect) in summary_rects {
+            rect.set_y(window_rect.y() + prev_y);
+            rect.set_x(self.config.notification.left_margin as i32);
+            prev_y = rect.bottom();
+        }
+
+        prev_y += self.config.notification.summary_body_gap;
+        for (_string, rect) in body_rects {
+            rect.set_y(window_rect.y() + prev_y);
+            rect.set_x(self.config.notification.left_margin as i32);
+            prev_y = rect.bottom();
+        }
+    }
+
+    pub fn draw_text(&mut self, sdl: &SDL2State, summary: &str, body: &str) {
+        let font_path = std::path::Path::new("./arial.ttf");
+        let font = sdl.ttf_context.load_font(&font_path, 12).unwrap();
+        let mut text_renderer = TextRenderer::new(self.config, sdl, font);
+
+        //font.set_style(sdl2::ttf::FontStyle::BOLD);
+        let mut summary_tex_rects = text_renderer.prepare_text(summary, FontStyle::BOLD);
+        //font.set_style(sdl2::ttf::FontStyle::NORMAL);
+        let mut body_tex_rects = text_renderer.prepare_text(body, FontStyle::NORMAL);
+
+        self.align_summary_body(&mut summary_tex_rects, &mut body_tex_rects, self.get_rect());
+
         self.canvas.set_draw_color(self.config.notification.summary_color.clone());
-        self.canvas.copy(&summary_texture, None, Some(summary_rect)).unwrap();
-        self.canvas.copy(&body_texture, None, Some(body_rect)).unwrap();
+        text_renderer.render_text(&mut self.canvas, &mut summary_tex_rects, FontStyle::BOLD);
+        self.canvas.set_draw_color(self.config.notification.body_color.clone());
+        text_renderer.render_text(&mut self.canvas, &mut body_tex_rects, FontStyle::NORMAL);
+
         self.canvas.present();
     }
 
