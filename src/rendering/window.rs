@@ -1,22 +1,22 @@
-use sdl2::render::WindowCanvas;
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-use sdl2::render::Texture;
-use sdl2::ttf::FontStyle;
+use sdl2::{
+    render::WindowCanvas,
+    pixels::Color,
+    rect::Rect,
+    ttf::FontStyle,
+    video::WindowPos,
+};
 
+use winit::{
+    WindowBuilder,
+    EventsLoop,
+    Window,
+    os::unix::{ WindowBuilderExt, XWindowType, WindowExt },
+    dpi::{ LogicalSize, LogicalPosition },
+};
 
-use super::sdl::{ SDL2State };
-use super::text::TextRenderer;
 use crate::config::Config;
-
-use winit::WindowBuilder;
-use winit::os::unix::WindowBuilderExt;
-use winit::os::unix::XWindowType;
-use winit::os::unix::WindowExt;
-use winit::dpi::LogicalSize;
-use winit::dpi::LogicalPosition;
-use winit::EventsLoop;
-use winit::Window;
+use super::sdl::SDL2State;
+use super::text::TextRenderer;
 
 
 pub struct SDL2Window<'a> {
@@ -76,51 +76,25 @@ impl<'a> SDL2Window<'a> {
         })
     }
 
-    pub fn set_position(&mut self, position: LogicalPosition) {
-        self.winit_window.set_position(position);
+    pub fn set_position(&mut self, x: WindowPos, y: WindowPos) {
+        self.canvas.window_mut().set_position(x, y);
     }
 
     pub fn get_rect(&self) -> Rect {
-        let size = self.winit_window.get_inner_size().unwrap();
+        let (width, height) = self.canvas.window().size();
+        let (x, y) = self.canvas.window().position();
 
-        Rect::new(0, 0, size.width as u32, size.height as u32)
+        Rect::new(x, y, width, height)
     }
 
-    pub fn break_text_into_lines(&self, sdl: &SDL2State, text: &str, max_width: u32) -> Vec<String> {
-        let mut lines = Vec::new();
+    pub fn get_inner_rect(&self) -> Rect {
+        let (width, height) = self.canvas.window().size();
 
-        let font_path = std::path::Path::new("./arial.ttf");
-        let mut font = sdl.ttf_context.load_font(&font_path, 12).unwrap();
-
-        font.set_style(sdl2::ttf::FontStyle::BOLD);
-
-        let mut last_whitespace = 0;
-        let mut last_cut = 0;
-        let mut line_history = String::from("");
-        for (i, c) in text.char_indices() {
-            if c.is_whitespace() {
-                last_whitespace = i;
-            }
-
-
-            let string = &text[last_cut..i+1];
-            let (width, _height) = font.size_of(&string).unwrap();
-            if width > max_width {
-                lines.push(text[last_cut..last_whitespace].to_owned());
-                last_cut = last_whitespace+1;
-            }
-
-            line_history = text[last_cut..i+1].to_owned();
-        }
-
-        if !line_history.is_empty() {
-            lines.push(line_history);
-        }
-
-        lines
+        Rect::new(0, 0, width, height)
     }
 
-    fn align_summary_body(&self, summary_rects: &mut Vec<(String, Rect)>, body_rects: &mut Vec<(String, Rect)>, window_rect: Rect) {
+    // Returns the total space needed to draw the text (including margins).
+    fn align_summary_body(&self, summary_rects: &mut Vec<(String, Rect)>, body_rects: &mut Vec<(String, Rect)>, window_rect: Rect) -> Rect {
         let mut prev_y = self.config.notification.top_margin as i32;
         for (_string, rect) in summary_rects {
             rect.set_y(window_rect.y() + prev_y);
@@ -134,19 +108,22 @@ impl<'a> SDL2Window<'a> {
             rect.set_x(self.config.notification.left_margin as i32);
             prev_y = rect.bottom();
         }
+
+        let height = (prev_y as u32) + (self.config.notification.bottom_margin as u32);
+        Rect::new(0, 0, window_rect.width(), height)
     }
 
+    // Returns the rect of the text drawn.
     pub fn draw_text(&mut self, sdl: &SDL2State, summary: &str, body: &str) {
-        let font_path = std::path::Path::new("./arial.ttf");
-        let font = sdl.ttf_context.load_font(&font_path, 12).unwrap();
-        let mut text_renderer = TextRenderer::new(self.config, sdl, font);
+        let font_path = std::path::Path::new("./Carlito-Regular.ttf");
+        let font = sdl.ttf_context.load_font(&font_path, 14).unwrap();
+        let mut text_renderer = TextRenderer::new(self.config, font);
 
-        //font.set_style(sdl2::ttf::FontStyle::BOLD);
         let mut summary_tex_rects = text_renderer.prepare_text(summary, FontStyle::BOLD);
-        //font.set_style(sdl2::ttf::FontStyle::NORMAL);
         let mut body_tex_rects = text_renderer.prepare_text(body, FontStyle::NORMAL);
 
-        self.align_summary_body(&mut summary_tex_rects, &mut body_tex_rects, self.get_rect());
+        let size = self.align_summary_body(&mut summary_tex_rects, &mut body_tex_rects, self.get_inner_rect());
+        self.canvas.window_mut().set_size(size.width(), size.height()).expect("hehe");
 
         self.canvas.set_draw_color(self.config.notification.summary_color.clone());
         text_renderer.render_text(&mut self.canvas, &mut summary_tex_rects, FontStyle::BOLD);
@@ -164,8 +141,7 @@ impl<'a> SDL2Window<'a> {
 
         self.canvas.set_draw_color(self.clear_color);
         let bw = self.config.notification.border_width;
-        let w = self.config.notification.width;
-        let h = self.config.notification.height;
+        let (w, h) = self.canvas.window().size();
 
         let inner_rect = Rect::new(bw as i32, bw as i32, w - (bw * 2), h - (bw * 2));
         //self.canvas.draw_rect(inner_rect).unwrap();

@@ -85,6 +85,9 @@ fn main() -> Result<(), String> {
         if let Ok(x) = receiver.try_recv() {
             spawn_window(x, &mut manager, &events_loop);
         }
+
+        // Roughly 60fps.
+        std::thread::sleep(std::time::Duration::from_millis(1000 / 60));
     }
 
     Ok(())

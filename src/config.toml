@@ -7,10 +7,10 @@ height = 100
 x = 10
 y = 874
 
-summary_width = 300
+summary_width = 272
 summary_max_lines = 3
 
-body_width = 300
+body_width = 272
 body_max_lines = 3
 
 border_width = 3

@@ -2,8 +2,7 @@ use std::sync::Arc;
 use std::sync::mpsc;
 
 use dbus;
-use dbus::tree;
-use dbus::tree::{ DataType, Interface, Factory, Tree };
+use dbus::tree::{ self, DataType, Interface, Factory, Tree };
 
 use super::receiver::BusNotification;
 use super::dbus_codegen::org_freedesktop_notifications_server;

@@ -4,7 +4,7 @@ use sdl2::pixels;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub max_notifications: u32,
-    pub gap: u32,
+    pub gap: i32,
     pub notification: NotificationConfig,
     pub shortcuts: ShortcutsConfig,
 }
@@ -13,13 +13,18 @@ pub struct Config {
 pub struct NotificationConfig {
     // Geometry.
     pub width: u32,
-    pub height: u32,
-    pub x: u32,
-    pub y: u32,
+    pub height: u32,            // Base height.  NOTE: notification windows will generally be resized, ignoring this value.
+    pub x: i32,
+    pub y: i32,
+
+    pub top_margin: i32,        // Margin between window edge (top) and summary text.
+    pub left_margin: i32,       // Margin between window edge (left) and text.
+    pub right_margin: i32,      // Margin between window edge (right) -- this effectively defines the cutoff for the line.  TOOD: not currently the case -- body_width is used instead?
+    pub bottom_margin: i32,     // Margin between window edge (bottom) and the bottom of the body text.
+
 
     pub summary_width: u32,
     pub summary_max_lines: u32,
-
     pub body_width: u32,
     pub body_max_lines: u32,
 
@@ -36,11 +41,6 @@ pub struct NotificationConfig {
     pub scroll_speed: f32,
     pub bounce: bool,
     //bounce_margin: u32,
-
-    pub top_margin: u32,
-    pub left_margin: u32,
-    pub right_margin: u32,
-    pub bottom_margin: u32,
 
     pub summary_body_gap: i32,
 

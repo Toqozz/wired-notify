@@ -1,10 +1,12 @@
-use winit::EventsLoop;
-use winit::WindowId;
-use winit::dpi::LogicalPosition;
+use winit::{
+    EventsLoop,
+    WindowId,
+};
 
-use crate::rendering::window::{ SDL2Window, };
-use crate::rendering::sdl::{ SDL2State, };
-
+use crate::rendering::{
+    window::SDL2Window,
+    sdl::SDL2State,
+};
 use crate::bus::dbus::Notification;
 use crate::config::Config;
 
@@ -49,23 +51,29 @@ pub struct NotifyWindowManager<'a> {
 
 impl<'a> NotifyWindowManager<'a> {
     pub fn new(config: &'a Config, sdl: &'a SDL2State) -> Self {
-        //let sdl = SDL2State::new()
-            //.expect("Failed to create SDL2State.");
-
         let notify_windows = Vec::new();
 
-        Self { sdl, notify_windows, config }
+        Self {
+            sdl,
+            notify_windows,
+            config,
+        }
     }
 
+    // TODO: support vertical notifications.
+    // Think about supporting horizontal notifications... do people even want that?
     pub fn update_positions(&mut self) {
-        let begin_posx = self.config.notification.x as f64;
-        let begin_posy = self.config.notification.y as f64;
-        let height = self.config.notification.height as f64;
-        let gap = self.config.gap as f64;
-        for (i, notify_window) in self.notify_windows.iter_mut().enumerate() {
-            let num = i as f64;
-            let pos = LogicalPosition { x: begin_posx, y: begin_posy + num * (height + gap) };
-            notify_window.window.set_position(pos);
+        let begin_posx = self.config.notification.x;
+        let begin_posy = self.config.notification.y;
+        let gap = self.config.gap;
+
+        let mut prev_y = begin_posy - gap;
+        for notify_window in self.notify_windows.iter_mut() {
+            let posx = sdl2::video::WindowPos::Positioned(begin_posx);
+            let posy = sdl2::video::WindowPos::Positioned(prev_y + gap);
+            notify_window.window.set_position(posx, posy);
+
+            prev_y = notify_window.window.get_rect().bottom();
         }
     }
 
@@ -86,7 +94,10 @@ impl<'a> NotifyWindowManager<'a> {
     pub fn new_notification(&mut self, notification: Notification, el: &EventsLoop) {
         let window = SDL2Window::new(&self.sdl, &self.config, el)
             .expect("Could not create SDL2Window.");
-        let notify_window = NotifyWindow::new(window, notification);
+        let mut notify_window = NotifyWindow::new(window, notification);
+
+        notify_window.window.draw();
+        notify_window.window.draw_text(self.sdl, notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
 
         self.notify_windows.push(notify_window);
         // NOTE: I think that this is expensive when there's a lot of notifications.
