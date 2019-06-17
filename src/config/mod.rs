@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use sdl2::pixels;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -11,42 +10,46 @@ pub struct Config {
 
 #[derive(Debug, Deserialize)]
 pub struct NotificationConfig {
+    pub summary: TextArea,
+    pub body: TextArea,
+
     // Geometry.
     pub width: u32,
     pub height: u32,            // Base height.  NOTE: notification windows will generally be resized, ignoring this value.
     pub x: i32,
     pub y: i32,
 
-    pub top_margin: i32,        // Margin between window edge (top) and summary text.
-    pub left_margin: i32,       // Margin between window edge (left) and text.
-    pub right_margin: i32,      // Margin between window edge (right) -- this effectively defines the cutoff for the line.  TOOD: not currently the case -- body_width is used instead?
-    pub bottom_margin: i32,     // Margin between window edge (bottom) and the bottom of the body text.
+    pub border_width: f64,
 
-
-    pub summary_width: u32,
-    pub summary_max_lines: u32,
-    pub body_width: u32,
-    pub body_max_lines: u32,
-
-    pub border_width: u32,
-
-    pub summary_color: Color,
-    pub body_color: Color,
     pub background_color: Color,
     pub border_color: Color,
 
-    pub timeout: f32,
+    pub timeout: f32,           // Default timeout.
 
-    pub font: String,
     pub scroll_speed: f32,
     pub bounce: bool,
+
+    // Undecided...
     //bounce_margin: u32,
-
-    pub summary_body_gap: i32,
-
-    // markup?
-
     //rounding: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TextArea {
+    pub anchor: Anchor,
+    pub anchor_position: AnchorPosition,
+
+    pub font: String,
+
+    pub color: Color,
+
+    pub width: f64,
+    pub max_lines: f64,
+
+    pub left_margin: f64,
+    pub right_margin: f64,
+    pub top_margin: f64,
+    pub bottom_margin: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,16 +60,25 @@ pub struct ShortcutsConfig {
     pub notification_url: u32,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
+#[derive(Debug, Deserialize)]
+pub enum Anchor {
+    Root,
+    Summary,
+    Body,
 }
 
-impl From<Color> for pixels::Color {
-    fn from(c: Color) -> pixels::Color {
-        pixels::Color::RGBA(c.r, c.g, c.b, c.a)
-    }
+#[derive(Debug, Deserialize)]
+pub enum AnchorPosition {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Color {
+    pub r: f64,
+    pub g: f64,
+    pub b: f64,
+    pub a: f64,
 }

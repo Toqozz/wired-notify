@@ -4,8 +4,7 @@ use winit::{
 };
 
 use crate::rendering::{
-    window::SDL2Window,
-    sdl::SDL2State,
+    window::CairoWindow,
 };
 use crate::bus::dbus::Notification;
 use crate::config::Config;
@@ -16,8 +15,8 @@ struct Vec2 {
     y: f64,
 }
 
-pub struct NotifyWindow<'a> {
-    pub window: SDL2Window<'a>,
+pub struct NotifyWindow<'config> {
+    pub window: CairoWindow<'config>,
     pub notification: Notification,
 
     // Positioning.
@@ -28,8 +27,8 @@ pub struct NotifyWindow<'a> {
     //fuse: f32,
 }
 
-impl<'a> NotifyWindow<'a> {
-    pub fn new(window: SDL2Window<'a>, notification: Notification) -> Self {
+impl<'config> NotifyWindow<'config> {
+    pub fn new(window: CairoWindow<'config>, notification: Notification) -> Self {
         Self {
             window,
             notification,
@@ -40,21 +39,19 @@ impl<'a> NotifyWindow<'a> {
     }
 }
 
-pub struct NotifyWindowManager<'a> {
-    pub sdl: &'a SDL2State,
-    pub notify_windows: Vec<NotifyWindow<'a>>,
+pub struct NotifyWindowManager<'config> {
+    pub notify_windows: Vec<NotifyWindow<'config>>,
 
-    pub config: &'a Config,
+    pub config: &'config Config,
     //pub events_loop: &'a EventsLoop,
 }
 
 
-impl<'a> NotifyWindowManager<'a> {
-    pub fn new(config: &'a Config, sdl: &'a SDL2State) -> Self {
+impl<'config> NotifyWindowManager<'config> {
+    pub fn new(config: &'config Config) -> Self {
         let notify_windows = Vec::new();
 
         Self {
-            sdl,
             notify_windows,
             config,
         }
@@ -69,16 +66,14 @@ impl<'a> NotifyWindowManager<'a> {
 
         let mut prev_y = begin_posy - gap;
         for notify_window in self.notify_windows.iter_mut() {
-            let posx = sdl2::video::WindowPos::Positioned(begin_posx);
-            let posy = sdl2::video::WindowPos::Positioned(prev_y + gap);
-            notify_window.window.set_position(posx, posy);
+            notify_window.window.set_position(begin_posx as f64, (prev_y + gap) as f64);
 
-            prev_y = notify_window.window.get_rect().bottom();
+            //prev_y = notify_window.window.get_rect().bottom();
         }
     }
 
     pub fn drop_window(&mut self, window_id: WindowId) {
-        let position = self.notify_windows.iter().position(|n| n.window.winit_window.id() == window_id);
+        let position = self.notify_windows.iter().position(|n| n.window.window.id() == window_id);
         if let Some(pos) = position {
             self.notify_windows.remove(pos);
         }
@@ -87,17 +82,20 @@ impl<'a> NotifyWindowManager<'a> {
     pub fn draw_windows(&mut self) {
         for notify_window in self.notify_windows.iter_mut() {
             notify_window.window.draw();
-            notify_window.window.draw_text(self.sdl, notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
+            notify_window.window.draw_text(
+                notify_window.notification.summary.as_str(),
+                notify_window.notification.body.as_str()
+            );
         }
     }
 
     pub fn new_notification(&mut self, notification: Notification, el: &EventsLoop) {
-        let window = SDL2Window::new(&self.sdl, &self.config, el)
-            .expect("Could not create SDL2Window.");
+        let window = CairoWindow::new(&self.config, el);
+            //.expect("Could not create CairoWindow.");
         let mut notify_window = NotifyWindow::new(window, notification);
 
         notify_window.window.draw();
-        notify_window.window.draw_text(self.sdl, notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
+        //notify_window.window.draw_text(notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
 
         self.notify_windows.push(notify_window);
         // NOTE: I think that this is expensive when there's a lot of notifications.

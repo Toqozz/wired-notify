@@ -7,32 +7,48 @@ height = 100
 x = 10
 y = 874
 
-summary_width = 272
-summary_max_lines = 3
-
-body_width = 272
-body_max_lines = 3
-
 border_width = 3
 
-# colors
-summary_color = { r = 255, g = 255, b = 255, a = 255 }
-body_color = { r = 0, g = 0, b = 0, a = 255 }
-background_color = { r = 40, g = 40, b = 40, a = 255 }
-border_color = { r = 235, g = 219, b = 178, a = 255 }
+background_color = { r = 0.15686, g = 0.15686, b = 0.15686, a = 1.0 }
+border_color = { r = 0.92157, g = 0.858824, b = 0.698039, a = 1.0 }
 
 timeout = 10.0
 
-font = "Arial"
 scroll_speed = 1.0
 bounce = false
 
-top_margin = 8
+[notification.summary]
+anchor = "Root"                 # "Root", "Summary", or "Body".  Don't select "Summary" for the summary.
+anchor_position = "Left"     # "TopLeft", "TopRight", "BottomLeft", or "BottomRight".
+
+font = "Arial 11"
+
+color = { r = 0.92157, g = 0.858824, b = 0.698039, a = 1.0 }
+
+width = 78
+max_lines = 1
+
 left_margin = 8
 right_margin = 8
+top_margin = 8
 bottom_margin = 8
 
-summary_body_gap = 3
+[notification.body]
+anchor = "Summary"                 # "Root", "Summary", or "Body".  Don't select "Summary" for the summary.
+anchor_position = "Right"          # "Left", "Right", "Top", or "Bottom".
+
+font = "Arial 11"
+
+color = { r = 0.92157, g = 0.858824, b = 0.698039, a = 1.0 }
+
+width = 200
+max_lines = 1
+
+left_margin = 8
+right_margin = 8
+top_margin = 8
+bottom_margin = 8
+
 
 [shortcuts]
 # TODO= use real values here
@@ -40,5 +56,4 @@ notification_close = 1
 notification_closeall = 2
 notification_pause = 3
 notification_url = 4
-
 

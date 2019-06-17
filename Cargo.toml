@@ -5,15 +5,12 @@ authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
-#glutin = "*"
 winit = "0.19.1"
 x11 = { version = "2.18.1", features = ["xlib"] }
 dbus = "0.6.4"
 toml = "0.5.0"
 serde = { version = "1.0", features = ["derive"] }
-#gl = "0.6.0"
-
-[dependencies.sdl2]
-version = "0.32"
-default-features = false
-features = ["ttf", "gfx"]
+pango = "0.6.0"
+pangocairo = "0.7.0"
+cairo-rs = "0.6.0"
+cairo-sys-rs = { version = "0.8.0", features = ["xlib"] }
