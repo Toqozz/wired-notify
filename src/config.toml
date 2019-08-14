@@ -2,8 +2,8 @@ max_notifications = 4
 gap = 8
 
 [notification]
-width = 300
-height = 100
+width = 1
+height = 1
 x = 10
 y = 874
 
@@ -18,8 +18,8 @@ scroll_speed = 1.0
 bounce = false
 
 [notification.summary]
-anchor = "Root"                 # "Root", "Summary", or "Body".  Don't select "Summary" for the summary.
-anchor_position = "Left"     # "TopLeft", "TopRight", "BottomLeft", or "BottomRight".
+anchor = "Root"
+anchor_position = "TL"     # "TopLeft", "TopRight", "BottomLeft", or "BottomRight".
 
 font = "Arial 11"
 
@@ -28,14 +28,12 @@ color = { r = 0.92157, g = 0.858824, b = 0.698039, a = 1.0 }
 width = 78
 max_lines = 1
 
-left_margin = 8
-right_margin = 8
-top_margin = 8
-bottom_margin = 8
+offset = { x = 3.0, y = 3.0 }
+padding = { left = 3.0, right = 3.0, top = 3.0, bottom = 3.0 }
 
 [notification.body]
 anchor = "Summary"                 # "Root", "Summary", or "Body".  Don't select "Summary" for the summary.
-anchor_position = "Right"          # "Left", "Right", "Top", or "Bottom".
+anchor_position = "TR"          # "Left", "Right", "Top", or "Bottom".
 
 font = "Arial 11"
 
@@ -44,10 +42,8 @@ color = { r = 0.92157, g = 0.858824, b = 0.698039, a = 1.0 }
 width = 200
 max_lines = 1
 
-left_margin = 8
-right_margin = 8
-top_margin = 8
-bottom_margin = 8
+offset = { x = 3.0, y = 10.0 }
+padding = { left = 3.0, right = 3.0, top = 3.0, bottom = 3.0 }
 
 
 [shortcuts]

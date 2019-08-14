@@ -1,8 +1,10 @@
+#[derive(Debug, Clone)]
 pub struct Point {
     pub x: f64,
     pub y: f64,
 }
 
+#[derive(Debug, Clone)]
 pub struct Rect {
     x: f64,
     y: f64,
@@ -10,6 +12,7 @@ pub struct Rect {
     height: f64,
 }
 
+#[allow(dead_code)]
 impl Rect {
     pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
         Self {

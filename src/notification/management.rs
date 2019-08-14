@@ -1,6 +1,6 @@
 use winit::{
-    EventsLoop,
-    WindowId,
+    event_loop::{ EventLoop, EventLoopWindowTarget },
+    window::WindowId,
 };
 
 use crate::rendering::{
@@ -8,12 +8,8 @@ use crate::rendering::{
 };
 use crate::bus::dbus::Notification;
 use crate::config::Config;
-
-#[derive(Debug, Clone)]
-struct Vec2 {
-    x: f64,
-    y: f64,
-}
+use crate::rendering::text::TextDrawable;
+use crate::rendering::maths::Point;
 
 pub struct NotifyWindow<'config> {
     pub window: CairoWindow<'config>,
@@ -68,38 +64,79 @@ impl<'config> NotifyWindowManager<'config> {
         for notify_window in self.notify_windows.iter_mut() {
             notify_window.window.set_position(begin_posx as f64, (prev_y + gap) as f64);
 
-            //prev_y = notify_window.window.get_rect().bottom();
+            prev_y = notify_window.window.get_rect().bottom() as i32;
         }
     }
 
     pub fn drop_window(&mut self, window_id: WindowId) {
-        let position = self.notify_windows.iter().position(|n| n.window.window.id() == window_id);
-        if let Some(pos) = position {
-            self.notify_windows.remove(pos);
+        let index = self.notify_windows.iter().position(|n| n.window.window.id() == window_id);
+        if let Some(idx) = index {
+            self.notify_windows.remove(idx);
         }
     }
 
     pub fn draw_windows(&mut self) {
         for notify_window in self.notify_windows.iter_mut() {
-            notify_window.window.draw();
-            notify_window.window.draw_text(
-                notify_window.notification.summary.as_str(),
-                notify_window.notification.body.as_str()
-            );
+            if notify_window.window.dirty {
+                notify_window.window.draw_background();
+                notify_window.window.draw_drawables();
+                notify_window.window.dirty = false;
+            }
         }
     }
 
-    pub fn new_notification(&mut self, notification: Notification, el: &EventsLoop) {
-        let window = CairoWindow::new(&self.config, el);
-            //.expect("Could not create CairoWindow.");
-        let mut notify_window = NotifyWindow::new(window, notification);
+    pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
+        let mut window = CairoWindow::new(&self.config, el);
 
-        notify_window.window.draw();
-        //notify_window.window.draw_text(notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
+        let ctx = &window.context;
 
+        let summary_drawable = TextDrawable::new(
+            ctx,
+            notification.summary.clone(),
+            self.config.notification.summary.padding.clone(),
+            Point {
+                x: self.config.notification.summary.offset.x,
+                y: self.config.notification.summary.offset.y,
+            },
+        );
+
+        let mut body_drawable = TextDrawable::new(
+            ctx,
+            notification.body.clone(),
+            self.config.notification.body.padding.clone(),
+            Point {
+                x: self.config.notification.body.offset.x,
+                y: self.config.notification.body.offset.y,
+            },
+        );
+
+        body_drawable.set_anchor(
+            &summary_drawable.get_anchor(&self.config.notification.body.anchor_position)
+        );
+
+        // Ugly but working.
+        // Consider moving this calculation into a function.
+        let r1 = summary_drawable.get_rect();
+        let r2 = body_drawable.get_rect();
+        let mut rect = r1.union(r2);
+        rect.set_x(rect.x() - self.config.notification.border_width);
+        rect.set_y(rect.y() - self.config.notification.border_width);
+        rect.set_width(rect.width() + self.config.notification.border_width * 2f64);
+        rect.set_height(rect.height() + self.config.notification.border_width * 2f64);
+
+        window.set_size(rect.width(), rect.height());
+
+        window.drawables.push(summary_drawable);
+        window.drawables.push(body_drawable);
+
+        let notify_window = NotifyWindow::new(window, notification);
         self.notify_windows.push(notify_window);
         // NOTE: I think that this is expensive when there's a lot of notifications.
         self.update_positions();
+
+        //notify_window.window.draw();
+        //notify_window.window.draw_text(notify_window.notification.summary.as_str(), notify_window.notification.body.as_str());
+
     }
 }
 

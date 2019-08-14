@@ -46,10 +46,8 @@ pub struct TextArea {
     pub width: f64,
     pub max_lines: f64,
 
-    pub left_margin: f64,
-    pub right_margin: f64,
-    pub top_margin: f64,
-    pub bottom_margin: f64,
+    pub offset: Offset,
+    pub padding: Padding,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +56,20 @@ pub struct ShortcutsConfig {
     pub notification_closeall: u32,
     pub notification_pause: u32,
     pub notification_url: u32,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Padding {
+    pub left: f64,
+    pub right: f64,
+    pub top: f64,
+    pub bottom: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Offset {
+    pub x: f64,
+    pub y: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,10 +81,10 @@ pub enum Anchor {
 
 #[derive(Debug, Deserialize)]
 pub enum AnchorPosition {
-    Left,
-    Right,
-    Top,
-    Bottom,
+    TL,
+    TR,
+    BL,
+    BR,
 }
 
 #[derive(Debug, Deserialize, Clone)]
