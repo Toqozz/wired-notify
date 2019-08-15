@@ -13,6 +13,7 @@ use crate::rendering::maths::Rect;
 use cairo::Surface;
 use cairo::Context;
 
+#[derive(Debug)]
 pub struct CairoWindow<'config> {
     pub window: Window,
     pub surface: Surface,
@@ -43,13 +44,12 @@ impl<'config> CairoWindow<'config> {
             .expect("Couldn't build winit window.");
 
         window.set_outer_position(LogicalPosition { x: config.notification.x as f64, y: config.notification.y as f64 });
+        // If these fail, it probably means we aren't on linux.
+        // In that case, we should fail before now however (`.with_x11_window_type()`).
+        let xlib_display = window.xlib_display().expect("Couldn't get xlib display.");
+        let xlib_window = window.xlib_window().expect("Couldn't get xlib window.");
 
         let surface = unsafe {
-            // If these fail, it probably means we aren't on linux.
-            // In that case, we should fail before now however (`.with_x11_window_type()`).
-            let xlib_display = window.xlib_display().expect("Couldn't get xlib display.");
-            let xlib_window = window.xlib_window().expect("Couldn't get xlib window.");
-
             let visual = x11::xlib::XDefaultVisual(
                 xlib_display as _,
                 0,

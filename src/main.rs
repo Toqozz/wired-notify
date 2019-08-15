@@ -49,9 +49,12 @@ fn main() {
                 if let Ok(x) = receiver.try_recv() {
                     //spawn_window(x, &mut manager, &event_loop);
                     manager.new_notification(x, event_loop);
+                    // Initial draw, otherwise we won't redraw until the event queue clears again.
+                    // @NOTE: is this an issue for framerate draws? -- investigate winit timer.
+                    manager.draw_windows();
                 }
 
-                // Roughly 60fps.
+                // @TODO: figure out why uncommenting this causes draw_windows to not draw?
                 //std::thread::sleep(std::time::Duration::from_millis(1000 / 60));
             },
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {

@@ -10,6 +10,7 @@ use pango::FontDescription;
 use super::maths::{ Rect, Point };
 
 
+#[derive(Debug)]
 pub struct TextRenderer {
     //config: &'a Config,
     font: FontDescription,
@@ -59,6 +60,7 @@ impl TextRenderer {
     }
 }
 
+#[derive(Debug)]
 pub struct TextDrawable {
     anchor: Option<Point>,
     text: String,

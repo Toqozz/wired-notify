@@ -11,6 +11,7 @@ use crate::config::Config;
 use crate::rendering::text::TextDrawable;
 use crate::rendering::maths::Point;
 
+#[derive(Debug)]
 pub struct NotifyWindow<'config> {
     pub window: CairoWindow<'config>,
     pub notification: Notification,
@@ -36,6 +37,7 @@ impl<'config> NotifyWindow<'config> {
 }
 
 pub struct NotifyWindowManager<'config> {
+    //pub notify_windows: Vec<NotifyWindow<'config>>,
     pub notify_windows: Vec<NotifyWindow<'config>>,
 
     pub config: &'config Config,
@@ -45,6 +47,7 @@ pub struct NotifyWindowManager<'config> {
 
 impl<'config> NotifyWindowManager<'config> {
     pub fn new(config: &'config Config) -> Self {
+        //let notify_windows = Vec::new();
         let notify_windows = Vec::new();
 
         Self {
@@ -71,7 +74,17 @@ impl<'config> NotifyWindowManager<'config> {
     pub fn drop_window(&mut self, window_id: WindowId) {
         let index = self.notify_windows.iter().position(|n| n.window.window.id() == window_id);
         if let Some(idx) = index {
-            self.notify_windows.remove(idx);
+            println!("Removed window.");
+            let win = self.notify_windows.remove(idx);
+            // @IMPORTANT: Panics caused by not dropping both of these:
+            // `Failed to lookup raw keysm: XError { ... }`.
+            // `Failed to destroy input context: XError { ... }`.
+            //
+            // @TODO: figure out why this happens and maybe file a bug report?
+            // Maybe it's because they use the window handle? semi-race condition?  maybe they drop
+            // the drawable for us without winit realising?
+            drop(win.window.context);
+            drop(win.window.surface);
         }
     }
 
