@@ -5,20 +5,23 @@ use winit::{
     dpi::{ LogicalSize, LogicalPosition },
 };
 
-use crate::config::Config;
+use crate::config::{ Config, FieldType, Padding, LayoutBlock, AnchorPosition };
 use super::text::TextDrawable;
 
-use crate::rendering::maths::Rect;
+use crate::types::maths::{Rect, Point};
+use crate::bus::dbus::Notification;
 
 use cairo::Surface;
 use cairo::Context;
+use crate::rendering::text::TextRenderer;
 
 #[derive(Debug)]
-pub struct CairoWindow<'config> {
-    pub window: Window,
+pub struct NotifyWindow<'config> {
+    pub winit: Window,
+    pub notification: Notification,
+
     pub surface: Surface,
     pub context: Context,
-
     pub drawables: Vec<TextDrawable>,
 
     pub dirty: bool,
@@ -26,28 +29,26 @@ pub struct CairoWindow<'config> {
     config: &'config Config,
 }
 
-impl<'config> CairoWindow<'config> {
-    pub fn new(config: &'config Config, el: &EventLoopWindowTarget<()>) -> CairoWindow<'config> {
-        // Hack to avoid dpi scaling -- we just want pixels.
-        std::env::set_var("WINIT_HIDPI_FACTOR", "1.0");
-
+impl<'config> NotifyWindow<'config> {
+    pub fn new(config: &'config Config, el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
         let (width, height) = (config.notification.width, config.notification.height);
 
-        let window = WindowBuilder::new()
+        let winit = WindowBuilder::new()
             .with_inner_size(LogicalSize { width: width as f64, height: height as f64 })
             .with_title("wiry")
             .with_transparent(true)
             .with_always_on_top(true)
             .with_x11_window_type(XWindowType::Utility)
-            .with_x11_window_type(XWindowType::Notification) // try ORing these.
+            .with_x11_window_type(XWindowType::Notification)
             .build(el)
             .expect("Couldn't build winit window.");
 
-        window.set_outer_position(LogicalPosition { x: config.notification.x as f64, y: config.notification.y as f64 });
+        winit.set_outer_position(LogicalPosition { x: config.notification.x as f64, y: config.notification.y as f64 });
+
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
-        let xlib_display = window.xlib_display().expect("Couldn't get xlib display.");
-        let xlib_window = window.xlib_window().expect("Couldn't get xlib window.");
+        let xlib_display = winit.xlib_display().expect("Couldn't get xlib display.");
+        let xlib_window = winit.xlib_window().expect("Couldn't get xlib window.");
 
         let surface = unsafe {
             let visual = x11::xlib::XDefaultVisual(
@@ -68,9 +69,10 @@ impl<'config> CairoWindow<'config> {
 
         let context = cairo::Context::new(&surface);
 
-        // TODO: return errors sometimes.
+        // TODO: return Result? sometimes.
         Self {
-            window,
+            winit,
+            notification,
             surface,
             context,
             drawables: Vec::new(),
@@ -80,30 +82,32 @@ impl<'config> CairoWindow<'config> {
     }
 
     pub fn set_position(&self, x: f64, y: f64) {
-        self.window.set_outer_position(LogicalPosition { x, y });
+        self.winit.set_outer_position(LogicalPosition { x, y });
     }
 
     pub fn set_size(&self, width: f64, height: f64) {
-        self.window.set_inner_size(LogicalSize { width, height });
+        self.winit.set_inner_size(LogicalSize { width, height });
         unsafe {
             cairo_sys::cairo_xlib_surface_set_size(self.surface.to_raw_none(), width as i32, height as i32);
         }
     }
 
+    // Positioned rect on the desktop.
     pub fn get_rect(&self) -> Rect {
-        let size = self.window.inner_size();
-        let pos = self.window.outer_position().expect("Window no longer exists.");
+        let size = self.winit.inner_size();
+        let pos = self.winit.outer_position().expect("Window no longer exists.");
 
         Rect::new(pos.x, pos.y, size.width, size.height)
     }
 
+    // Pure rectangle, ignoring the window's position.
     pub fn get_inner_rect(&self) -> Rect {
-        let size = self.window.inner_size();
+        let size = self.winit.inner_size();
 
         Rect::new(0.0, 0.0, size.width, size.height)
     }
 
-    pub fn draw_background(&mut self) {
+    pub fn draw_background(&self) {
         let ctx = &self.context;
         let rect = self.get_inner_rect();
 
@@ -128,9 +132,97 @@ impl<'config> CairoWindow<'config> {
         ctx.fill();
     }
 
-    pub fn draw_drawables(&self) {
-        for drawable in &self.drawables {
-            drawable.paint_to_ctx(&self.context);
+    pub fn predict_size(&self) -> Rect {
+        let tr = TextRenderer::new(&self.context, &self.config.notification.font);
+
+        let layout = &self.config.notification.root;
+        let ctx = &self.context;
+
+        let size = |block: &LayoutBlock, parent: &LayoutBlock, parent_rect: Option<&Rect>| -> Rect {
+            let text = match &block.field {
+                FieldType::Summary => &self.notification.summary,
+                FieldType::Body => &self.notification.body,
+                _ => "ERROR",
+            };
+
+            let rect = self.get_inner_rect();
+            let mut pos = match (&parent.field, &block.hook) {
+                (FieldType::Root, AnchorPosition::TL) => { rect.top_left() },
+                (FieldType::Root, AnchorPosition::TR) => { rect.top_right() },
+                (FieldType::Root, AnchorPosition::BL) => { rect.bottom_left() },
+                (FieldType::Root, AnchorPosition::BR) => { rect.bottom_right() },
+
+                (_, AnchorPosition::TL) => { parent_rect.unwrap().top_left() },
+                (_, AnchorPosition::TR) => { parent_rect.unwrap().top_right() },
+                (_, AnchorPosition::BL) => { parent_rect.unwrap().bottom_left() },
+                (_, AnchorPosition::BR) => { parent_rect.unwrap().bottom_right() },
+            };
+
+            pos.x += block.offset.x;
+            pos.y += block.offset.y;
+
+            tr.get_string_rect(&pos, &block.padding, text)
+        };
+
+        fn traverse<F: Copy>(block: &LayoutBlock, draw_func: F, parent_rect: Option<&Rect>) -> Rect
+            where F: Fn(&LayoutBlock, &LayoutBlock, Option<&Rect>) -> Rect {
+            let mut rect = Rect::new(0.0, 0.0, 0.0, 0.0);
+            for elem in &block.children {
+                let string_rect = draw_func(elem, block, parent_rect);
+                rect = rect.union(string_rect.clone());
+                rect = rect.union(traverse(elem, draw_func, Some(&string_rect)));
+            }
+
+            rect
         }
+
+        traverse(layout, size, None)
+    }
+
+    pub fn draw(&self) {
+        self.draw_background();
+
+        let tr = TextRenderer::new(&self.context, &self.config.notification.font);
+
+        let layout = &self.config.notification.root;
+        let ctx = &self.context;
+
+        let draw = |block: &LayoutBlock, parent: &LayoutBlock, parent_rect: Option<&Rect>| -> Rect {
+            let text = match &block.field {
+                FieldType::Summary => &self.notification.summary,
+                FieldType::Body => &self.notification.body,
+                _ => "ERROR",
+            };
+
+            let rect = self.get_inner_rect();
+            let mut pos = match (&parent.field, &block.hook) {
+                (FieldType::Root, AnchorPosition::TL) => { rect.top_left() },
+                (FieldType::Root, AnchorPosition::TR) => { rect.top_right() },
+                (FieldType::Root, AnchorPosition::BL) => { rect.bottom_left() },
+                (FieldType::Root, AnchorPosition::BR) => { rect.bottom_right() },
+
+                (_, AnchorPosition::TL) => { parent_rect.unwrap().top_left() },
+                (_, AnchorPosition::TR) => { parent_rect.unwrap().top_right() },
+                (_, AnchorPosition::BL) => { parent_rect.unwrap().bottom_left() },
+                (_, AnchorPosition::BR) => { parent_rect.unwrap().bottom_right() },
+            };
+
+            pos.x += block.offset.x;
+            pos.y += block.offset.y;
+
+            let text_color = &self.config.notification.text_color;
+            ctx.set_source_rgba(text_color.r, text_color.g, text_color.b, text_color.a);
+            tr.paint_string(ctx, &pos, &block.padding, text)
+        };
+
+        fn traverse<F: Copy>(block: &LayoutBlock, draw_func: F, parent_rect: Option<&Rect>)
+            where F: Fn(&LayoutBlock, &LayoutBlock, Option<&Rect>) -> Rect {
+            for elem in &block.children {
+                let rect = draw_func(elem, block, parent_rect);
+                traverse(elem, draw_func, Some(&rect));
+            }
+        }
+
+        traverse(layout, draw, None);
     }
 }

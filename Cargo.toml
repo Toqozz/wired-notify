@@ -5,10 +5,12 @@ authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
-winit = "0.20.0-alpha2"
+winit = "0.20.0-alpha3"
+#winit = { path = "../winit" }
 x11 = { version = "2.18.1", features = ["xlib"] }
 dbus = "0.6.4"
-toml = "0.5.0"
+#toml = "0.5.0"
+ron = "0.5.1"
 serde = { version = "1.0", features = ["derive"] }
 pango = "0.6.0"
 pangocairo = "0.7.0"

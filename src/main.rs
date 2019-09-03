@@ -5,6 +5,7 @@ mod rendering;
 mod notification;
 mod bus;
 mod config;
+mod types;
 
 use std::sync::mpsc;
 
@@ -23,10 +24,14 @@ use notification::management::NotifyWindowManager;
 //}
 
 fn main() {
+    // Hack to avoid winit dpi scaling -- we just want pixels.
+    std::env::set_var("WINIT_HIDPI_FACTOR", "1.0");
+
     let mut event_loop = EventLoop::new();    // TODO: maybe use `EventsLoop::new_x11()` ?
 
-    let config: config::Config = toml::from_str(include_str!("config.toml"))
+    let mut config: config::Config = ron::de::from_str(include_str!("config.ron"))
         .expect("Failed to load config.\n");
+    //config.notification.layout = config::construct_layouts(&config.notification.root);
 
     let mut manager = NotifyWindowManager::new(&config);
 

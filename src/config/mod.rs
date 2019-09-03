@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use crate::types::tree::{ Node, Tree };
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -10,8 +11,14 @@ pub struct Config {
 
 #[derive(Debug, Deserialize)]
 pub struct NotificationConfig {
-    pub summary: TextArea,
-    pub body: TextArea,
+    pub root: LayoutBlock,
+
+    pub font: String,
+
+    //pub layout: Tree<LayoutElement>,
+
+    //pub summary: TextArea,
+    //pub body: TextArea,
 
     // Geometry.
     pub width: u32,
@@ -23,6 +30,7 @@ pub struct NotificationConfig {
 
     pub background_color: Color,
     pub border_color: Color,
+    pub text_color: Color,
 
     pub timeout: f32,           // Default timeout.
 
@@ -34,9 +42,10 @@ pub struct NotificationConfig {
     //rounding: u32,
 }
 
+/*
 #[derive(Debug, Deserialize)]
 pub struct TextArea {
-    pub anchor: Anchor,
+    pub anchor: FieldType,
     pub anchor_position: AnchorPosition,
 
     pub font: String,
@@ -49,6 +58,7 @@ pub struct TextArea {
     pub offset: Offset,
     pub padding: Padding,
 }
+*/
 
 #[derive(Debug, Deserialize)]
 pub struct ShortcutsConfig {
@@ -73,13 +83,14 @@ pub struct Offset {
 }
 
 #[derive(Debug, Deserialize)]
-pub enum Anchor {
+pub enum FieldType {
     Root,
+    Icon,
     Summary,
     Body,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum AnchorPosition {
     TL,
     TR,
@@ -94,3 +105,42 @@ pub struct Color {
     pub b: f64,
     pub a: f64,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct LayoutBlock {
+    pub field: FieldType,
+    pub hook: AnchorPosition,
+    pub offset: Offset,
+    pub padding: Padding,
+    pub children: Vec<LayoutBlock>,
+}
+
+/*
+// Tree structure.
+pub struct LayoutElement {
+    pub hook: AnchorPosition,
+}
+
+
+pub fn construct_layouts(root_block: &LayoutBlock) -> Tree<LayoutElement> {
+    let root_data = LayoutElement {
+        hook: AnchorPosition::TL,
+    };
+
+    //let mut root = Node::new(root_data);
+    let mut tree = Tree::new();
+    let root = tree.insert_root(root_data);
+
+    fn descend(tree: &mut Tree<LayoutElement>, block: &LayoutBlock, parent: usize) {
+        for child in &block.children {
+            let data = LayoutElement { hook: child.hook.clone() };
+            let node = tree.insert(data, parent);
+            descend(tree, child, node);
+        }
+    }
+
+    descend(&mut tree, root_block, root);
+
+    tree
+}
+*/

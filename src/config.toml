@@ -5,7 +5,7 @@ gap = 8
 width = 1
 height = 1
 x = 10
-y = 874
+y = 837
 
 border_width = 3
 
@@ -16,6 +16,15 @@ timeout = 10.0
 
 scroll_speed = 1.0
 bounce = false
+
+[notification.root]
+field = "Root"
+    [[children]]
+    field = "Summary"
+        [[children]]
+        field = "Body"
+
+
 
 [notification.summary]
 anchor = "Root"

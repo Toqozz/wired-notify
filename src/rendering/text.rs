@@ -7,7 +7,7 @@ use pango::prelude::*;
 use pango::Layout;
 use pango::FontDescription;
 
-use super::maths::{ Rect, Point };
+use crate::types::maths::{ Rect, Point };
 
 
 #[derive(Debug)]
@@ -51,12 +51,19 @@ impl TextRenderer {
         )
     }
 
-    pub fn paint_string(&self, ctx: &cairo::Context, pos: &Point, padding: &Padding, text: &str) {
+    pub fn paint_string(&self, ctx: &cairo::Context, pos: &Point, padding: &Padding, text: &str) -> Rect {
         self.layout.set_text(text);
 
         // Move cursor to draw position and draw text.
         ctx.move_to(pos.x + padding.left, pos.y + padding.top);
         pangocairo::functions::show_layout(ctx, &self.layout);
+
+        let (width, height) = self.layout.get_pixel_size();
+        Rect::new(
+            pos.x, pos.y,
+            width as f64 + (padding.left + padding.right),
+            height as f64 + (padding.top + padding.bottom)
+        )
     }
 }
 
@@ -75,6 +82,7 @@ pub struct TextDrawable {
     //   the notification's entire runtime, but we should support changing it nonetheless.
 }
 
+/*
 impl TextDrawable {
     pub fn new(ctx: &cairo::Context, text: String, padding: Padding, offset: Point) -> Self {
         let renderer = TextRenderer::new(ctx, "Arial 10");
@@ -131,3 +139,4 @@ impl TextDrawable {
         self.renderer.paint_string(ctx, &origin, &self.padding, &self.text);
     }
 }
+*/

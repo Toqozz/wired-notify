@@ -1,0 +1,53 @@
+(
+    max_notifications: 4,
+    gap: 8,
+    notification: NotificationConfig (
+        width: 1,
+        height: 1,
+        x: 10,
+        y: 837,
+
+        border_width: 3,
+        background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
+        border_color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+        text_color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+
+        timeout: 10.0,
+
+        scroll_speed: 1.0,
+        bounce: false,
+
+        font: "Operator Mono 10",
+
+        root: LayoutBlock (
+            field: Root,
+            hook: TL,
+            offset: Offset(x: 10, y: 837),
+            padding: Padding(left: 3.0, right: 3.0, top: 3.0, bottom: 3.0),
+            children: [
+                (
+                    field: Summary,
+                    hook: TL,
+                    offset: Offset(x: 0.0, y: 0.0),
+                    padding: Padding(left: 7.0, right: 0.0, top: 5.0, bottom: 5.0),
+                    children: [
+                        (
+                            field: Body,
+                            hook: TR,
+                            offset: Offset(x: 3.0, y: 0.0),
+                            padding: Padding(left: 0.0, right: 7.0, top: 5.0, bottom: 5.0),
+                            children: [],
+                        )
+                    ]
+                ),
+            ]
+        ),
+    ),
+
+    shortcuts: ShortcutsConfig (
+        notification_close: 1,
+        notification_closeall: 2,
+        notification_pause: 3,
+        notification_url: 4,
+    ),
+)
