@@ -1,5 +1,6 @@
 use serde::Deserialize;
-use crate::types::tree::{ Node, Tree };
+
+use crate::types::maths::{Vec2, Rect};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -30,7 +31,6 @@ pub struct NotificationConfig {
 
     pub background_color: Color,
     pub border_color: Color,
-    pub text_color: Color,
 
     pub timeout: f32,           // Default timeout.
 
@@ -41,24 +41,6 @@ pub struct NotificationConfig {
     //bounce_margin: u32,
     //rounding: u32,
 }
-
-/*
-#[derive(Debug, Deserialize)]
-pub struct TextArea {
-    pub anchor: FieldType,
-    pub anchor_position: AnchorPosition,
-
-    pub font: String,
-
-    pub color: Color,
-
-    pub width: f64,
-    pub max_lines: f64,
-
-    pub offset: Offset,
-    pub padding: Padding,
-}
-*/
 
 #[derive(Debug, Deserialize)]
 pub struct ShortcutsConfig {
@@ -107,40 +89,72 @@ pub struct Color {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct TextParameters {
+    pub offset: Vec2,
+    pub padding: Padding,
+    pub color: Color,
+    pub max_width: i32,
+    pub max_height: i32,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct LayoutBlock {
     pub field: FieldType,
     pub hook: AnchorPosition,
-    pub offset: Offset,
-    pub padding: Padding,
+    pub parameters: TextParameters,
     pub children: Vec<LayoutBlock>,
 }
 
-/*
-// Tree structure.
-pub struct LayoutElement {
-    pub hook: AnchorPosition,
-}
+impl LayoutBlock {
+    pub fn find_anchor_pos(&self, parent_rect: &Rect) -> Vec2 {
+        let mut pos = match self.hook {
+            AnchorPosition::TL => { parent_rect.top_left() },
+            AnchorPosition::TR => { parent_rect.top_right() },
+            AnchorPosition::BL => { parent_rect.bottom_left() },
+            AnchorPosition::BR => { parent_rect.bottom_right() },
+        };
 
+        pos.x += self.parameters.offset.x;
+        pos.y += self.parameters.offset.y;
 
-pub fn construct_layouts(root_block: &LayoutBlock) -> Tree<LayoutElement> {
-    let root_data = LayoutElement {
-        hook: AnchorPosition::TL,
-    };
+        pos
+    }
 
-    //let mut root = Node::new(root_data);
-    let mut tree = Tree::new();
-    let root = tree.insert_root(root_data);
+    pub fn flatten(&self) -> Vec<&LayoutBlock> {
+        fn traverse(block: &LayoutBlock) -> Vec<&LayoutBlock> {
+            let mut flat_blocks = vec![];
+            flat_blocks.push(block);
+            for elem in &block.children {
+                flat_blocks.extend(traverse(elem));
+            }
 
-    fn descend(tree: &mut Tree<LayoutElement>, block: &LayoutBlock, parent: usize) {
-        for child in &block.children {
-            let data = LayoutElement { hook: child.hook.clone() };
-            let node = tree.insert(data, parent);
-            descend(tree, child, node);
+            flat_blocks
+        }
+
+        let thing = traverse(self);
+        thing
+    }
+
+    // Run a function on each element in the layout, optionally passing in the function's return value.
+    pub fn traverse<T, F: Copy>(&self, func: F, pass: Option<&T>)
+        where F: Fn(&Self, Option<&T>) -> T {
+        for elem in &self.children {
+            let result = func(elem, pass);
+            elem.traverse(func, Some(&result));
         }
     }
 
-    descend(&mut tree, root_block, root);
+    // Run a function on each child in layout (recursively), accumulating the return value of the function using an accumulator.
+    pub fn traverse_accum<T: Clone, F: Copy, N: Copy>(&self, func: F, accumulator: N, initial: &T, pass: &T) -> T
+        where F: Fn(&LayoutBlock, &T) -> T,
+              N: Fn(&T, &T) -> T {
+        let mut accum: T = initial.clone();
+        for elem in &self.children {
+            let result = func(elem, pass);
+            accum = accumulator(&result, &accum);
+            accum = accumulator(&elem.traverse_accum(func, accumulator, initial, &result), &accum);
+        }
 
-    tree
+        accum
+    }
 }
-*/

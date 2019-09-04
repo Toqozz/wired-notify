@@ -1,14 +1,12 @@
 //use crate::config::Config;
-use crate::config::Padding;
-use crate::config::AnchorPosition;
+use crate::config::{Padding, TextParameters};
 
 use pango;
 use pango::prelude::*;
 use pango::Layout;
 use pango::FontDescription;
 
-use crate::types::maths::{ Rect, Point };
-
+use crate::types::maths::{ Rect, Vec2 };
 
 #[derive(Debug)]
 pub struct TextRenderer {
@@ -19,12 +17,10 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer {
-    //pub fn new(config: &'a Config, font_name: &str, cairo_context: &'a cairo::Context) -> Self {
     pub fn new(ctx: &cairo::Context, font_name: &str) -> Self {
         let pctx = pangocairo::functions::create_context(ctx)
             .expect("Failed to create pango context.");
-        // @IMPORTANT: FontDescription must be freed at some point??????
-        // @IMPORTANT: FontDescription must be freed at some point????
+
         // @IMPORTANT: FontDescription must be freed at some point????
         let font = FontDescription::from_string(font_name);
 
@@ -32,6 +28,7 @@ impl TextRenderer {
         pctx.set_font_description(&font);
 
         let layout = Layout::new(&pctx);
+        layout.set_ellipsize(pango::EllipsizeMode::Middle);
 
         Self {
             font,
@@ -40,103 +37,32 @@ impl TextRenderer {
         }
     }
 
-    pub fn get_string_rect(&self, pos: &Point, padding: &Padding, text: &str) -> Rect {
-        self.layout.set_text(text);
-
+    fn current_rect(&self, cursor_pos: &Vec2, padding: &Padding) -> Rect {
         let (width, height) = self.layout.get_pixel_size();
         Rect::new(
-            pos.x, pos.y,
+            cursor_pos.x, cursor_pos.y,
             width as f64 + (padding.left + padding.right),
             height as f64 + (padding.top + padding.bottom)
         )
     }
 
-    pub fn paint_string(&self, ctx: &cairo::Context, pos: &Point, padding: &Padding, text: &str) -> Rect {
+    pub fn get_string_rect(&self, parameters: &TextParameters, pos: &Vec2, text: &str) -> Rect {
         self.layout.set_text(text);
+        self.layout.set_height(pango::SCALE * parameters.max_height);
+        self.layout.set_width(pango::SCALE * parameters.max_width);
+
+        self.current_rect(pos, &parameters.padding)
+    }
+
+    pub fn paint_string(&self, ctx: &cairo::Context, parameters: &TextParameters, pos: &Vec2, text: &str) -> Rect {
+        self.layout.set_text(text);
+        self.layout.set_height(pango::SCALE * parameters.max_height);
+        self.layout.set_width(pango::SCALE * parameters.max_width);
 
         // Move cursor to draw position and draw text.
-        ctx.move_to(pos.x + padding.left, pos.y + padding.top);
+        ctx.move_to(pos.x + parameters.padding.left, pos.y + parameters.padding.top);
         pangocairo::functions::show_layout(ctx, &self.layout);
 
-        let (width, height) = self.layout.get_pixel_size();
-        Rect::new(
-            pos.x, pos.y,
-            width as f64 + (padding.left + padding.right),
-            height as f64 + (padding.top + padding.bottom)
-        )
+        self.current_rect(pos, &parameters.padding)
     }
 }
-
-#[derive(Debug)]
-pub struct TextDrawable {
-    anchor: Option<Point>,
-    text: String,
-    padding: Padding,
-    offset: Point,
-    renderer: TextRenderer,
-
-    // @NOTE: consider keeping:
-    //rect: Rect,
-    //dirty: bool,
-    //   here to making lookup up the rect more efficient -- it probably shouldn't even change over
-    //   the notification's entire runtime, but we should support changing it nonetheless.
-}
-
-/*
-impl TextDrawable {
-    pub fn new(ctx: &cairo::Context, text: String, padding: Padding, offset: Point) -> Self {
-        let renderer = TextRenderer::new(ctx, "Arial 10");
-
-        Self {
-            anchor: None,
-            text,
-            padding,
-            offset,
-            renderer,
-        }
-    }
-
-    pub fn get_anchor(&self, anchor_pos: &AnchorPosition) -> Point {
-        let string_rect = self.get_rect();
-        match anchor_pos {
-            AnchorPosition::TL => string_rect.top_left(),
-            AnchorPosition::TR => string_rect.top_right(),
-            AnchorPosition::BL => string_rect.bottom_left(),
-            AnchorPosition::BR => string_rect.bottom_right(),
-        }
-    }
-
-    pub fn set_anchor(&mut self, anchor: &Point) {
-        self.anchor = Some(anchor.clone());
-    }
-
-    pub fn get_rect(&self) -> Rect {
-        let mut origin = Point { x: 0.0, y: 0.0 };
-        if let Some(anchor) = &self.anchor {
-            origin.x = anchor.x;
-            origin.y = anchor.y;
-        }
-
-        origin.x += self.offset.x;
-        origin.y += self.offset.y;
-
-        self.renderer.get_string_rect(&origin, &self.padding, &self.text)
-    }
-
-    pub fn paint_to_ctx(&self, ctx: &cairo::Context) {
-        let mut origin = Point { x: 0.0, y: 0.0 };
-        if let Some(anchor) = &self.anchor {
-            origin.x = anchor.x;
-            origin.y = anchor.y;
-        }
-
-        origin.x += self.offset.x;
-        origin.y += self.offset.y;
-
-        //ctx.set_operator(cairo::Operator::Source);
-        ctx.set_source_rgba(1.0, 1.0, 1.0, 1.0);
-
-        self.renderer.paint_string(ctx, &origin, &self.padding, &self.text);
-    }
-}
-*/

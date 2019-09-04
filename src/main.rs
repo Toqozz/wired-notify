@@ -12,7 +12,7 @@ use std::sync::mpsc;
 //use winit::EventsLoop;
 use winit::{
     event::{ Event, WindowEvent },
-    event_loop::{ ControlFlow, EventLoop, EventLoopWindowTarget },
+    event_loop::{ ControlFlow, EventLoop },
     platform::desktop::EventLoopExtDesktop,
 };
 
@@ -29,7 +29,7 @@ fn main() {
 
     let mut event_loop = EventLoop::new();    // TODO: maybe use `EventsLoop::new_x11()` ?
 
-    let mut config: config::Config = ron::de::from_str(include_str!("config.ron"))
+    let config: config::Config = ron::de::from_str(include_str!("config.ron"))
         .expect("Failed to load config.\n");
     //config.notification.layout = config::construct_layouts(&config.notification.root);
 

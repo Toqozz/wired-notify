@@ -1,19 +1,17 @@
 use winit::{
     window::{ WindowBuilder, Window },
-    event_loop::{ EventLoop, EventLoopWindowTarget },
+    event_loop::EventLoopWindowTarget,
     platform::unix::{ WindowBuilderExtUnix, XWindowType, WindowExtUnix },
     dpi::{ LogicalSize, LogicalPosition },
 };
 
-use crate::config::{ Config, FieldType, Padding, LayoutBlock, AnchorPosition };
-use super::text::TextDrawable;
+use cairo::{ Surface, Context };
 
-use crate::types::maths::{Rect, Point};
 use crate::bus::dbus::Notification;
-
-use cairo::Surface;
-use cairo::Context;
+use crate::config::{ Config, FieldType, LayoutBlock, AnchorPosition };
+use crate::types::maths::{Rect, Vec2};
 use crate::rendering::text::TextRenderer;
+use std::alloc::Layout;
 
 #[derive(Debug)]
 pub struct NotifyWindow<'config> {
@@ -22,7 +20,6 @@ pub struct NotifyWindow<'config> {
 
     pub surface: Surface,
     pub context: Context,
-    pub drawables: Vec<TextDrawable>,
 
     pub dirty: bool,
 
@@ -75,7 +72,6 @@ impl<'config> NotifyWindow<'config> {
             notification,
             surface,
             context,
-            drawables: Vec::new(),
             dirty: true,
             config,
         }
@@ -134,95 +130,45 @@ impl<'config> NotifyWindow<'config> {
 
     pub fn predict_size(&self) -> Rect {
         let tr = TextRenderer::new(&self.context, &self.config.notification.font);
-
-        let layout = &self.config.notification.root;
-        let ctx = &self.context;
-
-        let size = |block: &LayoutBlock, parent: &LayoutBlock, parent_rect: Option<&Rect>| -> Rect {
+        let get_size = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
             let text = match &block.field {
                 FieldType::Summary => &self.notification.summary,
                 FieldType::Body => &self.notification.body,
                 _ => "ERROR",
             };
 
-            let rect = self.get_inner_rect();
-            let mut pos = match (&parent.field, &block.hook) {
-                (FieldType::Root, AnchorPosition::TL) => { rect.top_left() },
-                (FieldType::Root, AnchorPosition::TR) => { rect.top_right() },
-                (FieldType::Root, AnchorPosition::BL) => { rect.bottom_left() },
-                (FieldType::Root, AnchorPosition::BR) => { rect.bottom_right() },
-
-                (_, AnchorPosition::TL) => { parent_rect.unwrap().top_left() },
-                (_, AnchorPosition::TR) => { parent_rect.unwrap().top_right() },
-                (_, AnchorPosition::BL) => { parent_rect.unwrap().bottom_left() },
-                (_, AnchorPosition::BR) => { parent_rect.unwrap().bottom_right() },
-            };
-
-            pos.x += block.offset.x;
-            pos.y += block.offset.y;
-
-            tr.get_string_rect(&pos, &block.padding, text)
+            let pos = block.find_anchor_pos(parent_rect);
+            tr.get_string_rect(&block.parameters, &pos, text)
         };
 
-        fn traverse<F: Copy>(block: &LayoutBlock, draw_func: F, parent_rect: Option<&Rect>) -> Rect
-            where F: Fn(&LayoutBlock, &LayoutBlock, Option<&Rect>) -> Rect {
-            let mut rect = Rect::new(0.0, 0.0, 0.0, 0.0);
-            for elem in &block.children {
-                let string_rect = draw_func(elem, block, parent_rect);
-                rect = rect.union(string_rect.clone());
-                rect = rect.union(traverse(elem, draw_func, Some(&string_rect)));
-            }
+        let accumulator = |r1: &Rect, r2: &Rect| -> Rect {
+            r1.union(r2)
+        };
 
-            rect
-        }
-
-        traverse(layout, size, None)
+        let layout = &self.config.notification.root;
+        layout.traverse_accum(get_size, accumulator, &Rect::default(), &self.get_inner_rect()).clone()
     }
 
     pub fn draw(&self) {
         self.draw_background();
 
         let tr = TextRenderer::new(&self.context, &self.config.notification.font);
-
-        let layout = &self.config.notification.root;
         let ctx = &self.context;
 
-        let draw = |block: &LayoutBlock, parent: &LayoutBlock, parent_rect: Option<&Rect>| -> Rect {
+        let draw = |block: &LayoutBlock, parent_rect: Option<&Rect>| -> Rect {
             let text = match &block.field {
                 FieldType::Summary => &self.notification.summary,
                 FieldType::Body => &self.notification.body,
                 _ => "ERROR",
             };
 
-            let rect = self.get_inner_rect();
-            let mut pos = match (&parent.field, &block.hook) {
-                (FieldType::Root, AnchorPosition::TL) => { rect.top_left() },
-                (FieldType::Root, AnchorPosition::TR) => { rect.top_right() },
-                (FieldType::Root, AnchorPosition::BL) => { rect.bottom_left() },
-                (FieldType::Root, AnchorPosition::BR) => { rect.bottom_right() },
-
-                (_, AnchorPosition::TL) => { parent_rect.unwrap().top_left() },
-                (_, AnchorPosition::TR) => { parent_rect.unwrap().top_right() },
-                (_, AnchorPosition::BL) => { parent_rect.unwrap().bottom_left() },
-                (_, AnchorPosition::BR) => { parent_rect.unwrap().bottom_right() },
-            };
-
-            pos.x += block.offset.x;
-            pos.y += block.offset.y;
-
-            let text_color = &self.config.notification.text_color;
+            let pos = block.find_anchor_pos(parent_rect.unwrap());
+            let text_color = &block.parameters.color;
             ctx.set_source_rgba(text_color.r, text_color.g, text_color.b, text_color.a);
-            tr.paint_string(ctx, &pos, &block.padding, text)
+            tr.paint_string(ctx, &block.parameters, &pos, text)
         };
 
-        fn traverse<F: Copy>(block: &LayoutBlock, draw_func: F, parent_rect: Option<&Rect>)
-            where F: Fn(&LayoutBlock, &LayoutBlock, Option<&Rect>) -> Rect {
-            for elem in &block.children {
-                let rect = draw_func(elem, block, parent_rect);
-                traverse(elem, draw_func, Some(&rect));
-            }
-        }
-
-        traverse(layout, draw, None);
+        let layout = &self.config.notification.root;
+        layout.traverse(draw, Some(&self.get_inner_rect()));
     }
 }

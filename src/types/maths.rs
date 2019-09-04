@@ -1,5 +1,7 @@
-#[derive(Debug, Clone)]
-pub struct Point {
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Vec2 {
     pub x: f64,
     pub y: f64,
 }
@@ -72,20 +74,20 @@ impl Rect {
         self.y + self.height
     }
 
-    pub fn top_left(&self) -> Point {
-        Point { x: self.left(), y: self.top() }
+    pub fn top_left(&self) -> Vec2 {
+        Vec2 { x: self.left(), y: self.top() }
     }
 
-    pub fn top_right(&self) -> Point {
-        Point { x: self.right(), y: self.top() }
+    pub fn top_right(&self) -> Vec2 {
+        Vec2 { x: self.right(), y: self.top() }
     }
 
-    pub fn bottom_left(&self) -> Point {
-        Point { x: self.left(), y: self.bottom() }
+    pub fn bottom_left(&self) -> Vec2 {
+        Vec2 { x: self.left(), y: self.bottom() }
     }
 
-    pub fn bottom_right(&self) -> Point {
-        Point { x: self.right(), y: self.bottom() }
+    pub fn bottom_right(&self) -> Vec2 {
+        Vec2 { x: self.right(), y: self.bottom() }
     }
 
     pub fn set_right(&mut self, right: f64) {
@@ -96,13 +98,24 @@ impl Rect {
         self.y = bottom - self.height
     }
 
-    pub fn union(&self, other: Rect) -> Rect {
+    pub fn union(&self, other: &Rect) -> Rect {
         let x = f64::min(self.x(), other.x());
         let y = f64::min(self.y(), other.y());
         let r = f64::max(self.right(), other.right());
         let b = f64::max(self.bottom(), other.bottom());
 
         Rect::new(x, y, r - x, b - y)
+    }
+}
+
+impl Default for Rect {
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+        }
     }
 }
 
