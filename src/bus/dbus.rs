@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::mpsc;
+use std::sync::mpsc::{self, Receiver};
 
 use dbus;
 use dbus::tree::{ self, DataType, Interface, Factory, Tree };
@@ -40,7 +40,6 @@ fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TD
 }
 
 pub fn init_bus(sender: mpsc::Sender<Notification>) -> dbus::Connection {
-    //let f = Factory::new_fn::<()>();
     let iface = create_iface(sender);
     let tree = create_tree(iface);
 
@@ -52,9 +51,10 @@ pub fn init_bus(sender: mpsc::Sender<Notification>) -> dbus::Connection {
     c
 }
 
-pub fn dbus_loop(sender: mpsc::Sender<Notification>) -> dbus::Connection {
+pub fn get_connection() -> (dbus::Connection, Receiver<Notification>) {
+    let (sender, receiver) = mpsc::channel();
     let c = init_bus(sender);
-    c
+    (c, receiver)
 
     /*
     loop {

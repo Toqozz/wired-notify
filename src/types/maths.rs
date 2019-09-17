@@ -1,9 +1,16 @@
 use serde::Deserialize;
+use std::ops;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Vec2 {
     pub x: f64,
     pub y: f64,
+}
+
+impl Vec2 {
+    pub fn new(x: f64, y: f64) -> Self {
+        Vec2 { x, y }
+    }
 }
 
 #[derive(Debug, Clone)]

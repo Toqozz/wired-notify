@@ -5,41 +5,28 @@ use crate::types::maths::{Vec2, Rect};
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub max_notifications: u32,
-    pub gap: i32,
-    pub notification: NotificationConfig,
-    pub shortcuts: ShortcutsConfig,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct NotificationConfig {
-    pub root: LayoutBlock,
-
-    pub font: String,
-
-    //pub layout: Tree<LayoutElement>,
-
-    //pub summary: TextArea,
-    //pub body: TextArea,
-
-    // Geometry.
     pub width: u32,
     pub height: u32,            // Base height.  NOTE: notification windows will generally be resized, ignoring this value.
-    pub x: i32,
-    pub y: i32,
 
     pub border_width: f64,
-
     pub background_color: Color,
     pub border_color: Color,
 
     pub timeout: f32,           // Default timeout.
 
+    pub font: String,
+
     pub scroll_speed: f32,
     pub bounce: bool,
 
-    // Undecided...
-    //bounce_margin: u32,
-    //rounding: u32,
+    pub layout: LayoutBlock,
+
+    //pub notification: NotificationConfig,
+    pub shortcuts: ShortcutsConfig,
+
+    // Runtime useful things related to configuration.
+    #[serde(skip)]
+    pub monitor: Option<winit::monitor::MonitorHandle>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -90,6 +77,7 @@ pub struct Color {
 
 #[derive(Debug, Deserialize)]
 pub struct TextParameters {
+    pub font: String,
     pub offset: Vec2,
     pub padding: Padding,
     pub color: Color,
@@ -98,58 +86,91 @@ pub struct TextParameters {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct LayoutBlock {
-    pub field: FieldType,
-    pub hook: AnchorPosition,
-    pub parameters: TextParameters,
+pub struct NotificationBlockParameters {
+    pub monitor: i32,
+    pub monitor_hook: AnchorPosition,
+    pub monitor_offset: Vec2,
+    pub gap: Vec2,
+    pub notification_hook: AnchorPosition,
     pub children: Vec<LayoutBlock>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TextBlockParameters {
+    pub text: String,
+    pub parameters: TextParameters,
+    pub hook: AnchorPosition,
+    pub children: Vec<LayoutBlock>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImageBlockParameters {
+    pub hook: AnchorPosition,
+    pub children: Vec<LayoutBlock>,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum LayoutBlock {
+    NotificationBlock(NotificationBlockParameters),
+    TextBlock(TextBlockParameters),
+    ImageBlock(ImageBlockParameters),
+}
+
 impl LayoutBlock {
+    // TODO: cleanup.
     pub fn find_anchor_pos(&self, parent_rect: &Rect) -> Vec2 {
-        let mut pos = match self.hook {
-            AnchorPosition::TL => { parent_rect.top_left() },
-            AnchorPosition::TR => { parent_rect.top_right() },
-            AnchorPosition::BL => { parent_rect.bottom_left() },
-            AnchorPosition::BR => { parent_rect.bottom_right() },
+        let get_pos = |hook: &AnchorPosition, parent_rect: &Rect| -> Vec2 {
+            match hook {
+                AnchorPosition::TL => { parent_rect.top_left() },
+                AnchorPosition::TR => { parent_rect.top_right() },
+                AnchorPosition::BL => { parent_rect.bottom_left() },
+                AnchorPosition::BR => { parent_rect.bottom_right() },
+            }
         };
 
-        pos.x += self.parameters.offset.x;
-        pos.y += self.parameters.offset.y;
+        let pos = match self {
+            LayoutBlock::NotificationBlock(p) => get_pos(&p.monitor_hook, parent_rect),
+            LayoutBlock::TextBlock(p) => {
+                let mut pos = get_pos(&p.hook, parent_rect);
+                pos.x += p.parameters.offset.x;
+                pos.y += p.parameters.offset.x;
+                pos
+            },
+            LayoutBlock::ImageBlock(p) => get_pos(&p.hook, parent_rect),
+        };
 
         pos
     }
 
-    pub fn flatten(&self) -> Vec<&LayoutBlock> {
-        fn traverse(block: &LayoutBlock) -> Vec<&LayoutBlock> {
-            let mut flat_blocks = vec![];
-            flat_blocks.push(block);
-            for elem in &block.children {
-                flat_blocks.extend(traverse(elem));
-            }
-
-            flat_blocks
-        }
-
-        let thing = traverse(self);
-        thing
-    }
-
     // Run a function on each element in the layout, optionally passing in the function's return value.
-    pub fn traverse<T, F: Copy>(&self, func: F, pass: Option<&T>)
-        where F: Fn(&Self, Option<&T>) -> T {
-        for elem in &self.children {
+    pub fn traverse<T, F: Copy>(&self, func: F, pass: &T)
+        where F: Fn(&Self, &T) -> T {
+
+        let children = match self {
+            LayoutBlock::NotificationBlock(p) => &p.children,
+            LayoutBlock::TextBlock(p) => &p.children,
+            LayoutBlock::ImageBlock(p) => &p.children,
+        };
+
+        for elem in children {
             let result = func(elem, pass);
-            elem.traverse(func, Some(&result));
+            elem.traverse(func, &result);
         }
     }
 
     // Run a function on each child in layout (recursively), accumulating the return value of the function using an accumulator.
     pub fn traverse_accum<T: Clone, F: Copy, N: Copy>(&self, func: F, accumulator: N, initial: &T, pass: &T) -> T
-        where F: Fn(&LayoutBlock, &T) -> T,
+        where F: Fn(&Self, &T) -> T,
               N: Fn(&T, &T) -> T {
+
+        let children = match self {
+            LayoutBlock::NotificationBlock(p) => &p.children,
+            LayoutBlock::TextBlock(p) => &p.children,
+            LayoutBlock::ImageBlock(p) => &p.children,
+        };
+
         let mut accum: T = initial.clone();
-        for elem in &self.children {
+        for elem in children {
             let result = func(elem, pass);
             accum = accumulator(&result, &accum);
             accum = accumulator(&elem.traverse_accum(func, accumulator, initial, &result), &accum);

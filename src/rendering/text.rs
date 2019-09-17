@@ -11,27 +11,20 @@ use crate::types::maths::{ Rect, Vec2 };
 #[derive(Debug)]
 pub struct TextRenderer {
     //config: &'a Config,
-    font: FontDescription,
     pctx: pango::Context,
     layout: pango::Layout,
 }
 
 impl TextRenderer {
-    pub fn new(ctx: &cairo::Context, font_name: &str) -> Self {
+    pub fn new(ctx: &cairo::Context) -> Self {
         let pctx = pangocairo::functions::create_context(ctx)
             .expect("Failed to create pango context.");
 
-        // @IMPORTANT: FontDescription must be freed at some point????
-        let font = FontDescription::from_string(font_name);
-
-        // Find font from description -- Arial 10 Bold
-        pctx.set_font_description(&font);
-
         let layout = Layout::new(&pctx);
+        // TODO: this should be a config option.
         layout.set_ellipsize(pango::EllipsizeMode::Middle);
 
         Self {
-            font,
             pctx,
             layout,
         }
@@ -47,6 +40,10 @@ impl TextRenderer {
     }
 
     pub fn get_string_rect(&self, parameters: &TextParameters, pos: &Vec2, text: &str) -> Rect {
+        // @IMPORTANT: FontDescription must be freed at some point????
+        let font = FontDescription::from_string(&parameters.font);
+        self.pctx.set_font_description(&font);
+
         self.layout.set_text(text);
         self.layout.set_height(pango::SCALE * parameters.max_height);
         self.layout.set_width(pango::SCALE * parameters.max_width);
@@ -55,6 +52,9 @@ impl TextRenderer {
     }
 
     pub fn paint_string(&self, ctx: &cairo::Context, parameters: &TextParameters, pos: &Vec2, text: &str) -> Rect {
+        let font = FontDescription::from_string(&parameters.font);
+        self.pctx.set_font_description(&font);
+
         self.layout.set_text(text);
         self.layout.set_height(pango::SCALE * parameters.max_height);
         self.layout.set_width(pango::SCALE * parameters.max_width);

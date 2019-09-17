@@ -8,39 +8,51 @@ use winit::{
 use cairo::{ Surface, Context };
 
 use crate::bus::dbus::Notification;
-use crate::config::{ Config, FieldType, LayoutBlock, AnchorPosition };
-use crate::types::maths::{Rect, Vec2};
+use crate::config::{ Config, LayoutBlock };
+use crate::types::maths::Rect;
 use crate::rendering::text::TextRenderer;
-use std::alloc::Layout;
 
 #[derive(Debug)]
 pub struct NotifyWindow<'config> {
+    pub context: Context,
+    pub surface: Surface,
+
     pub winit: Window,
     pub notification: Notification,
 
-    pub surface: Surface,
-    pub context: Context,
+    pub text: TextRenderer,
 
     pub dirty: bool,
 
     config: &'config Config,
 }
 
+/*
+impl Drop for NotifyWindow<'_> {
+    fn drop(&mut self) {
+        // Setting these to None causes them to be dropped.
+        // This is a workaround for not being able to call drop! on them.
+        self.context = None;
+        self.surface = None;
+    }
+}
+*/
+
 impl<'config> NotifyWindow<'config> {
     pub fn new(config: &'config Config, el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
-        let (width, height) = (config.notification.width, config.notification.height);
+        let (width, height) = (config.width, config.height);
 
         let winit = WindowBuilder::new()
             .with_inner_size(LogicalSize { width: width as f64, height: height as f64 })
             .with_title("wiry")
             .with_transparent(true)
-            .with_always_on_top(true)
-            .with_x11_window_type(XWindowType::Utility)
-            .with_x11_window_type(XWindowType::Notification)
+            .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
             .build(el)
             .expect("Couldn't build winit window.");
 
-        winit.set_outer_position(LogicalPosition { x: config.notification.x as f64, y: config.notification.y as f64 });
+        // @NOTE: does the window appear in a weird place, a weird size?  We should probably hide
+        // the window until it's marked clean.
+        //winit.set_outer_position(LogicalPosition { x: config.x as f64, y: config.y as f64 });
 
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
@@ -66,12 +78,15 @@ impl<'config> NotifyWindow<'config> {
 
         let context = cairo::Context::new(&surface);
 
+        let text = TextRenderer::new(&context);
+
         // TODO: return Result? sometimes.
         Self {
+            context,
+            surface,
             winit,
             notification,
-            surface,
-            context,
+            text,
             dirty: true,
             config,
         }
@@ -103,7 +118,7 @@ impl<'config> NotifyWindow<'config> {
         Rect::new(0.0, 0.0, size.width, size.height)
     }
 
-    pub fn draw_background(&self) {
+    fn draw_background(&self) {
         let ctx = &self.context;
         let rect = self.get_inner_rect();
 
@@ -114,12 +129,12 @@ impl<'config> NotifyWindow<'config> {
         // Draw border + background.
         ctx.set_operator(cairo::Operator::Source);
 
-        let bd_color = &self.config.notification.border_color;
+        let bd_color = &self.config.border_color;
         ctx.set_source_rgba(bd_color.r, bd_color.g, bd_color.b, bd_color.a);
         ctx.paint();
 
-        let bg_color = &self.config.notification.background_color;
-        let bw = &self.config.notification.border_width;
+        let bg_color = &self.config.background_color;
+        let bw = &self.config.border_width;
         ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
         ctx.rectangle(
             *bw, *bw,     // x, y
@@ -129,46 +144,63 @@ impl<'config> NotifyWindow<'config> {
     }
 
     pub fn predict_size(&self) -> Rect {
-        let tr = TextRenderer::new(&self.context, &self.config.notification.font);
+        // TODO: this should be cached.
         let get_size = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
-            let text = match &block.field {
-                FieldType::Summary => &self.notification.summary,
-                FieldType::Body => &self.notification.body,
-                _ => "ERROR",
-            };
+            match &block {
+                LayoutBlock::TextBlock(p) => {
+                    let mut text = p.text.clone();
+                    text = text.replace("%s", &self.notification.summary);
+                    text = text.replace("%b", &self.notification.body);
 
-            let pos = block.find_anchor_pos(parent_rect);
-            tr.get_string_rect(&block.parameters, &pos, text)
+                    let pos = block.find_anchor_pos(parent_rect);
+                    self.text.get_string_rect(&p.parameters, &pos, &text)
+                }
+
+                _ => Rect::new(0.0, 0.0, 0.0, 0.0)
+            }
         };
 
         let accumulator = |r1: &Rect, r2: &Rect| -> Rect {
             r1.union(r2)
         };
 
-        let layout = &self.config.notification.root;
-        layout.traverse_accum(get_size, accumulator, &Rect::default(), &self.get_inner_rect()).clone()
+        let layout = &self.config.layout;
+        layout.traverse_accum(get_size, accumulator, &Rect::default(), &self.get_inner_rect())
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&mut self) {
         self.draw_background();
 
-        let tr = TextRenderer::new(&self.context, &self.config.notification.font);
         let ctx = &self.context;
 
-        let draw = |block: &LayoutBlock, parent_rect: Option<&Rect>| -> Rect {
-            let text = match &block.field {
-                FieldType::Summary => &self.notification.summary,
-                FieldType::Body => &self.notification.body,
-                _ => "ERROR",
-            };
+        let draw = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
+            match &block {
+                LayoutBlock::TextBlock(p) => {
+                    // TODO: Some/None for summary/body?  We don't want to replace or even add the block if there is no body.
+                    let mut text = p.text.clone();
+                    text = text
+                        .replace("%s", &self.notification.summary)
+                        .replace("%b", &self.notification.body)
+                        .replace("&quot;", "\"")
+                        .replace("&amp;", "&")
+                        .replace("&lt;", "<")
+                        .replace("&gt;", ">");
 
-            let pos = block.find_anchor_pos(parent_rect.unwrap());
-            let text_color = &block.parameters.color;
-            ctx.set_source_rgba(text_color.r, text_color.g, text_color.b, text_color.a);
-            tr.paint_string(ctx, &block.parameters, &pos, text)
+                    let pos = block.find_anchor_pos(parent_rect);
+
+                    let text_color = &p.parameters.color;
+                    ctx.set_source_rgba(text_color.r, text_color.g, text_color.b, text_color.a);
+                    self.text.paint_string(ctx, &p.parameters, &pos, &text)
+                }
+
+                _ => Rect::new(0.0, 0.0, 0.0, 0.0)
+            }
         };
 
-        let layout = &self.config.notification.root;
-        layout.traverse(draw, Some(&self.get_inner_rect()));
+        let layout = &self.config.layout;
+        layout.traverse(draw, &self.get_inner_rect());
+
+        // Draw state is now clean.
+        self.dirty = false;
     }
 }

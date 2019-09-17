@@ -6,6 +6,10 @@ use winit::{
 use crate::bus::dbus::Notification;
 use crate::config::Config;
 use crate::rendering::window::NotifyWindow;
+use crate::types::maths::{Vec2, Rect};
+use crate::config::LayoutBlock::{self, NotificationBlock};
+use crate::config::AnchorPosition;
+use std::time::Duration;
 
 pub struct NotifyWindowManager<'config> {
     pub windows: Vec<NotifyWindow<'config>>,
@@ -24,23 +28,67 @@ impl<'config> NotifyWindowManager<'config> {
         }
     }
 
+    pub fn update_timers(&mut self, time_passed: Duration) {
+        println!("timers");
+        let mut i = 0;
+        while i < self.windows.len() {
+            self.windows[i].notification.expire_timeout -= time_passed.as_millis() as i32;
+            dbg!(self.windows[i].notification.expire_timeout);
+            if self.windows[i].notification.expire_timeout > 0 {
+                self.windows.remove(i);
+            }
+
+            i += 1;
+        }
+    }
+
+    pub fn request_redraw(&self) {
+        for window in &self.windows {
+            window.winit.request_redraw();
+        }
+    }
+
     // TODO: Think about supporting horizontal notifications... do people even want that?
     pub fn update_positions(&mut self) {
-        let (begin_posx, begin_posy) = (self.config.notification.x, self.config.notification.y);
-        let gap = self.config.gap;
+        if let NotificationBlock(parameters) = &self.config.layout {
+            let gap = &parameters.gap;
+            let monitor = self.config.monitor.as_ref().expect("No monitor defined.");
 
-        let mut prev_y = begin_posy - gap;
-        for window in self.windows.iter_mut() {
-            window.set_position(begin_posx as f64, (prev_y + gap) as f64);
+            let (pos, size) = (monitor.position(), monitor.size());
+            let monitor_rect = Rect::new(pos.x, pos.y, size.width, size.height);
+            let mut prev_pos = match &parameters.monitor_hook {
+                AnchorPosition::TL => monitor_rect.top_left(),
+                AnchorPosition::TR => monitor_rect.top_right(),
+                AnchorPosition::BL => monitor_rect.bottom_left(),
+                AnchorPosition::BR => monitor_rect.bottom_right(),
+            };
+            prev_pos.x -= gap.x;
+            prev_pos.y -= gap.y;
 
-            prev_y = window.get_rect().bottom() as i32;
+            for window in self.windows.iter() {
+                window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
+
+                let window_rect = window.get_rect();
+                prev_pos = match &parameters.notification_hook {
+                    AnchorPosition::TL => window_rect.top_left(),
+                    AnchorPosition::TR => window_rect.top_right(),
+                    AnchorPosition::BL => window_rect.bottom_left(),
+                    AnchorPosition::BR => window_rect.bottom_right(),
+                };
+            }
+        } else {
+            // Panic because the config must have not been setup properly.
+            panic!();
         }
     }
 
     pub fn drop_window(&mut self, window_id: WindowId) {
+        self.windows.retain(|w| w.winit.id() != window_id);
+        /*
         let index = self.windows.iter().position(|w| w.winit.id() == window_id);
         if let Some(idx) = index {
-            let win = self.windows.remove(idx);
+            //let win = self.windows.remove(idx);
+            self.windows.remove(idx);
             // @IMPORTANT: Panics caused by not dropping both of these:
             // `Failed to lookup raw keysm: XError { ... }`.
             // `Failed to destroy input context: XError { ... }`.
@@ -48,17 +96,17 @@ impl<'config> NotifyWindowManager<'config> {
             // @TODO: figure out why this happens and maybe file a bug report?
             // Maybe it's because they use the window handle? semi-race condition?  maybe they drop
             // the drawable for us without winit realising?
-            drop(win.context);
-            drop(win.surface);
+            //drop(win.context);
+            //drop(win.surface);
         }
+        */
     }
 
     pub fn draw_windows(&mut self) {
         for window in self.windows.iter_mut() {
-            if window.dirty {
-                window.draw();
-                window.dirty = false;
-            }
+            window.draw();
+            //if window.dirty {
+            //}
         }
     }
 
