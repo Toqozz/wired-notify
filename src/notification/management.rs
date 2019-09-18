@@ -29,22 +29,14 @@ impl<'config> NotifyWindowManager<'config> {
     }
 
     pub fn update_timers(&mut self, time_passed: Duration) {
-        println!("timers");
         let mut i = 0;
         while i < self.windows.len() {
             self.windows[i].notification.expire_timeout -= time_passed.as_millis() as i32;
-            dbg!(self.windows[i].notification.expire_timeout);
-            if self.windows[i].notification.expire_timeout > 0 {
+            if self.windows[i].notification.expire_timeout < 0 {
                 self.windows.remove(i);
             }
 
             i += 1;
-        }
-    }
-
-    pub fn request_redraw(&self) {
-        for window in &self.windows {
-            window.winit.request_redraw();
         }
     }
 
@@ -67,6 +59,7 @@ impl<'config> NotifyWindowManager<'config> {
 
             for window in self.windows.iter() {
                 window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
+                window.winit.set_visible(true);
 
                 let window_rect = window.get_rect();
                 prev_pos = match &parameters.notification_hook {
@@ -76,6 +69,7 @@ impl<'config> NotifyWindowManager<'config> {
                     AnchorPosition::BR => window_rect.bottom_right(),
                 };
             }
+
         } else {
             // Panic because the config must have not been setup properly.
             panic!();
@@ -102,15 +96,27 @@ impl<'config> NotifyWindowManager<'config> {
         */
     }
 
-    pub fn draw_windows(&mut self) {
-        for window in self.windows.iter_mut() {
-            window.draw();
-            //if window.dirty {
-            //}
+    // This feels heavy.
+    pub fn draw_window(&mut self, window_id: WindowId) {
+        let mut window = self.windows.iter_mut()
+            .find(|w| w.winit.id() == window_id);
+
+        if let Some(w) = window {
+            w.draw();
         }
     }
 
-    pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
+    pub fn draw_windows(&mut self) {
+        for window in &mut self.windows {
+            window.draw();
+        }
+    }
+
+    pub fn new_notification(&mut self, mut notification: Notification, el: &EventLoopWindowTarget<()>) {
+        if notification.expire_timeout <= 0 {
+            notification.expire_timeout = self.config.timeout;
+        }
+
         let window = NotifyWindow::new(&self.config, el, notification);
         let rect = window.predict_size();
         window.set_size(rect.width(),rect.height());

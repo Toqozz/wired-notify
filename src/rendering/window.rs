@@ -11,6 +11,7 @@ use crate::bus::dbus::Notification;
 use crate::config::{ Config, LayoutBlock };
 use crate::types::maths::Rect;
 use crate::rendering::text::TextRenderer;
+use cairo::prelude::SurfaceExt;
 
 #[derive(Debug)]
 pub struct NotifyWindow<'config> {
@@ -44,9 +45,10 @@ impl<'config> NotifyWindow<'config> {
 
         let winit = WindowBuilder::new()
             .with_inner_size(LogicalSize { width: width as f64, height: height as f64 })
+            .with_x11_window_type(vec![XWindowType::Utility, XWindowType::Notification])
             .with_title("wiry")
             .with_transparent(true)
-            .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
+            .with_visible(false)    // Window not visible for first draw.
             .build(el)
             .expect("Couldn't build winit window.");
 
@@ -171,6 +173,12 @@ impl<'config> NotifyWindow<'config> {
     pub fn draw(&mut self) {
         self.draw_background();
 
+        /*
+        if !window.dirty {
+            return;
+        }
+        */
+
         let ctx = &self.context;
 
         let draw = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
@@ -200,7 +208,7 @@ impl<'config> NotifyWindow<'config> {
         let layout = &self.config.layout;
         layout.traverse(draw, &self.get_inner_rect());
 
-        // Draw state is now clean.
+        // Window is now clean.
         self.dirty = false;
     }
 }

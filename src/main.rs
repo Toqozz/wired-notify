@@ -19,7 +19,7 @@ use bus::dbus;
 use crate::config::LayoutBlock::NotificationBlock;
 use winit::event::StartCause;
 use std::task::Context;
-use std::time::Instant;
+use std::time::{Instant, Duration};
 
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
@@ -45,18 +45,24 @@ fn main() {
     // Allows us to receive messages from dbus.
     let (connection, receiver) = dbus::get_connection();
 
-    let timer_length = std::time::Duration::new(1, 0);
+    //let timer_length = std::time::Duration::new(1, 0);
+    let timer_length = Duration::from_millis(config.poll_interval);
+    let mut prev_instant = Instant::now();
     event_loop.run_return(move |event, event_loop, control_flow| {
         match event {
+            // @TODO: maybe we should separate receiving dbus signals and drawing windows.
             Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + timer_length),
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
-                *control_flow = ControlFlow::WaitUntil(Instant::now() + timer_length);
-                // @NOTE: this isn't precise.  Better to check the actual time.
-                println!("resumetimereached");
-                manager.update_timers(timer_length);
-            },
+                // Restart timer for next loop.
+                let now = Instant::now();
+                *control_flow = ControlFlow::WaitUntil(now + timer_length);
 
-            Event::EventsCleared => {
+                // Time passed since last loop.
+                let time_passed = now - prev_instant;
+                prev_instant = now;
+
+                manager.update_timers(time_passed);
+
                 // Check dbus signals.
                 let signal = connection.incoming(0).next();
                 if let Some(s) = signal {
@@ -66,20 +72,22 @@ fn main() {
                 if let Ok(x) = receiver.try_recv() {
                     //spawn_window(x, &mut manager, &event_loop);
                     manager.new_notification(x, event_loop);
-                    // @TODO: abstract this into manager?
-                    manager.windows.iter().for_each(|w| w.winit.request_redraw());
                     // Initial draw, otherwise we won't redraw until the event queue clears again.
                     // @NOTE: is this an issue for framerate draws? -- investigate winit timer.
                     //manager.draw_windows();
                 }
+
             },
-            Event::WindowEvent { event: WindowEvent::RedrawRequested, .. } => manager.draw_windows(),
+
+            // Window becomes visible and then position is set.  Need fix.
+            Event::WindowEvent { window_id, event: WindowEvent::RedrawRequested, .. } => manager.draw_window(window_id),
             Event::WindowEvent { window_id, event: WindowEvent::MouseInput { .. } } => manager.drop_window(window_id),
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
             // This is ideal for games and similar applications.
-            _ => *control_flow = ControlFlow::Wait,
+            _ => ()
+            //_ => *control_flow = ControlFlow::Poll,
         }
     });
 }

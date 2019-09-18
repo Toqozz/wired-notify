@@ -12,7 +12,8 @@ pub struct Config {
     pub background_color: Color,
     pub border_color: Color,
 
-    pub timeout: f32,           // Default timeout.
+    pub timeout: i32,           // Default timeout.
+    pub poll_interval: u64,
 
     pub font: String,
 

@@ -7,7 +7,8 @@
     background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
     border_color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
 
-    timeout: 10.0,
+    timeout: 10000,
+    poll_interval: 16,
 
     font: "Operator Mono 10",
 
