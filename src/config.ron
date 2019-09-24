@@ -20,8 +20,8 @@
             monitor: 0,
             monitor_hook: TL,
             monitor_offset: Vec2(x: 7.0, y: 7.0),
-            gap: Vec2(x: 8.0, y: 0.0),
-            notification_hook: TR,
+            gap: Vec2(x: 0.0, y: 8.0),
+            notification_hook: BL,
             children: [
                 TextBlock (                                                              // summary block
                     TextBlockParameters (

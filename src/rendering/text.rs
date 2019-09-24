@@ -44,7 +44,8 @@ impl TextRenderer {
         let font = FontDescription::from_string(&parameters.font);
         self.pctx.set_font_description(&font);
 
-        self.layout.set_text(text);
+        self.layout.set_markup(text);
+        //self.layout.set_text(text);
         self.layout.set_height(pango::SCALE * parameters.max_height);
         self.layout.set_width(pango::SCALE * parameters.max_width);
 
@@ -55,7 +56,8 @@ impl TextRenderer {
         let font = FontDescription::from_string(&parameters.font);
         self.pctx.set_font_description(&font);
 
-        self.layout.set_text(text);
+        self.layout.set_markup(text);
+        //self.layout.set_text(text);
         self.layout.set_height(pango::SCALE * parameters.max_height);
         self.layout.set_width(pango::SCALE * parameters.max_width);
 

@@ -5,16 +5,21 @@ use winit::{
     dpi::{ LogicalSize, LogicalPosition },
 };
 
-use cairo::{ Surface, Context };
+use cairo::{Surface, Context, ImageSurface, Format};
 
-use crate::bus::dbus::Notification;
+use crate::bus::dbus::DBusNotification;
 use crate::config::{ Config, LayoutBlock };
 use crate::types::maths::Rect;
 use crate::rendering::text::TextRenderer;
+use crate::notification::Notification;
 use cairo::prelude::SurfaceExt;
+use cairo_sys::{self, cairo_image_surface_create_for_data};
+use image::GenericImageView;
 
 #[derive(Debug)]
 pub struct NotifyWindow<'config> {
+    // Context/Surface are placed at the top (in order) so that they are dropped first when a
+    // window is dropped.
     pub context: Context,
     pub surface: Surface,
 
@@ -23,7 +28,7 @@ pub struct NotifyWindow<'config> {
 
     pub text: TextRenderer,
 
-    pub dirty: bool,
+    pub marked_for_destroy: bool,
 
     config: &'config Config,
 }
@@ -48,7 +53,7 @@ impl<'config> NotifyWindow<'config> {
             .with_x11_window_type(vec![XWindowType::Utility, XWindowType::Notification])
             .with_title("wiry")
             .with_transparent(true)
-            .with_visible(false)    // Window not visible for first draw.
+            .with_visible(false)    // Window not visible for first draw, because the position will probably be wrong.
             .build(el)
             .expect("Couldn't build winit window.");
 
@@ -89,13 +94,15 @@ impl<'config> NotifyWindow<'config> {
             winit,
             notification,
             text,
-            dirty: true,
+            marked_for_destroy: false,
             config,
         }
     }
 
     pub fn set_position(&self, x: f64, y: f64) {
         self.winit.set_outer_position(LogicalPosition { x, y });
+        // TODO: only do this once?
+        self.winit.set_visible(true);
     }
 
     pub fn set_size(&self, width: f64, height: f64) {
@@ -173,13 +180,22 @@ impl<'config> NotifyWindow<'config> {
     pub fn draw(&mut self) {
         self.draw_background();
 
-        /*
-        if !window.dirty {
-            return;
-        }
-        */
-
         let ctx = &self.context;
+
+        let mut image;
+        if let Some(img) = &mut self.notification.image {
+            image = ImageSurface::create_for_data(
+                img.raw_pixels(),
+                Format::Rgb24,
+                img.width() as i32,
+                img.height() as i32,
+                Format::stride_for_width(Format::Rgb24, img.width()).unwrap(),
+            ).expect("Failed to create image surface.");
+
+            ctx.set_source_surface(&image, 100f64, 100f64);
+            ctx.paint();
+        }
+
 
         let draw = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
             match &block {
@@ -188,11 +204,7 @@ impl<'config> NotifyWindow<'config> {
                     let mut text = p.text.clone();
                     text = text
                         .replace("%s", &self.notification.summary)
-                        .replace("%b", &self.notification.body)
-                        .replace("&quot;", "\"")
-                        .replace("&amp;", "&")
-                        .replace("&lt;", "<")
-                        .replace("&gt;", ">");
+                        .replace("%b", &self.notification.body);
 
                     let pos = block.find_anchor_pos(parent_rect);
 
@@ -207,8 +219,5 @@ impl<'config> NotifyWindow<'config> {
 
         let layout = &self.config.layout;
         layout.traverse(draw, &self.get_inner_rect());
-
-        // Window is now clean.
-        self.dirty = false;
     }
 }

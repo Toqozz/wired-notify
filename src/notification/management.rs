@@ -3,16 +3,18 @@ use winit::{
     window::WindowId,
 };
 
-use crate::bus::dbus::Notification;
+use crate::bus::dbus::DBusNotification;
 use crate::config::Config;
 use crate::rendering::window::NotifyWindow;
 use crate::types::maths::{Vec2, Rect};
 use crate::config::LayoutBlock::{self, NotificationBlock};
 use crate::config::AnchorPosition;
 use std::time::Duration;
+use crate::notification::Notification;
 
 pub struct NotifyWindowManager<'config> {
     pub windows: Vec<NotifyWindow<'config>>,
+    pub dirty: bool,
 
     pub config: &'config Config,
 }
@@ -24,60 +26,76 @@ impl<'config> NotifyWindowManager<'config> {
 
         Self {
             windows,
+            dirty: false,
             config,
         }
     }
 
-    pub fn update_timers(&mut self, time_passed: Duration) {
-        let mut i = 0;
-        while i < self.windows.len() {
-            self.windows[i].notification.expire_timeout -= time_passed.as_millis() as i32;
-            if self.windows[i].notification.expire_timeout < 0 {
-                self.windows.remove(i);
-            }
+    // Summon a new notification.
+    pub fn new_notification(&mut self, dbus_notification: DBusNotification, el: &EventLoopWindowTarget<()>) {
+        let notification = Notification::from_dbus(dbus_notification, self.config);
 
-            i += 1;
+        let window = NotifyWindow::new(&self.config, el, notification);
+        let rect = window.predict_size();
+        window.set_size(rect.width(),rect.height());
+
+        self.windows.push(window);
+
+        // Outer state is now out of sync with internal state because we have an invisible notification.
+        self.dirty = true;
+    }
+
+    pub fn update(&mut self, delta_t: Duration) {
+        self.update_timers(delta_t);
+        if self.dirty {
+            self.update_positions();
+            self.windows.retain(|w| !w.marked_for_destroy);
         }
     }
 
-    // TODO: Think about supporting horizontal notifications... do people even want that?
-    pub fn update_positions(&mut self) {
+    fn update_timers(&mut self, time_passed: Duration) {
+        for window in &mut self.windows {
+            window.notification.fuse -= time_passed.as_millis() as i32;
+            if window.notification.fuse < 0 {
+                // Window will be destroyed after others have been repositioned to replace it.
+                window.marked_for_destroy = true;
+                self.dirty = true;
+            }
+        }
+    }
+
+    fn update_positions(&mut self) {
         if let NotificationBlock(parameters) = &self.config.layout {
             let gap = &parameters.gap;
             let monitor = self.config.monitor.as_ref().expect("No monitor defined.");
 
             let (pos, size) = (monitor.position(), monitor.size());
             let monitor_rect = Rect::new(pos.x, pos.y, size.width, size.height);
-            let mut prev_pos = match &parameters.monitor_hook {
-                AnchorPosition::TL => monitor_rect.top_left(),
-                AnchorPosition::TR => monitor_rect.top_right(),
-                AnchorPosition::BL => monitor_rect.bottom_left(),
-                AnchorPosition::BR => monitor_rect.bottom_right(),
-            };
+            let mut prev_pos = parameters.monitor_hook.get_pos(&monitor_rect);
             prev_pos.x -= gap.x;
             prev_pos.y -= gap.y;
 
-            for window in self.windows.iter() {
+            // Windows which are marked for destroy should be positioned over the top of so that destroying them will be less noticeable.
+            for window in self.windows.iter().filter(|w| !w.marked_for_destroy) {
                 window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
-                window.winit.set_visible(true);
 
                 let window_rect = window.get_rect();
-                prev_pos = match &parameters.notification_hook {
-                    AnchorPosition::TL => window_rect.top_left(),
-                    AnchorPosition::TR => window_rect.top_right(),
-                    AnchorPosition::BL => window_rect.bottom_left(),
-                    AnchorPosition::BR => window_rect.bottom_right(),
-                };
+                prev_pos = parameters.notification_hook.get_pos(&window_rect);
             }
 
         } else {
             // Panic because the config must have not been setup properly.
             panic!();
         }
+
+        // Outer state is now up to date with internal state.
+        self.dirty = false;
     }
 
     pub fn drop_window(&mut self, window_id: WindowId) {
         self.windows.retain(|w| w.winit.id() != window_id);
+        self.dirty = true;
+
         /*
         let index = self.windows.iter().position(|w| w.winit.id() == window_id);
         if let Some(idx) = index {
@@ -97,35 +115,21 @@ impl<'config> NotifyWindowManager<'config> {
     }
 
     // This feels heavy.
+    // Draw an individual window (mostly for expose events).
     pub fn draw_window(&mut self, window_id: WindowId) {
-        let mut window = self.windows.iter_mut()
-            .find(|w| w.winit.id() == window_id);
-
-        if let Some(w) = window {
-            w.draw();
+        for window in self.windows.iter_mut() {
+            if window.winit.id() == window_id {
+                window.draw();
+                break;
+            }
         }
     }
 
+    // Draw all windows.
     pub fn draw_windows(&mut self) {
         for window in &mut self.windows {
             window.draw();
         }
-    }
-
-    pub fn new_notification(&mut self, mut notification: Notification, el: &EventLoopWindowTarget<()>) {
-        if notification.expire_timeout <= 0 {
-            notification.expire_timeout = self.config.timeout;
-        }
-
-        let window = NotifyWindow::new(&self.config, el, notification);
-        let rect = window.predict_size();
-        window.set_size(rect.width(),rect.height());
-
-        self.windows.push(window);
-
-        // IMPORTANT: Is this expensive when there is a lot of notifications?
-        //  What about when we have to switch a bunch of notifications?
-        self.update_positions();
     }
 }
 

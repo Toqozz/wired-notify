@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 use dbus::arg;
-use crate::bus::dbus::Notification;
+use crate::bus::dbus::DBusNotification;
 
 use super::dbus_codegen::{ OrgFreedesktopNotifications };
 
@@ -41,7 +41,7 @@ impl OrgFreedesktopNotifications for BusNotification {
 
     fn notify(
         &self,
-        sender: Sender<Notification>,
+        sender: Sender<DBusNotification>,
         app_name: &str,
         replaces_id: u32,
         app_icon: &str,
@@ -51,7 +51,7 @@ impl OrgFreedesktopNotifications for BusNotification {
         _hints: HashMap<&str, arg::Variant<Box<arg::RefArg>>>,
         expire_timeout: i32,
         ) -> Result<u32, Self::Err> {
-        let notification = Notification::new(
+        let notification = DBusNotification::new(
             app_name.to_owned(),
             replaces_id,
             app_icon.to_owned(),

@@ -4,13 +4,13 @@
 use dbus;
 use dbus::arg;
 use dbus::tree;
-use crate::bus::dbus::Notification;
+use crate::bus::dbus::DBusNotification;
 use std::sync::mpsc::Sender;
 
 pub trait OrgFreedesktopNotifications {
     type Err;
     fn get_capabilities(&self) -> Result<Vec<String>, Self::Err>;
-    fn notify(&self, sender: Sender<Notification>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: ::std::collections::HashMap<&str, arg::Variant<Box<arg::RefArg>>>, expire_timeout: i32) -> Result<u32, Self::Err>;
+    fn notify(&self, sender: Sender<DBusNotification>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: ::std::collections::HashMap<&str, arg::Variant<Box<arg::RefArg>>>, expire_timeout: i32) -> Result<u32, Self::Err>;
     fn close_notification(&self, id: u32) -> Result<(), Self::Err>;
     fn get_server_information(&self) -> Result<(String, String, String, String), Self::Err>;
 }
@@ -27,7 +27,7 @@ impl<'a, C: ::std::ops::Deref<Target=dbus::Connection>> OrgFreedesktopNotificati
         Ok(capabilities)
     }
 
-    fn notify(&self, _sender: Sender<Notification>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: ::std::collections::HashMap<&str, arg::Variant<Box<arg::RefArg>>>, expire_timeout: i32) -> Result<u32, Self::Err> {
+    fn notify(&self, _sender: Sender<DBusNotification>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: ::std::collections::HashMap<&str, arg::Variant<Box<arg::RefArg>>>, expire_timeout: i32) -> Result<u32, Self::Err> {
         let mut m = self.method_call_with_args(&"org.freedesktop.Notifications".into(), &"Notify".into(), |msg| {
             let mut i = arg::IterAppend::new(msg);
             i.append(app_name);
@@ -67,7 +67,7 @@ impl<'a, C: ::std::ops::Deref<Target=dbus::Connection>> OrgFreedesktopNotificati
     }
 }
 
-pub fn org_freedesktop_notifications_server<F, T, D>(sender: Sender<Notification>, factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F) -> tree::Interface<tree::MTFn<D>, D>
+pub fn org_freedesktop_notifications_server<F, T, D>(sender: Sender<DBusNotification>, factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F) -> tree::Interface<tree::MTFn<D>, D>
 where
     D: tree::DataType,
     D::Method: Default,

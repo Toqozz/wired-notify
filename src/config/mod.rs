@@ -84,6 +84,7 @@ pub struct TextParameters {
     pub color: Color,
     pub max_width: i32,
     pub max_height: i32,
+    //https://developer.gnome.org/pango/stable/pango-Markup.html
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,27 +118,29 @@ pub enum LayoutBlock {
     ImageBlock(ImageBlockParameters),
 }
 
+impl AnchorPosition {
+    pub fn get_pos(&self, rect: &Rect) -> Vec2 {
+        match self {
+            AnchorPosition::TL => rect.top_left(),
+            AnchorPosition::TR => rect.top_right(),
+            AnchorPosition::BL => rect.bottom_left(),
+            AnchorPosition::BR => rect.bottom_right(),
+        }
+    }
+}
+
 impl LayoutBlock {
     // TODO: cleanup.
     pub fn find_anchor_pos(&self, parent_rect: &Rect) -> Vec2 {
-        let get_pos = |hook: &AnchorPosition, parent_rect: &Rect| -> Vec2 {
-            match hook {
-                AnchorPosition::TL => { parent_rect.top_left() },
-                AnchorPosition::TR => { parent_rect.top_right() },
-                AnchorPosition::BL => { parent_rect.bottom_left() },
-                AnchorPosition::BR => { parent_rect.bottom_right() },
-            }
-        };
-
         let pos = match self {
-            LayoutBlock::NotificationBlock(p) => get_pos(&p.monitor_hook, parent_rect),
+            LayoutBlock::NotificationBlock(p) => p.monitor_hook.get_pos(parent_rect),
             LayoutBlock::TextBlock(p) => {
-                let mut pos = get_pos(&p.hook, parent_rect);
+                let mut pos = p.hook.get_pos(parent_rect);
                 pos.x += p.parameters.offset.x;
                 pos.y += p.parameters.offset.x;
                 pos
             },
-            LayoutBlock::ImageBlock(p) => get_pos(&p.hook, parent_rect),
+            LayoutBlock::ImageBlock(p) => p.hook.get_pos(parent_rect),
         };
 
         pos

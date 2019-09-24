@@ -9,7 +9,7 @@ mod types;
 
 //use winit::EventsLoop;
 use winit::{
-    event::{ Event, WindowEvent },
+    event::{ Event, WindowEvent, ElementState, MouseButton },
     event_loop::{ ControlFlow, EventLoop },
     platform::desktop::EventLoopExtDesktop,
 };
@@ -61,7 +61,8 @@ fn main() {
                 let time_passed = now - prev_instant;
                 prev_instant = now;
 
-                manager.update_timers(time_passed);
+                manager.update(time_passed);
+                //manager.update_timers(time_passed);
 
                 // Check dbus signals.
                 let signal = connection.incoming(0).next();
@@ -72,16 +73,12 @@ fn main() {
                 if let Ok(x) = receiver.try_recv() {
                     //spawn_window(x, &mut manager, &event_loop);
                     manager.new_notification(x, event_loop);
-                    // Initial draw, otherwise we won't redraw until the event queue clears again.
-                    // @NOTE: is this an issue for framerate draws? -- investigate winit timer.
-                    //manager.draw_windows();
                 }
-
             },
 
             // Window becomes visible and then position is set.  Need fix.
             Event::WindowEvent { window_id, event: WindowEvent::RedrawRequested, .. } => manager.draw_window(window_id),
-            Event::WindowEvent { window_id, event: WindowEvent::MouseInput { .. } } => manager.drop_window(window_id),
+            Event::WindowEvent { window_id, event: WindowEvent::MouseInput { state: ElementState::Pressed,  button: MouseButton::Left, .. } } => manager.drop_window(window_id),
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.

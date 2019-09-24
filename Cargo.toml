@@ -10,6 +10,7 @@ winit = { path = "../winit" }
 x11 = { version = "2.18.1", features = ["xlib"] }
 dbus = "0.6.4"
 #toml = "0.5.0"
+image = "0.22.2"
 ron = "0.5.1"
 serde = { version = "1.0", features = ["derive"] }
 pango = "0.6.0"
