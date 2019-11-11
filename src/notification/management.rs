@@ -71,21 +71,20 @@ impl<'config> NotifyWindowManager<'config> {
 
             let (pos, size) = (monitor.position(), monitor.size());
             let monitor_rect = Rect::new(pos.x, pos.y, size.width, size.height);
-            let mut prev_pos = parameters.monitor_hook.get_pos(&monitor_rect);
+            let mut prev_pos = self.config.layout.find_anchor_pos(&monitor_rect);
             prev_pos.x -= gap.x;
             prev_pos.y -= gap.y;
 
-            // Windows which are marked for destroy should be positioned over the top of so that destroying them will be less noticeable.
+            // Windows which are marked for destroy should be overlapped so that destroying them will be less noticeable.
             for window in self.windows.iter().filter(|w| !w.marked_for_destroy) {
                 window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
 
                 let window_rect = window.get_rect();
                 prev_pos = parameters.notification_hook.get_pos(&window_rect);
             }
-
         } else {
             // Panic because the config must have not been setup properly.
-            panic!();
+            panic!("The root LayoutBlock must be a NotificationBlock!");
         }
 
         // Outer state is now up to date with internal state.

@@ -14,7 +14,8 @@ use crate::rendering::text::TextRenderer;
 use crate::notification::Notification;
 use cairo::prelude::SurfaceExt;
 use cairo_sys::{self, cairo_image_surface_create_for_data};
-use image::GenericImageView;
+use image::{GenericImageView, DynamicImage, FilterType};
+use cairo::SurfaceType::Image;
 
 #[derive(Debug)]
 pub struct NotifyWindow<'config> {
@@ -127,6 +128,20 @@ impl<'config> NotifyWindow<'config> {
         Rect::new(0.0, 0.0, size.width, size.height)
     }
 
+    pub fn predict_size(&self) -> Rect {
+        // TODO: this should be cached?
+        let get_size = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
+            block.predict_size(parent_rect, &self)
+        };
+
+        let accumulator = |r1: &Rect, r2: &Rect| -> Rect {
+            r1.union(r2)
+        };
+
+        let layout = &self.config.layout;
+        layout.traverse_accum(get_size, accumulator, &Rect::default(), &self.get_inner_rect())
+    }
+
     fn draw_background(&self) {
         let ctx = &self.context;
         let rect = self.get_inner_rect();
@@ -152,53 +167,41 @@ impl<'config> NotifyWindow<'config> {
         ctx.fill();
     }
 
-    pub fn predict_size(&self) -> Rect {
-        // TODO: this should be cached.
-        let get_size = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
-            match &block {
-                LayoutBlock::TextBlock(p) => {
-                    let mut text = p.text.clone();
-                    text = text.replace("%s", &self.notification.summary);
-                    text = text.replace("%b", &self.notification.body);
-
-                    let pos = block.find_anchor_pos(parent_rect);
-                    self.text.get_string_rect(&p.parameters, &pos, &text)
-                }
-
-                _ => Rect::new(0.0, 0.0, 0.0, 0.0)
-            }
-        };
-
-        let accumulator = |r1: &Rect, r2: &Rect| -> Rect {
-            r1.union(r2)
-        };
-
-        let layout = &self.config.layout;
-        layout.traverse_accum(get_size, accumulator, &Rect::default(), &self.get_inner_rect())
-    }
-
     pub fn draw(&mut self) {
         self.draw_background();
 
         let ctx = &self.context;
 
-        let mut image;
-        if let Some(img) = &mut self.notification.image {
-            image = ImageSurface::create_for_data(
-                img.raw_pixels(),
-                Format::Rgb24,
-                img.width() as i32,
-                img.height() as i32,
-                Format::stride_for_width(Format::Rgb24, img.width()).unwrap(),
-            ).expect("Failed to create image surface.");
-
-            ctx.set_source_surface(&image, 100f64, 100f64);
-            ctx.paint();
-        }
-
-
         let draw = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
             match &block {
+                LayoutBlock::ImageBlock(p) => {
+                    if let Some(image) = &self.notification.image {
+                        let img = image.resize(p.width as u32, p.height as u32, FilterType::Nearest);
+                        let format = Format::ARgb32;
+
+                        let (width, height) = img.dimensions();
+                        let stride = Format::stride_for_width(format, width).expect("Failed to calculate image stride.");
+                        // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
+                        let pixels = img.to_bgra().into_raw();
+                        let image_sfc = ImageSurface::create_for_data(pixels, format, width as i32, height as i32, stride)
+                            .expect("Failed to create image surface.");
+
+                        let pos = block.find_anchor_pos(parent_rect);
+                        let rect = Rect::new(pos.x,
+                                                    pos.y,
+                                                 width as f64 + p.padding.left + p.padding.right,
+                                                height as f64 + p.padding.top + p.padding.bottom);
+
+                        ctx.set_source_surface(&image_sfc, pos.x + p.padding.left, pos.y + p.padding.top);
+                        ctx.rectangle(pos.x + p.padding.left, pos.y + p.padding.top, width as f64, height as f64);
+                        ctx.fill();
+
+                        rect
+                    } else {
+                        Rect::new(0.0, 0.0, 0.0, 0.0)
+                    }
+                }
+
                 LayoutBlock::TextBlock(p) => {
                     // TODO: Some/None for summary/body?  We don't want to replace or even add the block if there is no body.
                     let mut text = p.text.clone();

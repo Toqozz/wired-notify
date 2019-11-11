@@ -1,6 +1,8 @@
 use serde::Deserialize;
 
 use crate::types::maths::{Vec2, Rect};
+use crate::notification::Notification;
+use crate::rendering::window::NotifyWindow;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -108,6 +110,11 @@ pub struct TextBlockParameters {
 #[derive(Debug, Deserialize)]
 pub struct ImageBlockParameters {
     pub hook: AnchorPosition,
+    // -1 to scale to size with aspect ratio kept?
+    pub offset: Vec2,
+    pub padding: Padding,
+    pub width: i32,
+    pub height: i32,
     pub children: Vec<LayoutBlock>,
 }
 
@@ -133,17 +140,55 @@ impl LayoutBlock {
     // TODO: cleanup.
     pub fn find_anchor_pos(&self, parent_rect: &Rect) -> Vec2 {
         let pos = match self {
-            LayoutBlock::NotificationBlock(p) => p.monitor_hook.get_pos(parent_rect),
+            LayoutBlock::NotificationBlock(p) => {
+                let mut pos = p.monitor_hook.get_pos(parent_rect);
+                pos.x += p.monitor_offset.x;
+                pos.y += p.monitor_offset.y;
+                pos
+            }
             LayoutBlock::TextBlock(p) => {
                 let mut pos = p.hook.get_pos(parent_rect);
                 pos.x += p.parameters.offset.x;
                 pos.y += p.parameters.offset.x;
                 pos
             },
-            LayoutBlock::ImageBlock(p) => p.hook.get_pos(parent_rect),
+            LayoutBlock::ImageBlock(p) => {
+                let mut pos = p.hook.get_pos(parent_rect);
+                pos.x += p.offset.x;
+                pos.y += p.offset.y;
+                pos
+            },
         };
 
         pos
+    }
+
+    pub fn predict_size(&self, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+        let size = match self {
+            LayoutBlock::NotificationBlock(p) => {
+                Rect::new(0.0, 0.0, 0.0, 0.0)
+            },
+            LayoutBlock::TextBlock(p) => {
+                let mut text = p.text.clone();
+                text = text.replace("%s", &window.notification.summary);
+                text = text.replace("%b", &window.notification.body);
+
+                let pos = self.find_anchor_pos(parent_rect);
+                window.text.get_string_rect(&p.parameters, &pos, &text)
+            },
+            LayoutBlock::ImageBlock(p) => {
+                let pos = self.find_anchor_pos(parent_rect);
+
+                Rect::new(
+                    pos.x,
+                    pos.y,
+                    p.width as f64 + p.padding.left + p.padding.right,
+                    p.height as f64 + p.padding.top + p.padding.bottom,
+                )
+            },
+        };
+
+        size
     }
 
     // Run a function on each element in the layout, optionally passing in the function's return value.
