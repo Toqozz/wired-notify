@@ -5,17 +5,14 @@ use winit::{
     dpi::{ LogicalSize, LogicalPosition },
 };
 
-use cairo::{Surface, Context, ImageSurface, Format};
+use cairo::{ Surface, Context };
 
-use crate::bus::dbus::DBusNotification;
-use crate::config::{ Config, LayoutBlock };
-use crate::types::maths::Rect;
+use crate::config::Config;
+use crate::rendering::layout::LayoutBlock;
+use crate::types::maths::{Rect, Vec2};
 use crate::rendering::text::TextRenderer;
 use crate::notification::Notification;
-use cairo::prelude::SurfaceExt;
-use cairo_sys::{self, cairo_image_surface_create_for_data};
-use image::{GenericImageView, DynamicImage, FilterType};
-use cairo::SurfaceType::Image;
+use cairo_sys;
 
 #[derive(Debug)]
 pub struct NotifyWindow<'config> {
@@ -30,6 +27,10 @@ pub struct NotifyWindow<'config> {
     pub text: TextRenderer,
 
     pub marked_for_destroy: bool,
+
+    // Master offset is used to offset all *elements* when drawing.
+    // It is useful when the notification expands in either left or top direction.
+    pub master_offset: Vec2,
 
     config: &'config Config,
 }
@@ -96,6 +97,7 @@ impl<'config> NotifyWindow<'config> {
             notification,
             text,
             marked_for_destroy: false,
+            master_offset: Vec2::default(),
             config,
         }
     }
@@ -128,99 +130,34 @@ impl<'config> NotifyWindow<'config> {
         Rect::new(0.0, 0.0, size.width, size.height)
     }
 
-    pub fn predict_size(&self) -> Rect {
-        // TODO: this should be cached?
-        let get_size = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
-            block.predict_size(parent_rect, &self)
-        };
-
-        let accumulator = |r1: &Rect, r2: &Rect| -> Rect {
-            r1.union(r2)
-        };
-
+    pub fn predict_size(&self) -> (Rect, Vec2) {
         let layout = &self.config.layout;
-        layout.traverse_accum(get_size, accumulator, &Rect::default(), &self.get_inner_rect())
-    }
+        let rect = layout.predict_rect_tree(&self, &self.get_inner_rect(), &Rect::default());
+        // If x or y are not 0, then we have to offset our drawing by that amount.
+        let delta = Vec2::new(rect.x(), rect.y());
 
-    fn draw_background(&self) {
-        let ctx = &self.context;
-        let rect = self.get_inner_rect();
-
-        // Clear
-        ctx.set_operator(cairo::Operator::Clear);
-        ctx.paint();
-
-        // Draw border + background.
-        ctx.set_operator(cairo::Operator::Source);
-
-        let bd_color = &self.config.border_color;
-        ctx.set_source_rgba(bd_color.r, bd_color.g, bd_color.b, bd_color.a);
-        ctx.paint();
-
-        let bg_color = &self.config.background_color;
-        let bw = &self.config.border_width;
-        ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
-        ctx.rectangle(
-            *bw, *bw,     // x, y
-            rect.width() - bw * 2.0, rect.height() - bw * 2.0,
-        );
-        ctx.fill();
+        (rect, delta)
     }
 
     pub fn draw(&mut self) {
-        self.draw_background();
-
-        let ctx = &self.context;
-
         let draw = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
-            match &block {
-                LayoutBlock::ImageBlock(p) => {
-                    if let Some(image) = &self.notification.image {
-                        let img = image.resize(p.width as u32, p.height as u32, FilterType::Nearest);
-                        let format = Format::ARgb32;
-
-                        let (width, height) = img.dimensions();
-                        let stride = Format::stride_for_width(format, width).expect("Failed to calculate image stride.");
-                        // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
-                        let pixels = img.to_bgra().into_raw();
-                        let image_sfc = ImageSurface::create_for_data(pixels, format, width as i32, height as i32, stride)
-                            .expect("Failed to create image surface.");
-
-                        let pos = block.find_anchor_pos(parent_rect);
-                        let rect = Rect::new(pos.x,
-                                                    pos.y,
-                                                 width as f64 + p.padding.left + p.padding.right,
-                                                height as f64 + p.padding.top + p.padding.bottom);
-
-                        ctx.set_source_surface(&image_sfc, pos.x + p.padding.left, pos.y + p.padding.top);
-                        ctx.rectangle(pos.x + p.padding.left, pos.y + p.padding.top, width as f64, height as f64);
-                        ctx.fill();
-
-                        rect
-                    } else {
-                        Rect::new(0.0, 0.0, 0.0, 0.0)
-                    }
-                }
-
-                LayoutBlock::TextBlock(p) => {
-                    // TODO: Some/None for summary/body?  We don't want to replace or even add the block if there is no body.
-                    let mut text = p.text.clone();
-                    text = text
-                        .replace("%s", &self.notification.summary)
-                        .replace("%b", &self.notification.body);
-
-                    let pos = block.find_anchor_pos(parent_rect);
-
-                    let text_color = &p.parameters.color;
-                    ctx.set_source_rgba(text_color.r, text_color.g, text_color.b, text_color.a);
-                    self.text.paint_string(ctx, &p.parameters, &pos, &text)
-                }
-
-                _ => Rect::new(0.0, 0.0, 0.0, 0.0)
+            let rect = block.draw_independent(parent_rect, &self);
+            // Draw debug rect around bounding box.
+            if self.config.debug {
+                self.context.set_source_rgba(1.0, 0.0, 0.0, 1.0);
+                self.context.set_line_width(1.0);
+                self.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
+                self.context.stroke();
             }
+
+            rect
         };
 
         let layout = &self.config.layout;
-        layout.traverse(draw, &self.get_inner_rect());
+        let mut inner_rect = self.get_inner_rect();
+        inner_rect.set_x(-self.master_offset.x);
+        inner_rect.set_y(-self.master_offset.y);
+        dbg!(&inner_rect);
+        layout.traverse(draw, &inner_rect);//&self.get_inner_rect());
     }
 }

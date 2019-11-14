@@ -22,8 +22,8 @@ impl fmt::Debug for Notification {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Notification: {{ summary: {}, body: {}, timeout: {}, fuse: {}",
-            self.summary, self.body, self.timeout, self.fuse
+            "Notification: {{ summary: {}, body: {}, image: {}, timeout: {}, fuse: {}",
+            self.summary, self.body, self.image.is_some(), self.timeout, self.fuse
         )
     }
 }

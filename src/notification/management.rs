@@ -6,9 +6,8 @@ use winit::{
 use crate::bus::dbus::DBusNotification;
 use crate::config::Config;
 use crate::rendering::window::NotifyWindow;
-use crate::types::maths::{Vec2, Rect};
-use crate::config::LayoutBlock::{self, NotificationBlock};
-use crate::config::AnchorPosition;
+use crate::types::maths::{Rect, Vec2};
+use crate::rendering::layout::LayoutBlock;
 use std::time::Duration;
 use crate::notification::Notification;
 
@@ -34,10 +33,12 @@ impl<'config> NotifyWindowManager<'config> {
     // Summon a new notification.
     pub fn new_notification(&mut self, dbus_notification: DBusNotification, el: &EventLoopWindowTarget<()>) {
         let notification = Notification::from_dbus(dbus_notification, self.config);
+        dbg!(&notification);
 
-        let window = NotifyWindow::new(&self.config, el, notification);
-        let rect = window.predict_size();
+        let mut window = NotifyWindow::new(&self.config, el, notification);
+        let (rect, delta) = window.predict_size();
         window.set_size(rect.width(),rect.height());
+        window.master_offset = delta;
 
         self.windows.push(window);
 
@@ -65,8 +66,8 @@ impl<'config> NotifyWindowManager<'config> {
     }
 
     fn update_positions(&mut self) {
-        if let NotificationBlock(parameters) = &self.config.layout {
-            let gap = &parameters.gap;
+        if let LayoutBlock::NotificationBlock(p) = &self.config.layout {
+            let gap = &p.gap;
             let monitor = self.config.monitor.as_ref().expect("No monitor defined.");
 
             let (pos, size) = (monitor.position(), monitor.size());
@@ -80,7 +81,7 @@ impl<'config> NotifyWindowManager<'config> {
                 window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
 
                 let window_rect = window.get_rect();
-                prev_pos = parameters.notification_hook.get_pos(&window_rect);
+                prev_pos = p.notification_hook.get_pos(&window_rect);
             }
         } else {
             // Panic because the config must have not been setup properly.

@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use std::ops;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Vec2 {
@@ -7,9 +6,19 @@ pub struct Vec2 {
     pub y: f64,
 }
 
+#[allow(dead_code)]
 impl Vec2 {
     pub fn new(x: f64, y: f64) -> Self {
         Vec2 { x, y }
+    }
+}
+
+impl Default for Vec2 {
+    fn default() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+        }
     }
 }
 
@@ -96,6 +105,14 @@ impl Rect {
     pub fn bottom_right(&self) -> Vec2 {
         Vec2 { x: self.right(), y: self.bottom() }
     }
+
+    pub fn mid_left(&self) -> Vec2 { Vec2 { x: self.left(), y: (self.bottom() + self.top()) / 2.0 } }
+
+    pub fn mid_right(&self) -> Vec2 { Vec2 { x: self.right(), y: (self.bottom() + self.top()) / 2.0 } }
+
+    pub fn mid_top(&self) -> Vec2 { Vec2 { x: (self.left() + self.right()) / 2.0, y: self.top() } }
+
+    pub fn mid_bottom(&self) -> Vec2 { Vec2 { x: (self.left() + self.right()) / 2.0, y: self.bottom() } }
 
     pub fn set_right(&mut self, right: f64) {
         self.x = right - self.width

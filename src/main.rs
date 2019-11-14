@@ -16,9 +16,8 @@ use winit::{
 
 use notification::management::NotifyWindowManager;
 use bus::dbus;
-use crate::config::LayoutBlock::NotificationBlock;
+use crate::rendering::layout::LayoutBlock;
 use winit::event::StartCause;
-use std::task::Context;
 use std::time::{Instant, Duration};
 
 fn main() {
@@ -28,13 +27,13 @@ fn main() {
     std::env::set_var("WINIT_HIDPI_FACTOR", "1.0");
 
     let mut event_loop = EventLoop::new();    // TODO: maybe use `EventsLoop::new_x11()` ?
-    let event_loop_proxy = event_loop.create_proxy();
+    //let event_loop_proxy = event_loop.create_proxy();
 
     let mut config: config::Config = ron::de::from_str(include_str!("config.ron"))
         .expect("Failed to load config.\n");
 
     // runtime config setup.
-    if let NotificationBlock(params) = &config.layout {
+    if let LayoutBlock::NotificationBlock(params) = &config.layout {
         config.monitor = Some(event_loop.available_monitors()
             .nth(params.monitor as usize)
             .unwrap_or(event_loop.primary_monitor()));
@@ -62,7 +61,6 @@ fn main() {
                 prev_instant = now;
 
                 manager.update(time_passed);
-                //manager.update_timers(time_passed);
 
                 // Check dbus signals.
                 let signal = connection.incoming(0).next();

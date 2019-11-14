@@ -3,9 +3,6 @@
     width: 1,
     height: 1,
 
-    border_width: 3,
-    background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
-    border_color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
 
     timeout: 10000,
     poll_interval: 16,
@@ -15,47 +12,52 @@
     scroll_speed: 1.0,
     bounce: false,
 
+    debug: false,
+
     layout: NotificationBlock (
         NotificationBlockParameters (
             monitor: 0,
             monitor_hook: TL,
             monitor_offset: Vec2(x: 7.0, y: 7.0),
+
+            border_width: 3,
+            background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
+            border_color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+
             gap: Vec2(x: 0.0, y: 8.0),
             notification_hook: BL,
             children: [
                 ImageBlock (
                     ImageBlockParameters (  // image block
                         hook: TL,
-                        offset: Vec2(x: 0.0, y: 0.0),
-                        padding: Padding(left: 7.0, right: 0.0, top: 7.0, bottom: 7.0),
+                        offset: Vec2(x: 7.0, y: 7.0),
+                        padding: Padding(left: 0.0, right: 7.0, top: 0.0, bottom: 7.0),
                         width: 64,
                         height: 64,
                         children: [
                             TextBlock (         // summary block
                                 TextBlockParameters (
-                                    text: "%s",
+                                    text: "<u>%s</u>",
                                     hook: TR,
-                                    parameters: TextParameters (
-                                        font: "Operator Mono 10",
-                                        color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
-                                        offset: Vec2(x: 0.0, y: 0.0),
-                                        padding: Padding(left: 7.0, right: 0.0, top: 5.0, bottom: 5.0),
-                                        max_width: 200,
-                                        max_height: 200,
-                                    ),
+                                    font: "Operator Mono 10",
+                                    color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+                                    offset: Vec2(x: 0.0, y: 0.0),
+                                    padding: Padding(left: 0.0, right: 7.0, top: 0.0, bottom: 0.0),
+                                    vertical_center: false,
+                                    max_width: 200,
+                                    max_height: 200,
                                     children: [
                                         TextBlock (         // body block
                                             TextBlockParameters (
                                                 text: "%b",
-                                                hook: TR,
-                                                parameters: TextParameters (
-                                                    font: "Operator Mono 9",
-                                                    color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
-                                                    offset: Vec2(x: 0.0, y: 0.0),
-                                                    padding: Padding(left: 14.0, right: 7.0, top: 5.0, bottom: 5.0),
-                                                    max_width: 200,
-                                                    max_height: 200,
-                                                ),
+                                                hook: BL,
+                                                font: "Operator Mono 10",
+                                                color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+                                                offset: Vec2(x: 0.0, y: 0.0),
+                                                padding: Padding(left: 0.0, right: 7.0, top: 0.0, bottom: 7.0),
+                                                vertical_center: false,
+                                                max_width: 200,
+                                                max_height: 200,
                                                 children: []
                                             ),
                                         )
