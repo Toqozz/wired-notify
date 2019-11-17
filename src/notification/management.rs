@@ -72,7 +72,8 @@ impl<'config> NotifyWindowManager<'config> {
 
             let (pos, size) = (monitor.position(), monitor.size());
             let monitor_rect = Rect::new(pos.x, pos.y, size.width, size.height);
-            let mut prev_pos = self.config.layout.find_anchor_pos(&monitor_rect);
+            //let mut prev_pos = self.config.layout.find_anchor_pos(&monitor_rect, &Rect::new(0.0, 0.0, 0.0, 0.0));
+            let mut prev_pos = monitor_rect.top_left().clone();
             prev_pos.x -= gap.x;
             prev_pos.y -= gap.y;
 

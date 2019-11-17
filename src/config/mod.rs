@@ -81,6 +81,16 @@ pub struct Color {
     pub a: f64,
 }
 
+impl Padding {
+    pub fn width(&self) -> f64 {
+        self.left + self.right
+    }
+
+    pub fn height(&self) -> f64 {
+        self.top + self.bottom
+    }
+}
+
 impl AnchorPosition {
     pub fn get_pos(&self, rect: &Rect) -> Vec2 {
         match self {

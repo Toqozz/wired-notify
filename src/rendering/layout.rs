@@ -16,7 +16,7 @@ pub enum LayoutBlock {
 #[derive(Debug, Deserialize)]
 pub struct NotificationBlockParameters {
     pub monitor: i32,
-    pub monitor_hook: AnchorPosition,
+    pub monitor_hook: (AnchorPosition, AnchorPosition),
     pub monitor_offset: Vec2,
 
     pub border_width: f64,
@@ -30,7 +30,7 @@ pub struct NotificationBlockParameters {
 
 #[derive(Debug, Deserialize)]
 pub struct TextBlockParameters {
-    pub hook: AnchorPosition,
+    pub hook: (AnchorPosition, AnchorPosition),
     pub offset: Vec2,
     pub padding: Padding,
     pub text: String,
@@ -45,7 +45,7 @@ pub struct TextBlockParameters {
 
 #[derive(Debug, Deserialize)]
 pub struct ImageBlockParameters {
-    pub hook: AnchorPosition,
+    pub hook: (AnchorPosition, AnchorPosition),
     // -1 to scale to size with aspect ratio kept?
     pub offset: Vec2,
     pub padding: Padding,
@@ -61,29 +61,43 @@ pub struct DeltaRect {
 
 impl LayoutBlock {
     // TODO: cleanup.
-    pub fn find_anchor_pos(&self, parent_rect: &Rect) -> Vec2 {
-        let pos = match self {
+    pub fn find_anchor_pos(&self, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
+        let mut anchor = match self {
             LayoutBlock::NotificationBlock(p) => {
-                let mut pos = p.monitor_hook.get_pos(parent_rect);
+                let mut pos = p.monitor_hook.0.get_pos(parent_rect);
                 pos.x += p.monitor_offset.x;
                 pos.y += p.monitor_offset.y;
                 pos
             }
             LayoutBlock::TextBlock(p) => {
-                let mut pos = p.hook.get_pos(parent_rect);
+                let mut pos = p.hook.0.get_pos(parent_rect);
                 pos.x += p.offset.x;
                 pos.y += p.offset.x;
                 pos
             },
             LayoutBlock::ImageBlock(p) => {
-                let mut pos = p.hook.get_pos(parent_rect);
+                let mut pos = p.hook.0.get_pos(parent_rect);
                 pos.x += p.offset.x;
                 pos.y += p.offset.y;
                 pos
             },
         };
 
-        pos
+        let offset = match self {
+            LayoutBlock::NotificationBlock(p) => {
+                p.monitor_hook.1.get_pos(self_rect)
+            }
+            LayoutBlock::TextBlock(p) => {
+                p.hook.1.get_pos(self_rect)
+            },
+            LayoutBlock::ImageBlock(p) => {
+                p.hook.1.get_pos(self_rect)
+            },
+        };
+
+        anchor.x -= offset.x;
+        anchor.y -= offset.y;
+        anchor
     }
 
     pub fn children(&self) -> &Vec<LayoutBlock> {
@@ -107,7 +121,15 @@ impl LayoutBlock {
                 text = text.replace("%s", &window.notification.summary);
                 text = text.replace("%b", &window.notification.body);
 
-                let pos = self.find_anchor_pos(parent_rect);
+                window.text.set_text(&text, &p.font, p.max_width, p.max_height);
+                let mut rect = window.text.get_rect(&p.padding);
+
+                let mut pos = self.find_anchor_pos(parent_rect, &rect);
+
+                rect.set_x(pos.x);
+                rect.set_y(pos.y);
+                rect
+                /*
                 window.text.get_string_rect(
                     &text,
                     &pos,
@@ -117,19 +139,22 @@ impl LayoutBlock {
                     p.max_width,
                     p.max_height,
                 )
+                */
             },
 
             LayoutBlock::ImageBlock(p) => {
                 if window.notification.image.is_some() {
-                    let pos = self.find_anchor_pos(parent_rect);
+                    let mut rect =
+                        Rect::new(0.0, 0.0, p.width as f64 + p.padding.width(), p.height as f64 + p.padding.height());
 
-                    Rect::new(
-                        pos.x - p.padding.left,
-                        pos.y - p.padding.top,
-                        p.width as f64 + p.padding.left + p.padding.right,
-                        p.height as f64 + p.padding.top + p.padding.bottom,
-                    )
+                    let pos = self.find_anchor_pos(parent_rect, &rect);
+
+                    rect.set_x(pos.x);
+                    rect.set_y(pos.y);
+
+                    rect
                 } else {
+                    // TODO: FIX FIX FIX.
                     Rect::new(0.0, 0.0, 0.0, 0.0)
                 }
             },
@@ -175,10 +200,21 @@ impl LayoutBlock {
                     .replace("%s", &window.notification.summary)
                     .replace("%b", &window.notification.body);
 
-                let pos = self.find_anchor_pos(parent_rect);
+                window.text.set_text(&text, &p.font, p.max_width, p.max_height);
+                let mut rect = window.text.get_rect(&p.padding);
 
+                let mut pos = self.find_anchor_pos(parent_rect, &rect);
+                pos.x += p.padding.left;
+                pos.y += p.padding.top;
+
+                window.text.paint(&window.context, &pos, &p.color);
+
+                rect.set_x(pos.x - p.padding.left);
+                rect.set_y(pos.y - p.padding.top);
+                rect
                 //let text_color = &p.color;
                 //window.context.set_source_rgba(text_color.r, text_color.g, text_color.b, text_color.a);
+                /*
                 window.text.paint_string(
                     &window.context,
                     &text,
@@ -190,6 +226,7 @@ impl LayoutBlock {
                     p.max_width,
                     p.max_height,
                 )
+                */
             }
 
             LayoutBlock::ImageBlock(p) => {
@@ -204,19 +241,21 @@ impl LayoutBlock {
                     let image_sfc = ImageSurface::create_for_data(pixels, format, p.width as i32, p.height as i32, stride)
                         .expect("Failed to create image surface.");
 
-                    let pos = self.find_anchor_pos(parent_rect);
+                    let mut rect = Rect::new(0.0, 0.0, p.width as f64 + p.padding.width(), p.height as f64 + p.padding.height());
 
-                    window.context.set_source_surface(&image_sfc, pos.x, pos.y);
-                    window.context.rectangle(pos.x, pos.y, p.width as f64, p.height as f64);
+                    let pos = self.find_anchor_pos(parent_rect, &rect);
+
+                    rect.set_x(pos.x);
+                    rect.set_y(pos.y);
+
+                    let (x, y) = (pos.x + p.padding.left, pos.y + p.padding.top);
+                    window.context.set_source_surface(&image_sfc, x, y);
+                    window.context.rectangle(x, y, p.width as f64, p.height as f64);
                     window.context.fill();
-
-                    let rect = Rect::new(
-                        pos.x - p.padding.left, pos.y - p.padding.top,
-                        p.width as f64 + p.padding.left + p.padding.right,
-                        p.height as f64 + p.padding.top + p.padding.bottom);
 
                     rect
                 } else {
+                    // TODO: need to get proper x/y pos so our future calculations arent off.
                     Rect::new(0.0, 0.0, 0.0, 0.0)
                 }
             }

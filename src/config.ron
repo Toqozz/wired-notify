@@ -12,12 +12,12 @@
     scroll_speed: 1.0,
     bounce: false,
 
-    debug: false,
+    debug: true,
 
     layout: NotificationBlock (
         NotificationBlockParameters (
             monitor: 0,
-            monitor_hook: TL,
+            monitor_hook: (TL, TL),
             monitor_offset: Vec2(x: 7.0, y: 7.0),
 
             border_width: 3,
@@ -29,20 +29,20 @@
             children: [
                 ImageBlock (
                     ImageBlockParameters (  // image block
-                        hook: TL,
-                        offset: Vec2(x: 7.0, y: 7.0),
-                        padding: Padding(left: 0.0, right: 7.0, top: 0.0, bottom: 7.0),
+                        hook: (TL, TL),
+                        offset: Vec2(x: 0.0, y: 0.0),
+                        padding: Padding(left: 7.0, right: 7.0, top: 7.0, bottom: 7.0),
                         width: 64,
                         height: 64,
                         children: [
                             TextBlock (         // summary block
                                 TextBlockParameters (
                                     text: "<u>%s</u>",
-                                    hook: TR,
+                                    hook: (MR, ML),
                                     font: "Operator Mono 10",
                                     color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
                                     offset: Vec2(x: 0.0, y: 0.0),
-                                    padding: Padding(left: 0.0, right: 7.0, top: 0.0, bottom: 0.0),
+                                    padding: Padding(left: 7.0, right: 7.0, top: 7.0, bottom: 7.0),
                                     vertical_center: false,
                                     max_width: 200,
                                     max_height: 200,
@@ -50,11 +50,11 @@
                                         TextBlock (         // body block
                                             TextBlockParameters (
                                                 text: "%b",
-                                                hook: BL,
+                                                hook: (MR, ML),
                                                 font: "Operator Mono 10",
                                                 color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
                                                 offset: Vec2(x: 0.0, y: 0.0),
-                                                padding: Padding(left: 0.0, right: 7.0, top: 0.0, bottom: 7.0),
+                                                padding: Padding(left: 7.0, right: 7.0, top: 7.0, bottom: 7.0),
                                                 vertical_center: false,
                                                 max_width: 200,
                                                 max_height: 200,
