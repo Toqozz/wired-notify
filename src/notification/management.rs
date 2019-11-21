@@ -6,7 +6,7 @@ use winit::{
 use crate::bus::dbus::DBusNotification;
 use crate::config::Config;
 use crate::rendering::window::NotifyWindow;
-use crate::types::maths::{Rect, Vec2};
+use crate::types::maths::Rect;
 use crate::rendering::layout::LayoutBlock;
 use std::time::Duration;
 use crate::notification::Notification;

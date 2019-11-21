@@ -1,4 +1,27 @@
 use serde::Deserialize;
+use crate::config::Padding;
+
+#[derive(Debug, Clone)]
+pub struct PaddedRect {
+    pub inner_rect: Rect,
+    pub outer_rect: Rect,
+}
+
+impl PaddedRect {
+    pub fn new(inner_rect: Rect, padding: &Padding) -> Self {
+        let outer_rect = Rect::new(
+            inner_rect.left() - padding.left,
+            inner_rect.top() - padding.top,
+            inner_rect.width() + padding.width(),
+            inner_rect.height() + padding.height(),
+        );
+
+        Self {
+            inner_rect,
+            outer_rect,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Vec2 {
@@ -63,6 +86,11 @@ impl Rect {
     }
 
     pub fn set_y(&mut self, y: f64) {
+        self.y = y;
+    }
+
+    pub fn set_xy(&mut self, x: f64, y: f64) {
+        self.x = x;
         self.y = y;
     }
 

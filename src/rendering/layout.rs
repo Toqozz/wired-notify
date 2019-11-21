@@ -36,7 +36,6 @@ pub struct TextBlockParameters {
     pub text: String,
     pub font: String,
     pub color: Color,
-    pub vertical_center: bool,
     pub max_width: i32,
     pub max_height: i32,
     //https://developer.gnome.org/pango/stable/pango-Markup.html
@@ -54,49 +53,28 @@ pub struct ImageBlockParameters {
     pub children: Vec<LayoutBlock>,
 }
 
-pub struct DeltaRect {
-    rect: Rect,
-    delta: Vec2,
-}
-
 impl LayoutBlock {
-    // TODO: cleanup.
     pub fn find_anchor_pos(&self, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
-        let mut anchor = match self {
-            LayoutBlock::NotificationBlock(p) => {
-                let mut pos = p.monitor_hook.0.get_pos(parent_rect);
-                pos.x += p.monitor_offset.x;
-                pos.y += p.monitor_offset.y;
-                pos
-            }
-            LayoutBlock::TextBlock(p) => {
-                let mut pos = p.hook.0.get_pos(parent_rect);
-                pos.x += p.offset.x;
-                pos.y += p.offset.x;
-                pos
-            },
-            LayoutBlock::ImageBlock(p) => {
-                let mut pos = p.hook.0.get_pos(parent_rect);
-                pos.x += p.offset.x;
-                pos.y += p.offset.y;
-                pos
-            },
+        let (hook, offset) = match self {
+            LayoutBlock::NotificationBlock(p) => (&p.monitor_hook, &p.monitor_offset),
+            LayoutBlock::TextBlock(p) => (&p.hook, &p.offset),
+            LayoutBlock::ImageBlock(p) => (&p.hook, &p.offset),
         };
 
-        let offset = match self {
-            LayoutBlock::NotificationBlock(p) => {
-                p.monitor_hook.1.get_pos(self_rect)
-            }
-            LayoutBlock::TextBlock(p) => {
-                p.hook.1.get_pos(self_rect)
-            },
-            LayoutBlock::ImageBlock(p) => {
-                p.hook.1.get_pos(self_rect)
-            },
-        };
+        let (parent_hook, self_hook) = hook;
+        // Get position of anchor in each rectangle (parent and self).
+        let mut anchor = parent_hook.get_pos(parent_rect);
+        let self_anchor = self_hook.get_pos(self_rect);
 
-        anchor.x -= offset.x;
-        anchor.y -= offset.y;
+        // To align the anchor of parent rect and self rect, we just need to move the parent anchor
+        //   by whatever the offset is for the self rect.
+        anchor.x -= self_anchor.x;
+        anchor.y -= self_anchor.y;
+
+        // The `offset` config option is just applied on top.
+        anchor.x += offset.x;
+        anchor.y += offset.y;
+
         anchor
     }
 
@@ -113,7 +91,8 @@ impl LayoutBlock {
     pub fn predict_rect_independent(&self, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         let size = match self {
             LayoutBlock::NotificationBlock(_) => {
-                Rect::new(0.0, 0.0, 0.0, 0.0)
+                parent_rect.clone()
+                //Rect::new(0.0, 0.0, 0.0, 0.0)
             },
 
             LayoutBlock::TextBlock(p) => {
@@ -124,38 +103,34 @@ impl LayoutBlock {
                 window.text.set_text(&text, &p.font, p.max_width, p.max_height);
                 let mut rect = window.text.get_rect(&p.padding);
 
-                let mut pos = self.find_anchor_pos(parent_rect, &rect);
+                let pos = self.find_anchor_pos(parent_rect, &rect);
 
-                rect.set_x(pos.x);
-                rect.set_y(pos.y);
+                rect.set_xy(pos.x, pos.y);
                 rect
-                /*
-                window.text.get_string_rect(
-                    &text,
-                    &pos,
-                    &p.padding,
-                    &p.font,
-                    p.vertical_center,
-                    p.max_width,
-                    p.max_height,
-                )
-                */
             },
 
             LayoutBlock::ImageBlock(p) => {
                 if window.notification.image.is_some() {
-                    let mut rect =
-                        Rect::new(0.0, 0.0, p.width as f64 + p.padding.width(), p.height as f64 + p.padding.height());
+                    let mut rect = Rect::new(
+                        0.0,
+                        0.0,
+                        p.width as f64 + p.padding.width(),
+                        p.height as f64 + p.padding.height(),
+                    );
 
                     let pos = self.find_anchor_pos(parent_rect, &rect);
 
-                    rect.set_x(pos.x);
-                    rect.set_y(pos.y);
+                    rect.set_xy(pos.x, pos.y);
 
                     rect
                 } else {
-                    // TODO: FIX FIX FIX.
-                    Rect::new(0.0, 0.0, 0.0, 0.0)
+                    let mut rect = Rect::new(0.0, 0.0, 0.0, 0.0);
+
+                    let pos = self.find_anchor_pos(parent_rect, &rect);
+
+                    rect.set_xy(pos.x, pos.y);
+
+                    rect
                 }
             },
         };
@@ -190,7 +165,6 @@ impl LayoutBlock {
 
                 // Base notification background doesn't actually take up space, so use same rect.
                 parent_rect.clone()
-                //Rect::new(0.0, 0.0, 0.0, 0.0)
             },
 
             LayoutBlock::TextBlock(p) => {
@@ -212,21 +186,6 @@ impl LayoutBlock {
                 rect.set_x(pos.x - p.padding.left);
                 rect.set_y(pos.y - p.padding.top);
                 rect
-                //let text_color = &p.color;
-                //window.context.set_source_rgba(text_color.r, text_color.g, text_color.b, text_color.a);
-                /*
-                window.text.paint_string(
-                    &window.context,
-                    &text,
-                    &pos,
-                    &p.padding,
-                    &p.font,
-                    &p.color,
-                    p.vertical_center,
-                    p.max_width,
-                    p.max_height,
-                )
-                */
             }
 
             LayoutBlock::ImageBlock(p) => {
@@ -255,8 +214,14 @@ impl LayoutBlock {
 
                     rect
                 } else {
+                    let mut rect = Rect::new(0.0, 0.0, 0.0, 0.0);
+
+                    let pos = self.find_anchor_pos(parent_rect, &rect);
+
+                    rect.set_xy(pos.x, pos.y);
+                    rect
                     // TODO: need to get proper x/y pos so our future calculations arent off.
-                    Rect::new(0.0, 0.0, 0.0, 0.0)
+                    //Rect::new(0.0, 0.0, 0.0, 0.0)
                 }
             }
         }

@@ -134,7 +134,7 @@ impl<'config> NotifyWindow<'config> {
         let layout = &self.config.layout;
         let rect = layout.predict_rect_tree(&self, &self.get_inner_rect(), &Rect::default());
         // If x or y are not 0, then we have to offset our drawing by that amount.
-        let delta = Vec2::new(rect.x(), rect.y());
+        let delta = Vec2::new(-rect.x(), -rect.y());
 
         (rect, delta)
     }
@@ -155,9 +155,12 @@ impl<'config> NotifyWindow<'config> {
 
         let layout = &self.config.layout;
         let mut inner_rect = self.get_inner_rect();
-        inner_rect.set_x(-self.master_offset.x);
-        inner_rect.set_y(-self.master_offset.y);
-        dbg!(&inner_rect);
+        // If the master offset is anything other than `(0.0, 0.0)` it means that one of the
+        //   blocks is going to expand the big rectangle leftwards and/or upwards, which would
+        //   cause blocks to be drawn off canvas.
+        //   To fix this, we offset the initial drawing rect to make sure everything fits in the
+        //   canvas.
+        inner_rect.set_xy(self.master_offset.x, self.master_offset.y);
         layout.traverse(draw, &inner_rect);//&self.get_inner_rect());
     }
 }
