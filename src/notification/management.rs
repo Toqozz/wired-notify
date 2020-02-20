@@ -33,11 +33,14 @@ impl<'config> NotifyWindowManager<'config> {
     // Summon a new notification.
     pub fn new_notification(&mut self, dbus_notification: DBusNotification, el: &EventLoopWindowTarget<()>) {
         let notification = Notification::from_dbus(dbus_notification, self.config);
-        dbg!(&notification);
 
         let mut window = NotifyWindow::new(&self.config, el, notification);
         let (rect, delta) = window.predict_size();
         window.set_size(rect.width(),rect.height());
+        //let pos = &self.config.layout.find_anchor_pos(&Rect::new(0., 0., 0., 0.), &rect);
+        //dbg!(&pos);
+        //window.set_position(pos.x, pos.y);
+    //pub fn find_anchor_pos(&self, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
         window.master_offset = delta;
 
         self.windows.push(window);
@@ -71,9 +74,9 @@ impl<'config> NotifyWindowManager<'config> {
             let monitor = self.config.monitor.as_ref().expect("No monitor defined.");
 
             let (pos, size) = (monitor.position(), monitor.size());
-            let monitor_rect = Rect::new(pos.x, pos.y, size.width, size.height);
-            //let mut prev_pos = self.config.layout.find_anchor_pos(&monitor_rect, &Rect::new(0.0, 0.0, 0.0, 0.0));
-            let mut prev_pos = monitor_rect.top_left().clone();
+            let monitor_rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
+            let mut prev_pos = self.config.layout.find_anchor_pos(&monitor_rect, &Rect::new(0.0, 0.0, 0.0, 0.0));
+            //let mut prev_pos = monitor_rect.top_left().clone();
             prev_pos.x -= gap.x;
             prev_pos.y -= gap.y;
 

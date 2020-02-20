@@ -120,14 +120,14 @@ impl<'config> NotifyWindow<'config> {
         let size = self.winit.inner_size();
         let pos = self.winit.outer_position().expect("Window no longer exists.");
 
-        Rect::new(pos.x, pos.y, size.width, size.height)
+        Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into())
     }
 
     // Pure rectangle, ignoring the window's position.
     pub fn get_inner_rect(&self) -> Rect {
         let size = self.winit.inner_size();
 
-        Rect::new(0.0, 0.0, size.width, size.height)
+        Rect::new(0.0, 0.0, size.width.into(), size.height.into())
     }
 
     pub fn predict_size(&self) -> (Rect, Vec2) {

@@ -24,7 +24,7 @@ fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
     // NOTE: currently there is a winit bug where this value doesn't apply if Xft.dpi is set in XResources.
     // This should be fixed in a future winit release, and maybe we can also avoid setting an environment variable here.
-    std::env::set_var("WINIT_HIDPI_FACTOR", "1.0");
+    std::env::set_var("WINIT_X11_SCALE_FACTOR", "1.0");
 
     let mut event_loop = EventLoop::new();    // TODO: maybe use `EventsLoop::new_x11()` ?
     //let event_loop_proxy = event_loop.create_proxy();
@@ -75,7 +75,7 @@ fn main() {
             },
 
             // Window becomes visible and then position is set.  Need fix.
-            Event::WindowEvent { window_id, event: WindowEvent::RedrawRequested, .. } => manager.draw_window(window_id),
+            Event::RedrawRequested(window_id) => manager.draw_window(window_id),
             Event::WindowEvent { window_id, event: WindowEvent::MouseInput { state: ElementState::Pressed,  button: MouseButton::Left, .. } } => manager.drop_window(window_id),
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
 
