@@ -47,18 +47,10 @@ pub struct Padding {
     pub bottom: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Offset {
     pub x: f64,
     pub y: f64,
-}
-
-#[derive(Debug, Deserialize)]
-pub enum FieldType {
-    Root,
-    Icon,
-    Summary,
-    Body,
 }
 
 #[derive(Debug, Deserialize, Clone)]

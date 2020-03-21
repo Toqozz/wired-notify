@@ -13,6 +13,7 @@ use crate::types::maths::{Rect, Vec2};
 use crate::rendering::text::TextRenderer;
 use crate::notification::Notification;
 use cairo_sys;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct NotifyWindow<'config> {
@@ -31,6 +32,10 @@ pub struct NotifyWindow<'config> {
     // Master offset is used to offset all *elements* when drawing.
     // It is useful when the notification expands in either left or top direction.
     pub master_offset: Vec2,
+
+    pub fuse: i32,
+
+    pub layout: LayoutBlock,
 
     config: &'config Config,
 }
@@ -59,10 +64,6 @@ impl<'config> NotifyWindow<'config> {
             .build(el)
             .expect("Couldn't build winit window.");
 
-        // @NOTE: does the window appear in a weird place, a weird size?  We should probably hide
-        // the window until it's marked clean.
-        //winit.set_outer_position(LogicalPosition { x: config.x as f64, y: config.y as f64 });
-
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
         let xlib_display = winit.xlib_display().expect("Couldn't get xlib display.");
@@ -89,6 +90,10 @@ impl<'config> NotifyWindow<'config> {
 
         let text = TextRenderer::new(&context);
 
+        let timeout = notification.timeout;
+
+        dbg!(std::mem::size_of_val(&config.layout));
+
         // TODO: return Result? sometimes.
         Self {
             context,
@@ -98,14 +103,18 @@ impl<'config> NotifyWindow<'config> {
             text,
             marked_for_destroy: false,
             master_offset: Vec2::default(),
+            fuse: timeout,
+            layout: config.layout.clone(),
             config,
         }
     }
 
     pub fn set_position(&self, x: f64, y: f64) {
         self.winit.set_outer_position(LogicalPosition { x, y });
-        // TODO: only do this once?
-        self.winit.set_visible(true);
+    }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.winit.set_visible(visible);
     }
 
     pub fn set_size(&self, width: f64, height: f64) {
@@ -153,14 +162,31 @@ impl<'config> NotifyWindow<'config> {
             rect
         };
 
-        let layout = &self.config.layout;
+        //let layout = &self.layout;
         let mut inner_rect = self.get_inner_rect();
         // If the master offset is anything other than `(0.0, 0.0)` it means that one of the
-        //   blocks is going to expand the big rectangle leftwards and/or upwards, which would
-        //   cause blocks to be drawn off canvas.
-        //   To fix this, we offset the initial drawing rect to make sure everything fits in the
-        //   canvas.
+        // blocks is going to expand the big rectangle leftwards and/or upwards, which would
+        // cause blocks to be drawn off canvas.
+        // To fix this, we offset the initial drawing rect to make sure everything fits in the
+        // canvas.
         inner_rect.set_xy(self.master_offset.x, self.master_offset.y);
-        layout.traverse(draw, &inner_rect);//&self.get_inner_rect());
+        self.layout.traverse(draw, &inner_rect);//&self.get_inner_rect());
+    }
+
+    pub fn update(&mut self, delta_time: Duration) -> bool {
+        let dirty = self.layout.traverse_update(delta_time);
+        if dirty {
+            self.winit.request_redraw();
+            //self.draw();
+        }
+
+        self.fuse -= delta_time.as_millis() as i32;
+        if self.fuse <= 0 {
+            // Window will be destroyed after others have been repositioned to replace it.
+            self.marked_for_destroy = true;
+            return true
+        }
+
+        false
     }
 }

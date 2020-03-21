@@ -16,7 +16,7 @@ use winit::{
 
 use notification::management::NotifyWindowManager;
 use bus::dbus;
-use crate::rendering::layout::LayoutBlock;
+use crate::rendering::layout::LayoutElement;
 use winit::event::StartCause;
 use std::time::{Instant, Duration};
 
@@ -33,7 +33,7 @@ fn main() {
         .expect("Failed to load config.\n");
 
     // runtime config setup.
-    if let LayoutBlock::NotificationBlock(params) = &config.layout {
+    if let LayoutElement::NotificationBlock(params) = &config.layout.params {
         config.monitor = Some(event_loop.available_monitors()
             .nth(params.monitor as usize)
             .unwrap_or(event_loop.primary_monitor()));

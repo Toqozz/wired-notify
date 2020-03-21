@@ -14,16 +14,14 @@ pub struct Notification {
     pub image: Option<DynamicImage>,
 
     pub timeout: i32,
-
-    pub fuse: i32,
 }
 
 impl fmt::Debug for Notification {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Notification: {{ summary: {}, body: {}, image: {}, timeout: {}, fuse: {}",
-            self.summary, self.body, self.image.is_some(), self.timeout, self.fuse
+            "Notification: {{ summary: {}, body: {}, image: {}, timeout: {}",
+            self.summary, self.body, self.image.is_some(), self.timeout,
         )
     }
 }
@@ -45,8 +43,6 @@ impl Notification {
 
             image,
             timeout,
-
-            fuse: timeout,
         }
     }
 }

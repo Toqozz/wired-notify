@@ -171,3 +171,12 @@ impl Default for Rect {
     }
 }
 
+pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    return (1.0 - t) * a + t * b;
+}
+
+pub fn clamp(mut val: f64, min: f64, max: f64) -> f64 {
+    if val < min { val = min }
+    if val > max { val = max }
+    val
+}

@@ -7,7 +7,7 @@ use crate::bus::dbus::DBusNotification;
 use crate::config::Config;
 use crate::rendering::window::NotifyWindow;
 use crate::types::maths::Rect;
-use crate::rendering::layout::LayoutBlock;
+use crate::rendering::layout::{LayoutElement, LayoutBlock};
 use std::time::Duration;
 use crate::notification::Notification;
 
@@ -49,47 +49,59 @@ impl<'config> NotifyWindowManager<'config> {
         self.dirty = true;
     }
 
-    pub fn update(&mut self, delta_t: Duration) {
-        self.update_timers(delta_t);
+    pub fn update(&mut self, delta_time: Duration) {
+        for window in &mut self.windows {
+            self.dirty |= window.update(delta_time);
+        }
+
         if self.dirty {
             self.update_positions();
+            // Finally drop windows.
             self.windows.retain(|w| !w.marked_for_destroy);
         }
     }
 
-    fn update_timers(&mut self, time_passed: Duration) {
-        for window in &mut self.windows {
-            window.notification.fuse -= time_passed.as_millis() as i32;
-            if window.notification.fuse < 0 {
-                // Window will be destroyed after others have been repositioned to replace it.
-                window.marked_for_destroy = true;
-                self.dirty = true;
-            }
-        }
-    }
-
     fn update_positions(&mut self) {
-        if let LayoutBlock::NotificationBlock(p) = &self.config.layout {
+        if let LayoutElement::NotificationBlock(p) = &self.config.layout.params {
             let gap = &p.gap;
             let monitor = self.config.monitor.as_ref().expect("No monitor defined.");
 
             let (pos, size) = (monitor.position(), monitor.size());
             let monitor_rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
-            let mut prev_pos = self.config.layout.find_anchor_pos(&monitor_rect, &Rect::new(0.0, 0.0, 0.0, 0.0));
+            let hook = &self.config.layout.hook;
+            let offset = &self.config.layout.offset;
+
+            let mut prev_pos = LayoutBlock::find_anchor_pos(
+                hook,
+                offset,
+                &monitor_rect,
+                &Rect::new(0.0, 0.0, 0.0, 0.0)
+            );
             //let mut prev_pos = monitor_rect.top_left().clone();
             prev_pos.x -= gap.x;
             prev_pos.y -= gap.y;
 
-            // Windows which are marked for destroy should be overlapped so that destroying them will be less noticeable.
-            for window in self.windows.iter().filter(|w| !w.marked_for_destroy) {
-                window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
+            // Windows which are marked for destroy should be overlapped so that destroying them
+            // will be less noticeable.
+            for i in 0..self.windows.len() {
+                let window = &self.windows[i];
 
-                let window_rect = window.get_rect();
+                if window.marked_for_destroy {
+                    continue;
+                }
+
+                // Warning: `set_position` doesn't happen instantly.  If we read
+                // `window_rect`s position straight after this call it probably won't be correct.
+                window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
+                window.set_visible(true);
+
+                let mut window_rect = window.get_inner_rect();
+                window_rect.set_xy(prev_pos.x + gap.x, prev_pos.y + gap.y);
                 prev_pos = p.notification_hook.get_pos(&window_rect);
             }
         } else {
             // Panic because the config must have not been setup properly.
-            panic!("The root LayoutBlock must be a NotificationBlock!");
+            panic!("The root LayoutElement must be a NotificationBlock!");
         }
 
         // Outer state is now up to date with internal state.
@@ -97,25 +109,14 @@ impl<'config> NotifyWindowManager<'config> {
     }
 
     pub fn drop_window(&mut self, window_id: WindowId) {
-        self.windows.retain(|w| w.winit.id() != window_id);
-        self.dirty = true;
+        for window in &mut self.windows {
+            if window.winit.id() == window_id {
+                window.marked_for_destroy = true;
+                self.dirty = true;
 
-        /*
-        let index = self.windows.iter().position(|w| w.winit.id() == window_id);
-        if let Some(idx) = index {
-            //let win = self.windows.remove(idx);
-            self.windows.remove(idx);
-            // @IMPORTANT: Panics caused by not dropping both of these:
-            // `Failed to lookup raw keysm: XError { ... }`.
-            // `Failed to destroy input context: XError { ... }`.
-            //
-            // @TODO: figure out why this happens and maybe file a bug report?
-            // Maybe it's because they use the window handle? semi-race condition?  maybe they drop
-            // the drawable for us without winit realising?
-            //drop(win.context);
-            //drop(win.surface);
+                break;
+            }
         }
-        */
     }
 
     // This feels heavy.
