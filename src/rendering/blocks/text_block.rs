@@ -21,7 +21,7 @@ pub struct TextBlockParameters {
 }
 
 impl DrawableLayoutElement for TextBlockParameters {
-    fn draw_independent(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         // TODO: Some/None for summary/body?  We don't want to replace or even add the block if there is no body.
         let mut text = self.text.clone();
         text = text
@@ -32,17 +32,19 @@ impl DrawableLayoutElement for TextBlockParameters {
         let mut rect = window.text.get_rect(&self.padding);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
+
+        // Move block to text position (ignoring padding) for draw operation.
         pos.x += self.padding.left;
         pos.y += self.padding.top;
-
         window.text.paint(&window.context, &pos, &self.color);
+        pos.x -= self.padding.left;
+        pos.y -= self.padding.top;
 
-        rect.set_x(pos.x - self.padding.left);
-        rect.set_y(pos.y - self.padding.top);
+        rect.set_xy(pos.x, pos.y);
         rect
     }
 
-    fn predict_rect_independent(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         let mut text = self.text.clone();
         text = text
             .replace("%s", &window.notification.summary)

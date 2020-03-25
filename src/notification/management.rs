@@ -35,13 +35,13 @@ impl<'config> NotifyWindowManager<'config> {
         let notification = Notification::from_dbus(dbus_notification, self.config);
 
         let mut window = NotifyWindow::new(&self.config, el, notification);
-        let (rect, delta) = window.predict_size();
-        window.set_size(rect.width(),rect.height());
+        //let (rect, delta) = window.predict_size();
+        //window.set_size(rect.width(),rect.height());
         //let pos = &self.config.layout.find_anchor_pos(&Rect::new(0., 0., 0., 0.), &rect);
         //dbg!(&pos);
         //window.set_position(pos.x, pos.y);
     //pub fn find_anchor_pos(&self, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
-        window.master_offset = delta;
+        //window.master_offset = delta;
 
         self.windows.push(window);
 
@@ -68,12 +68,10 @@ impl<'config> NotifyWindowManager<'config> {
 
             let (pos, size) = (monitor.position(), monitor.size());
             let monitor_rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
-            let hook = &self.config.layout.hook;
-            let offset = &self.config.layout.offset;
 
             let mut prev_pos = LayoutBlock::find_anchor_pos(
-                hook,
-                offset,
+                &self.config.layout.hook,
+                &self.config.layout.offset,
                 &monitor_rect,
                 &Rect::new(0.0, 0.0, 0.0, 0.0)
             );

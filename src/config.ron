@@ -41,7 +41,7 @@
                         hook: Hook(parent_hook: TR, self_hook: TL),
                         offset: Vec2(x: 0.0, y: 0.0),
                         params: TextBlock(TextBlockParameters(
-                            text: "<b>%s</b>",
+                            text: "%s",
                             font: "Operator Mono 10",
                             color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
                             padding: Padding(left: 7.0, right: 7.0, top: 7.0, bottom: 4.0),
@@ -58,12 +58,15 @@
                                     color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
                                     padding: Padding(left: 7.0, right: 7.0, top: 0.0, bottom: 7.0),
                                     max_width: 300,
-                                    scroll_speed: 0.1,
-                                    scroll_t: 0.0,
+                                    scroll_speed: 0.4,
+                                    lhs_dist: 10.0,
+                                    rhs_dist: 10.0,
+                                    bounce: true,
+                                    scroll_t: 1.0,
                                 )),
                                 children: [],
                             )
-                        ]
+                        ],
                     ),
                 ],
             ),

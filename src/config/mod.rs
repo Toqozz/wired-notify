@@ -74,10 +74,18 @@ pub struct Color {
 }
 
 impl Padding {
+    pub fn new(left: f64, right: f64, top: f64, bottom: f64) -> Self {
+        Padding {
+            left,
+            right,
+            top,
+            bottom,
+        }
+    }
+
     pub fn width(&self) -> f64 {
         self.left + self.right
     }
-
     pub fn height(&self) -> f64 {
         self.top + self.bottom
     }

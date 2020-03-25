@@ -25,7 +25,7 @@ pub struct NotificationBlockParameters {
 }
 
 impl DrawableLayoutElement for NotificationBlockParameters {
-    fn draw_independent(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         // Clear
         window.context.set_operator(cairo::Operator::Clear);
         window.context.paint();
@@ -50,7 +50,7 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         parent_rect.clone()
     }
 
-    fn predict_rect_independent(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         parent_rect.clone()
     }
 }

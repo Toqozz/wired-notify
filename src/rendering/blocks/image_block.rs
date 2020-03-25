@@ -18,7 +18,7 @@ pub struct ImageBlockParameters {
 }
 
 impl DrawableLayoutElement for ImageBlockParameters {
-    fn draw_independent(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         if let Some(image) = &window.notification.image {
             let img = image.resize(self.width as u32, self.height as u32, FilterType::Nearest);
             let format = cairo::Format::ARgb32;
@@ -32,8 +32,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
 
             let mut rect = Rect::new(0.0, 0.0, self.width as f64 + self.padding.width(), self.height as f64 + self.padding.height());
             let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
-            rect.set_x(pos.x);
-            rect.set_y(pos.y);
+            rect.set_xy(pos.x, pos.y);
 
             let (x, y) = (pos.x + self.padding.left, pos.y + self.padding.top);
             window.context.set_source_surface(&image_sfc, x, y);
@@ -49,7 +48,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
         }
     }
 
-    fn predict_rect_independent(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         if window.notification.image.is_some() {
             let mut rect = Rect::new(
                 0.0,

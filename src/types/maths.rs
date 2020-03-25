@@ -150,13 +150,25 @@ impl Rect {
         self.y = bottom - self.height
     }
 
-    pub fn union(&self, other: &Rect) -> Rect {
+    pub fn union_new(&self, other: &Rect) -> Rect {
         let x = f64::min(self.x(), other.x());
         let y = f64::min(self.y(), other.y());
         let r = f64::max(self.right(), other.right());
         let b = f64::max(self.bottom(), other.bottom());
 
         Rect::new(x, y, r - x, b - y)
+    }
+
+    pub fn union(mut self, other: &Rect) -> Rect {
+        let x = f64::min(self.x(), other.x());
+        let y = f64::min(self.y(), other.y());
+        let r = f64::max(self.right(), other.right());
+        let b = f64::max(self.bottom(), other.bottom());
+
+        self.set_xy(x, y);
+        self.set_width(r - x);
+        self.set_height(b - y);
+        self
     }
 }
 
@@ -171,6 +183,7 @@ impl Default for Rect {
     }
 }
 
+// Non-clamped lerp.
 pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
     return (1.0 - t) * a + t * b;
 }
@@ -179,4 +192,12 @@ pub fn clamp(mut val: f64, min: f64, max: f64) -> f64 {
     if val < min { val = min }
     if val > max { val = max }
     val
+}
+
+pub fn distance(x: f64, y: f64) -> f64 {
+    if x > y {
+        (x - y).abs()
+    } else {
+        (y - x).abs()
+    }
 }

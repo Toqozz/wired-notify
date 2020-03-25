@@ -21,35 +21,23 @@ pub struct NotifyWindow<'config> {
     // window is dropped.
     pub context: Context,
     pub surface: Surface,
+    pub text: TextRenderer,
 
     pub winit: Window,
     pub notification: Notification,
 
-    pub text: TextRenderer,
+    pub layout: Option<LayoutBlock>,
 
     pub marked_for_destroy: bool,
-
     // Master offset is used to offset all *elements* when drawing.
     // It is useful when the notification expands in either left or top direction.
     pub master_offset: Vec2,
-
     pub fuse: i32,
-
-    pub layout: LayoutBlock,
 
     config: &'config Config,
 }
 
-/*
-impl Drop for NotifyWindow<'_> {
-    fn drop(&mut self) {
-        // Setting these to None causes them to be dropped.
-        // This is a workaround for not being able to call drop! on them.
-        self.context = None;
-        self.surface = None;
-    }
-}
-*/
+use crate::rendering::layout::DrawableLayoutElement;
 
 impl<'config> NotifyWindow<'config> {
     pub fn new(config: &'config Config, el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
@@ -87,26 +75,39 @@ impl<'config> NotifyWindow<'config> {
         };
 
         let context = cairo::Context::new(&surface);
-
         let text = TextRenderer::new(&context);
+        let fuse = notification.timeout;
 
-        let timeout = notification.timeout;
-
-        dbg!(std::mem::size_of_val(&config.layout));
-
-        // TODO: return Result? sometimes.
-        Self {
+        let mut window = Self {
             context,
             surface,
+            text,
             winit,
             notification,
-            text,
+            layout: None,
             marked_for_destroy: false,
             master_offset: Vec2::default(),
-            fuse: timeout,
-            layout: config.layout.clone(),
+            fuse,
             config,
-        }
+        };
+
+        let mut layout = config.layout.clone();
+        //layout.traverse_init(&window);
+        let rect = layout.predict_rect_tree(&window, &window.get_inner_rect(), Rect::default());
+        let delta = Vec2::new(-rect.x(), -rect.y());
+
+        window.layout = Some(layout);
+        window.set_size(rect.width(), rect.height());
+        window.master_offset = delta;
+        window
+    }
+
+    pub fn layout(&self) -> &LayoutBlock {
+        self.layout.as_ref().unwrap()
+    }
+
+    pub fn layout_mut(&mut self) -> &mut LayoutBlock {
+        self.layout.as_mut().unwrap()
     }
 
     pub fn set_position(&self, x: f64, y: f64) {
@@ -139,30 +140,18 @@ impl<'config> NotifyWindow<'config> {
         Rect::new(0.0, 0.0, size.width.into(), size.height.into())
     }
 
+    /*
     pub fn predict_size(&self) -> (Rect, Vec2) {
-        let layout = &self.config.layout;
+        let layout = self.layout();
         let rect = layout.predict_rect_tree(&self, &self.get_inner_rect(), &Rect::default());
         // If x or y are not 0, then we have to offset our drawing by that amount.
         let delta = Vec2::new(-rect.x(), -rect.y());
 
         (rect, delta)
     }
+    */
 
     pub fn draw(&mut self) {
-        let draw = |block: &LayoutBlock, parent_rect: &Rect| -> Rect {
-            let rect = block.draw_independent(parent_rect, &self);
-            // Draw debug rect around bounding box.
-            if self.config.debug {
-                self.context.set_source_rgba(1.0, 0.0, 0.0, 1.0);
-                self.context.set_line_width(1.0);
-                self.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
-                self.context.stroke();
-            }
-
-            rect
-        };
-
-        //let layout = &self.layout;
         let mut inner_rect = self.get_inner_rect();
         // If the master offset is anything other than `(0.0, 0.0)` it means that one of the
         // blocks is going to expand the big rectangle leftwards and/or upwards, which would
@@ -170,11 +159,11 @@ impl<'config> NotifyWindow<'config> {
         // To fix this, we offset the initial drawing rect to make sure everything fits in the
         // canvas.
         inner_rect.set_xy(self.master_offset.x, self.master_offset.y);
-        self.layout.traverse(draw, &inner_rect);//&self.get_inner_rect());
+        self.layout().draw_tree(self, &inner_rect, Rect::default());
     }
 
     pub fn update(&mut self, delta_time: Duration) -> bool {
-        let dirty = self.layout.traverse_update(delta_time);
+        let dirty = self.layout_mut().update_tree(delta_time);
         if dirty {
             self.winit.request_redraw();
             //self.draw();
