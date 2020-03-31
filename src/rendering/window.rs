@@ -37,8 +37,6 @@ pub struct NotifyWindow<'config> {
     config: &'config Config,
 }
 
-use crate::rendering::layout::DrawableLayoutElement;
-
 impl<'config> NotifyWindow<'config> {
     pub fn new(config: &'config Config, el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
         let (width, height) = (config.width, config.height);
@@ -126,7 +124,7 @@ impl<'config> NotifyWindow<'config> {
     }
 
     // Positioned rect on the desktop.
-    pub fn get_rect(&self) -> Rect {
+    pub fn _get_rect(&self) -> Rect {
         let size = self.winit.inner_size();
         let pos = self.winit.outer_position().expect("Window no longer exists.");
 

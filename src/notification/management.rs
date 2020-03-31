@@ -34,22 +34,15 @@ impl<'config> NotifyWindowManager<'config> {
     pub fn new_notification(&mut self, dbus_notification: DBusNotification, el: &EventLoopWindowTarget<()>) {
         let notification = Notification::from_dbus(dbus_notification, self.config);
 
-        let mut window = NotifyWindow::new(&self.config, el, notification);
-        //let (rect, delta) = window.predict_size();
-        //window.set_size(rect.width(),rect.height());
-        //let pos = &self.config.layout.find_anchor_pos(&Rect::new(0., 0., 0., 0.), &rect);
-        //dbg!(&pos);
-        //window.set_position(pos.x, pos.y);
-    //pub fn find_anchor_pos(&self, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
-        //window.master_offset = delta;
-
-        self.windows.push(window);
+        self.windows.push(NotifyWindow::new(&self.config, el, notification));
 
         // Outer state is now out of sync with internal state because we have an invisible notification.
         self.dirty = true;
     }
 
     pub fn update(&mut self, delta_time: Duration) {
+        // Returning dirty from a window update means the window has been deleted / needs
+        // positioning updated.
         for window in &mut self.windows {
             self.dirty |= window.update(delta_time);
         }
@@ -129,7 +122,7 @@ impl<'config> NotifyWindowManager<'config> {
     }
 
     // Draw all windows.
-    pub fn draw_windows(&mut self) {
+    pub fn _draw_windows(&mut self) {
         for window in &mut self.windows {
             window.draw();
         }

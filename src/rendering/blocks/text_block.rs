@@ -1,10 +1,8 @@
 use serde::Deserialize;
 
-use crate::types::maths::{self, Vec2, Rect};
-use crate::config::{Padding, Color, AnchorPosition};
+use crate::types::maths::{Vec2, Rect};
+use crate::config::{Padding, Color};
 use crate::rendering::window::NotifyWindow;
-use image::{FilterType, GenericImageView};
-use cairo::ImageSurface;
 use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
 
 #[derive(Debug, Deserialize, Clone)]

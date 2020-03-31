@@ -6,7 +6,7 @@ use pango::prelude::*;
 use pango::Layout;
 use pango::FontDescription;
 
-use crate::types::maths::{ Rect, Vec2, PaddedRect };
+use crate::types::maths::{ Rect, Vec2 };
 
 #[derive(Debug)]
 pub struct TextRenderer {

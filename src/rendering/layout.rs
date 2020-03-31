@@ -7,10 +7,9 @@ use crate::rendering::blocks::scrolling_text_block::ScrollingTextBlockParameters
 use crate::rendering::blocks::image_block::ImageBlockParameters;
 
 use crate::types::maths::{ Vec2, Rect };
-use crate::config::{ Padding, Color, AnchorPosition };
+use crate::config::{ AnchorPosition };
 use crate::rendering::window::NotifyWindow;
 use std::time::Duration;
-use std::borrow::Borrow;
 
 #[derive(Debug, Deserialize)]
 pub struct LayoutBlock {
@@ -103,6 +102,7 @@ impl LayoutBlock {
     }
 
     // Run a function on each element in the layout, optionally passing in the function's return value.
+    /*
     pub fn traverse<T, F: Copy>(&self, func: F, pass: &T)
         where F: Fn(&Self, &T) -> T {
 
@@ -113,6 +113,7 @@ impl LayoutBlock {
             elem.traverse(func, &result);
         }
     }
+    */
 
     pub fn draw_tree(&self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
         // Draw debug rect around bounding box.
@@ -131,7 +132,6 @@ impl LayoutBlock {
 
         for child in &self.children {
             acc_rect = child.draw_tree(window, &rect, acc_rect);
-            //acc_rect = acc_rect.union(&child_rect);
         }
 
         acc_rect
@@ -148,7 +148,6 @@ impl LayoutBlock {
         // Recursively get child rects.
         for child in &mut self.children {
             acc_rect = child.predict_rect_tree(window, &rect, acc_rect);
-            //acc_rect = acc_rect.union(&child_rect);
         }
 
         acc_rect
@@ -157,7 +156,6 @@ impl LayoutBlock {
     pub fn update_tree(&mut self, delta_time: Duration) -> bool {
         let mut dirty = self.params.update(delta_time);
         for elem in &mut self.children {
-            //let result = func(elem, pass);
             dirty |= elem.update_tree(delta_time);
         }
 
@@ -168,5 +166,5 @@ impl LayoutBlock {
 pub trait DrawableLayoutElement {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn update(&mut self, delta_time: Duration) -> bool { false }
+    fn update(&mut self, _delta_time: Duration) -> bool { false }
 }

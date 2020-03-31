@@ -3,14 +3,8 @@
     width: 1,
     height: 1,
 
-
     timeout: 10000,
     poll_interval: 6,
-
-    font: "Operator Mono 9",
-
-    scroll_speed: 1.0,
-    bounce: false,
 
     debug: false,
 
@@ -25,7 +19,6 @@
 
             gap: Vec2(x: 0.0, y: 8.0),
             notification_hook: BL,
-            t: 0.0,
         )),
         children: [
             LayoutBlock (
@@ -61,7 +54,6 @@
                                     scroll_speed: 0.4,
                                     lhs_dist: 10.0,
                                     rhs_dist: 10.0,
-                                    bounce: true,
                                     scroll_t: 1.0,
                                 )),
                                 children: [],

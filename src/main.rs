@@ -1,4 +1,5 @@
 extern crate winit;
+extern crate dirs;
 //extern crate gl;
 
 mod rendering;
@@ -20,6 +21,34 @@ use crate::rendering::layout::LayoutElement;
 use winit::event::StartCause;
 use std::time::{Instant, Duration};
 
+use std::cell::RefCell;
+
+thread_local!(
+    //static CONFIG: RefCell<config::Config> = RefCell::new(ron::de::from_str());
+);
+
+fn load_config() -> config::Config {
+    let cfg: config::Config;
+
+    if let Some(mut cfg_path) = dirs::config_dir() {
+        cfg_path.push("wiry/config.ron");
+        if let Ok(cfg_string) = std::fs::read_to_string(cfg_path) {
+            cfg = ron::de::from_str(cfg_string.as_str())
+                .expect("Found a config, but failed to read it.\n");
+        } else {
+            // TODO: print config dir.
+            println!("Couldn't find a config file; using default config.");
+            cfg = config::Config::default();
+        }
+    } else {
+        // TODO: print config dir we searched.
+        println!("Couldn't find a config directory; using default config.");
+        cfg = config::Config::default();
+    }
+
+    cfg
+}
+
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
     // NOTE: currently there is a winit bug where this value doesn't apply if Xft.dpi is set in XResources.
@@ -29,8 +58,11 @@ fn main() {
     let mut event_loop = EventLoop::new();    // TODO: maybe use `EventsLoop::new_x11()` ?
     //let event_loop_proxy = event_loop.create_proxy();
 
+    /*
     let mut config: config::Config = ron::de::from_str(include_str!("config.ron"))
         .expect("Failed to load config.\n");
+    */
+    let mut config = load_config();
 
     // runtime config setup.
     if let LayoutElement::NotificationBlock(params) = &config.layout.params {
@@ -65,7 +97,7 @@ fn main() {
                 // Check dbus signals.
                 let signal = connection.incoming(0).next();
                 if let Some(s) = signal {
-                    dbg!(s);
+                    //dbg!(s);
                 }
 
                 if let Ok(x) = receiver.try_recv() {

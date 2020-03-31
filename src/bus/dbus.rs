@@ -3,6 +3,7 @@ use std::sync::mpsc::{self, Receiver};
 
 use dbus;
 use dbus::tree::{ self, DataType, Interface, Factory, Tree };
+use dbus::ffidisp::{Connection, BusType, NameFlag};
 
 use super::receiver::BusNotification;
 use super::dbus_codegen::org_freedesktop_notifications_server;
@@ -39,19 +40,19 @@ fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TD
     tree
 }
 
-pub fn init_bus(sender: mpsc::Sender<DBusNotification>) -> dbus::Connection {
+pub fn init_bus(sender: mpsc::Sender<DBusNotification>) -> Connection {
     let iface = create_iface(sender);
     let tree = create_tree(iface);
 
-    let c = dbus::Connection::get_private(dbus::BusType::Session).expect("Failed to get a session bus.");
-    c.register_name("org.freedesktop.Notifications", dbus::NameFlag::ReplaceExisting as u32).expect("Failed to register name.");
+    let c = Connection::get_private(BusType::Session).expect("Failed to get a session bus.");
+    c.register_name("org.freedesktop.Notifications", NameFlag::ReplaceExisting as u32).expect("Failed to register name.");
     tree.set_registered(&c, true).unwrap();
 
     c.add_handler(tree);
     c
 }
 
-pub fn get_connection() -> (dbus::Connection, Receiver<DBusNotification>) {
+pub fn get_connection() -> (Connection, Receiver<DBusNotification>) {
     let (sender, receiver) = mpsc::channel();
     let c = init_bus(sender);
     (c, receiver)

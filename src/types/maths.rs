@@ -29,7 +29,6 @@ pub struct Vec2 {
     pub y: f64,
 }
 
-#[allow(dead_code)]
 impl Vec2 {
     pub fn new(x: f64, y: f64) -> Self {
         Vec2 { x, y }
@@ -53,7 +52,6 @@ pub struct Rect {
     height: f64,
 }
 
-#[allow(dead_code)]
 impl Rect {
     pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
         Self {

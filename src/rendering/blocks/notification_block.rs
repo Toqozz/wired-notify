@@ -1,14 +1,10 @@
 use serde::Deserialize;
 
-use crate::types::maths::{self, Vec2, Rect};
-use crate::config::{Padding, Color, AnchorPosition};
+use crate::types::maths::{Vec2, Rect};
+use crate::config::{Color, AnchorPosition};
 use crate::rendering::window::NotifyWindow;
-use image::{FilterType, GenericImageView};
-use cairo::ImageSurface;
 
 use crate::rendering::layout::{DrawableLayoutElement, Hook};
-use crate::rendering::layout::LayoutBlock;
-use std::time::Duration;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct NotificationBlockParameters {
@@ -25,7 +21,7 @@ pub struct NotificationBlockParameters {
 }
 
 impl DrawableLayoutElement for NotificationBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         // Clear
         window.context.set_operator(cairo::Operator::Clear);
         window.context.paint();
@@ -50,7 +46,7 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         parent_rect.clone()
     }
 
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn predict_rect_and_init(&mut self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, _window: &NotifyWindow) -> Rect {
         parent_rect.clone()
     }
 }
