@@ -23,9 +23,11 @@ use std::time::{Instant, Duration};
 
 use std::cell::RefCell;
 
+/*
 thread_local!(
     //static CONFIG: RefCell<config::Config> = RefCell::new(ron::de::from_str());
 );
+*/
 
 fn load_config() -> config::Config {
     let cfg: config::Config;

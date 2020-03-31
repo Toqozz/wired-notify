@@ -40,6 +40,7 @@ pub struct Config {
 
 // TODO: think about adding default() impls for layout blocks?
 // It might be as easy as a derive() for most cases.
+// TODO: this shouldn't be in rust.  We should just include_str! from the directory -- facepalm.
 impl Default for Config {
     fn default() -> Self {
         Self {
