@@ -8,7 +8,7 @@ use crate::rendering::layout::{DrawableLayoutElement, Hook};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct NotificationBlockParameters {
-    pub monitor: i32,
+    pub monitor: u32,
     //pub monitor_hook: (AnchorPosition, AnchorPosition),
     //pub monitor_offset: Vec2,
 

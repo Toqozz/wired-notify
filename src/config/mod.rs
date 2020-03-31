@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde::Deserialize;
 
 use crate::types::maths::{Vec2, Rect};
@@ -11,13 +13,12 @@ use crate::rendering::layout::{
     },
 };
 
-use crate::rendering::blocks::{
-    notification_block::NotificationBlockParameters,
-    text_block::TextBlockParameters,
-    scrolling_text_block::ScrollingTextBlockParameters,
-    image_block::ImageBlockParameters,
-};
+use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent, watcher};
+use std::sync::mpsc::{self, Receiver};
+use std::time::Duration;
 
+// @TODO: do some stuff to verify the config at runtime.
+// i.e. check that the first block is a notificationblock.
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub max_notifications: u32,
@@ -34,105 +35,61 @@ pub struct Config {
     pub layout: LayoutBlock,
 
     // Runtime useful things related to configuration.
-    #[serde(skip)]
-    pub monitor: Option<winit::monitor::MonitorHandle>,
+    //#[serde(skip)]
+    //pub monitor: Option<winit::monitor::MonitorHandle>,
 }
 
-// TODO: think about adding default() impls for layout blocks?
-// It might be as easy as a derive() for most cases.
-// TODO: this shouldn't be in rust.  We should just include_str! from the directory -- facepalm.
+impl Config {
+    pub fn load() -> Self {
+        let cfg: Self;
+
+        if let Some(mut cfg_path) = dirs::config_dir() {
+            cfg_path.push("wiry/config.ron");
+
+            if let Ok(cfg_string) = std::fs::read_to_string(cfg_path.clone()) {
+                println!("Loading config: {}.", &cfg_path.to_string_lossy());
+                cfg = ron::de::from_str(cfg_string.as_str())
+                    .expect("Found a config, but failed to read it.\n");
+            } else {
+                println!("Couldn't find the config file: {}; using default config.", &cfg_path.to_string_lossy());
+                cfg = Config::default();
+            }
+        } else {
+            println!("Couldn't find the config directory: {}; using default config.", "$XDG_CONFIG_HOME or $HOME/.config");
+            cfg = Config::default();
+        }
+
+        cfg
+    }
+
+    pub fn watch() -> Option<(RecommendedWatcher, Receiver<DebouncedEvent>)> {
+        let (sx, rx) = mpsc::channel();
+        // Duration is a debouncing period.
+        let mut watcher = notify::watcher(sx, Duration::from_millis(10)).expect("Unable to spawn file watcher.");
+
+        // @TODO: this needs to handle when the directory doesn't exist.
+        if let Some(mut cfg_path) = dirs::config_dir() {
+            cfg_path.push("wiry");
+            let result = watcher.watch(cfg_path.clone(), RecursiveMode::NonRecursive);
+            match result {
+                Ok(_) => return Some((watcher, rx)),
+                Err(_) => {
+                    println!("There is no directory: {}, so won't watch for config changes.", &cfg_path.to_string_lossy());
+                    return None;
+                }
+            }
+        } else {
+            println!("Couldn't find a config directory: {}; so won't watch for changes.", "$XDG_CONFIG_HOME or $HOME/.config");
+            None
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
-        Self {
-            max_notifications: 4,
-            width: 1,
-            height: 1,
-
-            timeout: 10000,
-            poll_interval: 33,
-
-            monitor: None,
-
-            debug: false,
-
-            shortcuts: ShortcutsConfig {
-                notification_close: 0,
-                notification_closeall: 0,
-                notification_pause: 0,
-                notification_url: 0,
-            },
-
-            layout: LayoutBlock {
-                hook: Hook { parent_hook: AnchorPosition::TL, self_hook: AnchorPosition::TL },
-                offset: Vec2::new(7.0, 7.0),
-                params: NotificationBlock(
-                    NotificationBlockParameters {
-                        monitor: 0,
-                        border_width: 3.0,
-                        background_color: Color::new(0.15686, 0.15686, 0.15686, 1.0),
-                        border_color: Color::new(0.92157, 0.858824, 0.698039, 1.0),
-
-                        gap: Vec2::new(0.0, 8.0),
-                        notification_hook: AnchorPosition::BL,
-                    }
-                ),
-                children: vec![
-                    LayoutBlock {
-                        hook: Hook { parent_hook: AnchorPosition::TL, self_hook: AnchorPosition::TL },
-                        offset: Vec2::new(0.0, 0.0),
-                        params: ImageBlock(
-                            ImageBlockParameters {
-                                padding: Padding::new(7.0, 4.0, 7.0, 4.0),
-                                width: 64,
-                                height: 64,
-                            }
-                        ),
-                        children: vec![
-                            LayoutBlock {         // summary block
-                                hook: Hook { parent_hook: AnchorPosition::TR, self_hook: AnchorPosition::TL },
-                                offset: Vec2::new(0.0, 0.0),
-                                params: TextBlock(
-                                    TextBlockParameters {
-                                        text: "%s".to_owned(),
-                                        font: "Ariel 9".to_owned(),
-                                        color: Color::new(0.92157, 0.858824, 0.698039, 1.0),
-                                        padding: Padding::new(7.0, 7.0, 7.0, 4.0),
-                                        max_width: 300,
-                                        max_height: 50,
-                                    }
-                                ),
-                                children: vec![
-                                    LayoutBlock {        // body block
-                                        hook: Hook { parent_hook: AnchorPosition::BL, self_hook: AnchorPosition::TL },
-                                        offset: Vec2::new(0.0, 0.0),
-                                        params: ScrollingTextBlock(
-                                            ScrollingTextBlockParameters {
-                                                text: "%b".to_owned(),
-                                                font: "Ariel 9".to_owned(),
-                                                color: Color::new(0.92157, 0.858824, 0.698039, 1.0),
-                                                padding: Padding::new(7.0, 7.0, 0.0, 7.0),
-                                                max_width: 300,
-                                                scroll_speed: 0.4,
-                                                lhs_dist: 10.0,
-                                                rhs_dist: 10.0,
-                                                scroll_t: 1.0,
-
-                                                clip_rect: Rect::new(0.0, 0.0, 0.0, 0.0),
-                                                bounce_left: 0.0,
-                                                bounce_right: 0.0,
-                                                update_enabled: false,
-                                            }
-                                        ),
-                                        children: vec![],
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            }
-
-        }
+        let cfg_string = include_str!("../config.ron");
+        ron::de::from_str(cfg_string)
+            .expect("Failed to parse default config.  Something is fucked up.\n")
     }
 }
 

@@ -13,15 +13,17 @@ use winit::{
     event::{ Event, WindowEvent, ElementState, MouseButton },
     event_loop::{ ControlFlow, EventLoop },
     platform::desktop::EventLoopExtDesktop,
+    platform::unix::EventLoopExtUnix,
 };
 
 use notification::management::NotifyWindowManager;
 use bus::dbus;
-use crate::rendering::layout::LayoutElement;
 use winit::event::StartCause;
 use std::time::{Instant, Duration};
+use notify::DebouncedEvent;
 
 use std::cell::RefCell;
+
 
 /*
 thread_local!(
@@ -29,27 +31,7 @@ thread_local!(
 );
 */
 
-fn load_config() -> config::Config {
-    let cfg: config::Config;
-
-    if let Some(mut cfg_path) = dirs::config_dir() {
-        cfg_path.push("wiry/config.ron");
-        if let Ok(cfg_string) = std::fs::read_to_string(cfg_path) {
-            cfg = ron::de::from_str(cfg_string.as_str())
-                .expect("Found a config, but failed to read it.\n");
-        } else {
-            // TODO: print config dir.
-            println!("Couldn't find a config file; using default config.");
-            cfg = config::Config::default();
-        }
-    } else {
-        // TODO: print config dir we searched.
-        println!("Couldn't find a config directory; using default config.");
-        cfg = config::Config::default();
-    }
-
-    cfg
-}
+// TODO: put these in config module.
 
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
@@ -57,21 +39,10 @@ fn main() {
     // This should be fixed in a future winit release, and maybe we can also avoid setting an environment variable here.
     std::env::set_var("WINIT_X11_SCALE_FACTOR", "1.0");
 
-    let mut event_loop = EventLoop::new();    // TODO: maybe use `EventsLoop::new_x11()` ?
-    //let event_loop_proxy = event_loop.create_proxy();
+    let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
 
-    /*
-    let mut config: config::Config = ron::de::from_str(include_str!("config.ron"))
-        .expect("Failed to load config.\n");
-    */
-    let mut config = load_config();
-
-    // runtime config setup.
-    if let LayoutElement::NotificationBlock(params) = &config.layout.params {
-        config.monitor = Some(event_loop.available_monitors()
-            .nth(params.monitor as usize)
-            .unwrap_or(event_loop.primary_monitor()));
-    }
+    let config = config::Config::load();
+    let maybe_watcher = config::Config::watch();
 
     let mut manager = NotifyWindowManager::new(&config);
 
@@ -86,17 +57,15 @@ fn main() {
             // @TODO: maybe we should separate receiving dbus signals and drawing windows.
             Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + timer_length),
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
-                // Restart timer for next loop.
                 let now = Instant::now();
-                *control_flow = ControlFlow::WaitUntil(now + timer_length);
 
                 // Time passed since last loop.
                 let time_passed = now - prev_instant;
                 prev_instant = now;
-
                 manager.update(time_passed);
 
                 // Check dbus signals.
+                // If we don't do this then we will block.
                 let signal = connection.incoming(0).next();
                 if let Some(s) = signal {
                     //dbg!(s);
@@ -106,6 +75,26 @@ fn main() {
                     //spawn_window(x, &mut manager, &event_loop);
                     manager.new_notification(x, event_loop);
                 }
+
+                // If the watcher exists (.config/wiry exists), then we should process watcher events.
+                if let Some((_watcher, rx)) = &maybe_watcher {
+                    if let Ok(x) = rx.try_recv() {
+                        match x {
+                            DebouncedEvent::Write(path) |
+                            DebouncedEvent::Create(path) |
+                            DebouncedEvent::Chmod(path) => {
+                                // Reload the config.
+                                // @TODO: reloading the config could cause a crash -- check if the
+                                // config is valid.
+                                //config = config::Config::load();
+                            },
+                            _ => {},
+                        }
+                    }
+                }
+
+                // Restart timer for next loop.
+                *control_flow = ControlFlow::WaitUntil(now + timer_length);
             },
 
             // Window becomes visible and then position is set.  Need fix.
