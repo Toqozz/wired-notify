@@ -12,36 +12,31 @@ use std::time::Duration;
 use crate::notification::Notification;
 use std::collections::HashMap;
 
-pub struct NotifyWindowManager<'config> {
+pub struct NotifyWindowManager {
     //pub windows: Vec<NotifyWindow<'config>>,
-    pub monitor_windows: HashMap<u32, Vec<NotifyWindow<'config>>>,
+    pub monitor_windows: HashMap<u32, Vec<NotifyWindow>>,
     pub dirty: bool,
-
-    pub config: &'config Config,
 }
 
-impl<'config> NotifyWindowManager<'config> {
-    pub fn new(config: &'config Config) -> Self {
-        //let notify_windows = Vec::new();
+impl NotifyWindowManager {
+    pub fn new() -> Self {
         let monitor_windows = HashMap::new();
-        //let windows = vec![];
 
         Self {
             monitor_windows,
             dirty: false,
-            config,
         }
     }
 
     // Summon a new notification.
     pub fn new_notification(&mut self, dbus_notification: DBusNotification, el: &EventLoopWindowTarget<()>) {
-        let notification = Notification::from_dbus(dbus_notification, self.config);
+        let notification = Notification::from_dbus(dbus_notification);
 
-        if let LayoutElement::NotificationBlock(p) = &self.config.layout.params {
+        if let LayoutElement::NotificationBlock(p) = &Config::get().layout.params {
             self.monitor_windows
                 .entry(p.monitor)
                 .or_insert(vec![])
-                .push(NotifyWindow::new(&self.config, el, notification));
+                .push(NotifyWindow::new(el, notification));
 
             // Outer state is now out of sync with internal state because we have an invisible notification.
             self.dirty = true;
@@ -56,9 +51,6 @@ impl<'config> NotifyWindowManager<'config> {
                 self.dirty |= window.update(delta_time);
             }
         }
-        //for window in &mut self.windows {
-            //self.dirty |= window.update(delta_time);
-        //}
 
         if self.dirty {
             self.update_positions();
@@ -66,12 +58,13 @@ impl<'config> NotifyWindowManager<'config> {
             for (_monitor_id, windows) in &mut self.monitor_windows {
                 windows.retain(|w| !w.marked_for_destroy);
             }
-            //self.windows.retain(|w| !w.marked_for_destroy);
         }
     }
 
     fn update_positions(&mut self) {
-        if let LayoutElement::NotificationBlock(p) = &self.config.layout.params {
+        let cfg = Config::get();
+        // TODO: gotta do something about this... can't I just cast it?
+        if let LayoutElement::NotificationBlock(p) = &cfg.layout.params {
             let gap = &p.gap;
             //let monitor = self.config.monitor.as_ref().expect("No monitor defined.");
 
@@ -94,8 +87,8 @@ impl<'config> NotifyWindowManager<'config> {
                 let monitor_rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
 
                 let mut prev_pos = LayoutBlock::find_anchor_pos(
-                    &self.config.layout.hook,
-                    &self.config.layout.offset,
+                    &cfg.layout.hook,
+                    &cfg.layout.offset,
                     &monitor_rect,
                     &Rect::new(0.0, 0.0, 0.0, 0.0)
                 );

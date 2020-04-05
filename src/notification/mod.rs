@@ -27,10 +27,10 @@ impl fmt::Debug for Notification {
 }
 
 impl Notification {
-    pub fn from_dbus(notification: DBusNotification, cfg: &Config) -> Self {
+    pub fn from_dbus(notification: DBusNotification) -> Self {
         let mut timeout = notification.expire_timeout;
         if timeout <= 0 {
-            timeout = cfg.timeout;
+            timeout = Config::get().timeout;
         }
 
         dbg!(&notification);

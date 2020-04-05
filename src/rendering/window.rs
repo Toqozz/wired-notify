@@ -16,7 +16,7 @@ use cairo_sys;
 use std::time::Duration;
 
 #[derive(Debug)]
-pub struct NotifyWindow<'config> {
+pub struct NotifyWindow {
     // Context/Surface are placed at the top (in order) so that they are dropped first when a
     // window is dropped.
     pub context: Context,
@@ -33,16 +33,15 @@ pub struct NotifyWindow<'config> {
     // It is useful when the notification expands in either left or top direction.
     pub master_offset: Vec2,
     pub fuse: i32,
-
-    config: &'config Config,
 }
 
-impl<'config> NotifyWindow<'config> {
-    pub fn new(config: &'config Config, el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
-        let (width, height) = (config.width, config.height);
+impl NotifyWindow {
+    pub fn new(el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
+        let cfg = Config::get();
+        let (width, height) = (cfg.width as f64, cfg.height as f64);
 
         let winit = WindowBuilder::new()
-            .with_inner_size(LogicalSize { width: width as f64, height: height as f64 })
+            .with_inner_size(LogicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Utility, XWindowType::Notification])
             .with_title("wiry")
             .with_transparent(true)
@@ -86,11 +85,9 @@ impl<'config> NotifyWindow<'config> {
             marked_for_destroy: false,
             master_offset: Vec2::default(),
             fuse,
-            config,
         };
 
-        let mut layout = config.layout.clone();
-        //layout.traverse_init(&window);
+        let mut layout = cfg.layout.clone();
         let rect = layout.predict_rect_tree(&window, &window.get_inner_rect(), Rect::default());
         let delta = Vec2::new(-rect.x(), -rect.y());
 

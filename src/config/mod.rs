@@ -3,19 +3,63 @@
 use serde::Deserialize;
 
 use crate::types::maths::{Vec2, Rect};
-use crate::rendering::layout::{
-    LayoutBlock, Hook,
-    LayoutElement::{
-        NotificationBlock,
-        TextBlock,
-        ScrollingTextBlock,
-        ImageBlock,
-    },
-};
+use crate::rendering::layout::{ LayoutBlock, Hook, LayoutElement };
 
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent, watcher};
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
+use std::io;
+use std::fmt::{self, Display, Formatter};
+
+static mut CONFIG: Option<Config> = None;
+
+#[derive(Debug)]
+pub enum Error {
+    // Config file not found.
+    NotFound(&'static str),
+    // Couldn't find config directory.
+    NoConfigDirectory(&'static str),
+    // Validation error.
+    Validate(&'static str),
+    // IO error reading file.
+    Io(io::Error),
+    // Deserialization error.
+    Ron(ron::de::Error),
+    // Watch error.
+    Watch(notify::Error),
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::NotFound(_) => None,
+            Error::NoConfigDirectory(_) => None,
+            Error::Validate(_) => None,
+            Error::Io(err) => err.source(),
+            Error::Ron(err) => err.source(),
+            Error::Watch(err) => err.source(),
+        }
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::NotFound(path) => write!(f, "Couldn't find a config file: {}", path),
+            Error::NoConfigDirectory(dir) =>
+                write!(f, "Couldn't locate a config directory a config file: {}", dir), 
+            Error::Validate(problem) => write!(f, "Error validating config file: {}", problem), 
+            Error::Io(err) => write!(f, "Error reading config file: {}", err), 
+            Error::Ron(err) => write!(f, "Problem with config file: {}", err), 
+            Error::Watch(err) => write!(f, "Error watching config directory: {}", err), 
+        }
+    }
+}
+
+pub struct ConfigWatcher {
+    watcher: RecommendedWatcher,
+    pub receiver: Receiver<DebouncedEvent>,
+}
 
 // @TODO: do some stuff to verify the config at runtime.
 // i.e. check that the first block is a notificationblock.
@@ -40,47 +84,108 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load() -> Self {
-        let cfg: Self;
+    // Initialize the config.  This does a two things:
+    // - Attempts to locate and load a config file on the machine, and if it can't, then loads the
+    // default config.
+    // - Attempts to set up a watcher on the config directory to watch for changes, and returns the
+    // watcher or None.
+    pub fn init() -> Option<ConfigWatcher> {
+        unsafe {
+            assert!(CONFIG.is_none());
+            let cfg = Config::load();
+            match cfg {
+                Ok(c) => CONFIG = Some(c),
+                Err(e) => {
+                    println!("Couldn't load a config, so will use default one:\n\t{}", e);
+                    CONFIG = Some(Config::default());
+                },
+            };
 
-        if let Some(mut cfg_path) = dirs::config_dir() {
-            cfg_path.push("wiry/config.ron");
-
-            if let Ok(cfg_string) = std::fs::read_to_string(cfg_path.clone()) {
-                println!("Loading config: {}.", &cfg_path.to_string_lossy());
-                cfg = ron::de::from_str(cfg_string.as_str())
-                    .expect("Found a config, but failed to read it.\n");
-            } else {
-                println!("Couldn't find the config file: {}; using default config.", &cfg_path.to_string_lossy());
-                cfg = Config::default();
+            let watch = Config::watch();
+            match watch {
+                Ok(w) => return Some(w),
+                Err(e) => {
+                    println!("Couldn't watch config directory for changes, so we won't:\n\t{}", e);
+                    return None;
+                },
             }
-        } else {
-            println!("Couldn't find the config directory: {}; using default config.", "$XDG_CONFIG_HOME or $HOME/.config");
-            cfg = Config::default();
         }
-
-        cfg
     }
 
-    pub fn watch() -> Option<(RecommendedWatcher, Receiver<DebouncedEvent>)> {
-        let (sx, rx) = mpsc::channel();
-        // Duration is a debouncing period.
-        let mut watcher = notify::watcher(sx, Duration::from_millis(10)).expect("Unable to spawn file watcher.");
+    // Get immutable reference to global config variable.
+    pub fn get() -> &'static Config {
+        unsafe {
+            assert!(CONFIG.is_some());
+            // TODO: can as_ref be removed?
+            CONFIG.as_ref().unwrap()
+        }
+    }
 
-        // @TODO: this needs to handle when the directory doesn't exist.
-        if let Some(mut cfg_path) = dirs::config_dir() {
-            cfg_path.push("wiry");
-            let result = watcher.watch(cfg_path.clone(), RecursiveMode::NonRecursive);
-            match result {
-                Ok(_) => return Some((watcher, rx)),
-                Err(_) => {
-                    println!("There is no directory: {}, so won't watch for config changes.", &cfg_path.to_string_lossy());
-                    return None;
-                }
-            }
-        } else {
-            println!("Couldn't find a config directory: {}; so won't watch for changes.", "$XDG_CONFIG_HOME or $HOME/.config");
-            None
+    // Get mutable refernce to global config variable.
+    pub fn get_mut() -> &'static mut Config {
+        unsafe {
+            assert!(CONFIG.is_some());
+            // TODO: can as_ref be removed?
+            CONFIG.as_mut().unwrap()
+        }
+    }
+
+    // Attempt to load the config again.
+    // If we can, then replace the existing config.
+    // If we can't, then do nothing.
+    pub fn try_reload() {
+        match Config::load() {
+            Ok(cfg) => unsafe { CONFIG = Some(cfg) },
+            Err(e) => println!("Tried to reload the config but couldn't: {}", e),
+        }
+    }
+
+    // Load config or return error.
+    pub fn load() -> Result<Self, Error> {
+        let mut cfg_path = match dirs::config_dir() {
+            Some(path) => path,
+            None => return Err(Error::NoConfigDirectory("Couldn't find $XDG_CONFIG_HOME or $HOME/.config")),
+        };
+
+        cfg_path.push("wiry/config.ron");
+        let cfg_string = std::fs::read_to_string(cfg_path);
+        let cfg_string = match cfg_string {
+            Ok(string) => string,
+            Err(e) => return Err(Error::Io(e)),
+        };
+
+        let config: Result<Self, _> = ron::de::from_str(cfg_string.as_str());
+        match config {
+            Ok(cfg) => return cfg.validate(),
+            Err(e) => return Err(Error::Ron(e)),
+        };
+    }
+
+    // Watch config directory for changes, and send message to Configwatcher when something
+    // happens.
+    pub fn watch() -> Result<ConfigWatcher, Error> {
+        let (sender, receiver) = mpsc::channel();
+        // Duration is a debouncing period.
+        let mut watcher = notify::watcher(sender, Duration::from_millis(10)).expect("Unable to spawn file watcher.");
+
+        let mut cfg_path = match dirs::config_dir() {
+            Some(path) => path,
+            None => return Err(Error::NoConfigDirectory("Couldn't find $XDG_CONFIG_HOME or $HOME/.config")),
+        };
+
+        cfg_path.push("wiry");
+        let result = watcher.watch(cfg_path.clone(), RecursiveMode::NonRecursive);
+        match result {
+            Ok(_) => return Ok(ConfigWatcher { watcher, receiver }),
+            Err(e) => return Err(Error::Watch(e)),
+        };
+    }
+
+    // Verify that the config is constructed correctly.
+    fn validate(self) -> Result<Self, Error> {
+        match &self.layout.params {
+            LayoutElement::NotificationBlock(_) => Ok(self),
+            _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),
         }
     }
 }

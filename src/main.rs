@@ -16,41 +16,32 @@ use winit::{
     platform::unix::EventLoopExtUnix,
 };
 
+use config::Config;
 use notification::management::NotifyWindowManager;
 use bus::dbus;
 use winit::event::StartCause;
 use std::time::{Instant, Duration};
 use notify::DebouncedEvent;
 
-use std::cell::RefCell;
 
-
-/*
-thread_local!(
-    //static CONFIG: RefCell<config::Config> = RefCell::new(ron::de::from_str());
-);
-*/
-
-// TODO: put these in config module.
+static mut CONFIG: Option<Config> = None;
 
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
-    // NOTE: currently there is a winit bug where this value doesn't apply if Xft.dpi is set in XResources.
-    // This should be fixed in a future winit release, and maybe we can also avoid setting an environment variable here.
     std::env::set_var("WINIT_X11_SCALE_FACTOR", "1.0");
 
     let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
 
-    let config = config::Config::load();
-    let maybe_watcher = config::Config::watch();
+    //let config = Config::load().unwrap();
+    //let maybe_watcher = Config::watch();
+    let maybe_watcher = Config::init();
 
-    let mut manager = NotifyWindowManager::new(&config);
+    let mut manager = NotifyWindowManager::new();
 
     // Allows us to receive messages from dbus.
     let (connection, receiver) = dbus::get_connection();
 
-    //let timer_length = std::time::Duration::new(1, 0);
-    let timer_length = Duration::from_millis(config.poll_interval);
+    let timer_length = Duration::from_millis(Config::get().poll_interval);
     let mut prev_instant = Instant::now();
     event_loop.run_return(move |event, event_loop, control_flow| {
         match event {
@@ -66,10 +57,11 @@ fn main() {
 
                 // Check dbus signals.
                 // If we don't do this then we will block.
-                let signal = connection.incoming(0).next();
-                if let Some(s) = signal {
+                //let signal = connection.incoming(0).next();
+                connection.incoming(0).next();
+                //if let Some(s) = signal {
                     //dbg!(s);
-                }
+                //}
 
                 if let Ok(x) = receiver.try_recv() {
                     //spawn_window(x, &mut manager, &event_loop);
@@ -77,16 +69,14 @@ fn main() {
                 }
 
                 // If the watcher exists (.config/wiry exists), then we should process watcher events.
-                if let Some((_watcher, rx)) = &maybe_watcher {
-                    if let Ok(x) = rx.try_recv() {
-                        match x {
-                            DebouncedEvent::Write(path) |
-                            DebouncedEvent::Create(path) |
-                            DebouncedEvent::Chmod(path) => {
-                                // Reload the config.
-                                // @TODO: reloading the config could cause a crash -- check if the
-                                // config is valid.
-                                //config = config::Config::load();
+                // TODO: needs cleaning.
+                if let Some(cw) = &maybe_watcher {
+                    if let Ok(ev) = cw.receiver.try_recv() {
+                        match ev {
+                            DebouncedEvent::Write(_) |
+                            DebouncedEvent::Create(_) |
+                            DebouncedEvent::Chmod(_) => {
+                                Config::try_reload();
                             },
                             _ => {},
                         }
