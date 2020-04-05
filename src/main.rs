@@ -23,9 +23,6 @@ use winit::event::StartCause;
 use std::time::{Instant, Duration};
 use notify::DebouncedEvent;
 
-
-static mut CONFIG: Option<Config> = None;
-
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
     std::env::set_var("WINIT_X11_SCALE_FACTOR", "1.0");

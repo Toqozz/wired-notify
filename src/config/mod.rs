@@ -3,9 +3,9 @@
 use serde::Deserialize;
 
 use crate::types::maths::{Vec2, Rect};
-use crate::rendering::layout::{ LayoutBlock, Hook, LayoutElement };
+use crate::rendering::layout::{LayoutBlock, LayoutElement};
 
-use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent, watcher};
+use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 use std::io;
