@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::types::maths::{Vec2, Rect};
+use crate::maths::{Vec2, Rect};
 use crate::config::{Padding};
 use crate::rendering::window::NotifyWindow;
 use image::{FilterType};

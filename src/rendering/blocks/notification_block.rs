@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::types::maths::{Vec2, Rect};
+use crate::maths::{Vec2, Rect};
 use crate::config::{Color, AnchorPosition};
 use crate::rendering::window::NotifyWindow;
 

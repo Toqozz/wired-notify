@@ -1,35 +1,26 @@
-use serde::Deserialize;
-
-// TODO: make this use blocks::NotificationBlockParameters instead.
-use crate::rendering::blocks::notification_block::NotificationBlockParameters;
-use crate::rendering::blocks::text_block::TextBlockParameters;
-use crate::rendering::blocks::scrolling_text_block::ScrollingTextBlockParameters;
-use crate::rendering::blocks::image_block::ImageBlockParameters;
-
-use crate::types::maths::{ Vec2, Rect };
-use crate::config::{ AnchorPosition };
-use crate::rendering::window::NotifyWindow;
 use std::time::Duration;
 
-#[derive(Debug, Deserialize)]
+use serde::Deserialize;
+
+use crate::{
+    rendering::blocks::{
+        notification_block::NotificationBlockParameters,
+        text_block::TextBlockParameters,
+        scrolling_text_block::ScrollingTextBlockParameters,
+        image_block::ImageBlockParameters,
+    },
+    maths::{Vec2, Rect},
+    config::{Config, AnchorPosition},
+    rendering::window::NotifyWindow,
+};
+
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct LayoutBlock {
     pub hook: Hook,
     pub offset: Vec2,
     pub params: LayoutElement,
     pub children: Vec<LayoutBlock>,
-}
-
-impl Clone for LayoutBlock {
-    fn clone(&self) -> Self {
-        //let params = self.params.clone().init(self);
-
-        Self {
-            hook: self.hook.clone(),
-            offset: self.offset.clone(),
-            params: self.params.clone(),
-            children: self.children.clone(),
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -46,30 +37,28 @@ pub enum LayoutElement {
     ImageBlock(ImageBlockParameters),
 }
 
+pub trait DrawableLayoutElement {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
+    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
+    fn update(&mut self, _delta_time: Duration) -> bool { false }
+}
+
 impl DrawableLayoutElement for LayoutElement {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         match self {
-            LayoutElement::NotificationBlock(p) =>
-                p.draw(hook, offset, parent_rect, window),
-            LayoutElement::TextBlock(p) =>
-                p.draw(hook, offset, parent_rect, window),
-            LayoutElement::ScrollingTextBlock(p) =>
-                p.draw(hook, offset, parent_rect, window),
-            LayoutElement::ImageBlock(p) =>
-                p.draw(hook, offset, parent_rect, window),
+            LayoutElement::NotificationBlock(p) => p.draw(hook, offset, parent_rect, window),
+            LayoutElement::TextBlock(p) => p.draw(hook, offset, parent_rect, window),
+            LayoutElement::ScrollingTextBlock(p) => p.draw(hook, offset, parent_rect, window),
+            LayoutElement::ImageBlock(p) => p.draw(hook, offset, parent_rect, window),
         }
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         match self {
-            LayoutElement::NotificationBlock(p) =>
-                p.predict_rect_and_init(hook, offset, parent_rect, window),
-            LayoutElement::TextBlock(p) =>
-                p.predict_rect_and_init(hook, offset, parent_rect, window),
-            LayoutElement::ScrollingTextBlock(p) =>
-                p.predict_rect_and_init(hook, offset, parent_rect, window),
-            LayoutElement::ImageBlock(p) =>
-                p.predict_rect_and_init(hook, offset, parent_rect, window),
+            LayoutElement::NotificationBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
+            LayoutElement::TextBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
+            LayoutElement::ScrollingTextBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
+            LayoutElement::ImageBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
         }
     }
 
@@ -101,31 +90,15 @@ impl LayoutBlock {
         anchor
     }
 
-    // Run a function on each element in the layout, optionally passing in the function's return value.
-    /*
-    pub fn traverse<T, F: Copy>(&self, func: F, pass: &T)
-        where F: Fn(&Self, &T) -> T {
-
-        let result = func(self, pass);
-
-        for elem in &self.children {
-            //let result = func(elem, pass);
-            elem.traverse(func, &result);
-        }
-    }
-    */
-
+    // Call draw on each block in tree.
     pub fn draw_tree(&self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
         // Draw debug rect around bounding box.
-        /*
-        TODO: make config lazy so globally accessable at all times.
-        if self.config.debug {
-            self.context.set_source_rgba(1.0, 0.0, 0.0, 1.0);
-            self.context.set_line_width(1.0);
-            self.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
-            self.context.stroke();
+        if Config::get().debug {
+            window.context.set_source_rgba(1.0, 0.0, 0.0, 1.0);
+            window.context.set_line_width(1.0);
+            window.context.rectangle(accum_rect.x(), accum_rect.y(), accum_rect.width(), accum_rect.height());
+            window.context.stroke();
         }
-        */
 
         let rect = self.params.draw(&self.hook, &self.offset, parent_rect, window);
         let mut acc_rect = accum_rect.union(&rect);
@@ -153,6 +126,7 @@ impl LayoutBlock {
         acc_rect
     }
 
+    // Call update on each block in tree.
     pub fn update_tree(&mut self, delta_time: Duration) -> bool {
         let mut dirty = self.params.update(delta_time);
         for elem in &mut self.children {
@@ -163,8 +137,3 @@ impl LayoutBlock {
     }
 }
 
-pub trait DrawableLayoutElement {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn update(&mut self, _delta_time: Duration) -> bool { false }
-}

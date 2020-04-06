@@ -1,16 +1,19 @@
+use std::time::Duration;
+use std::collections::HashMap;
+
 use winit::{
     event_loop::EventLoopWindowTarget,
     window::WindowId,
 };
 
-use crate::bus::dbus::DBusNotification;
-use crate::config::Config;
-use crate::rendering::window::NotifyWindow;
-use crate::types::maths::Rect;
-use crate::rendering::layout::{LayoutElement, LayoutBlock};
-use std::time::Duration;
-use crate::notification::Notification;
-use std::collections::HashMap;
+use crate::{
+    rendering::window::NotifyWindow,
+    rendering::layout::{LayoutElement, LayoutBlock},
+    notification::Notification,
+    bus::dbus::DBusNotification,
+    maths::Rect,
+    config::Config,
+};
 
 pub struct NotifyWindowManager {
     //pub windows: Vec<NotifyWindow<'config>>,

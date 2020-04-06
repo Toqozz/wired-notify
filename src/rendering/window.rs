@@ -1,19 +1,22 @@
+use std::time::Duration;
+
 use winit::{
-    window::{ WindowBuilder, Window },
+    window::{WindowBuilder, Window},
     event_loop::EventLoopWindowTarget,
-    platform::unix::{ WindowBuilderExtUnix, XWindowType, WindowExtUnix },
-    dpi::{ LogicalSize, LogicalPosition },
+    platform::unix::{WindowBuilderExtUnix, XWindowType, WindowExtUnix},
+    dpi::{LogicalSize, LogicalPosition},
 };
 
-use cairo::{ Surface, Context };
-
-use crate::config::Config;
-use crate::rendering::layout::LayoutBlock;
-use crate::types::maths::{Rect, Vec2};
-use crate::rendering::text::TextRenderer;
-use crate::notification::Notification;
 use cairo_sys;
-use std::time::Duration;
+use cairo::{Surface, Context};
+
+use crate::{
+    config::Config,
+    rendering::layout::LayoutBlock,
+    maths::{Rect, Vec2},
+    rendering::text::TextRenderer,
+    notification::Notification,
+};
 
 #[derive(Debug)]
 pub struct NotifyWindow {
@@ -26,6 +29,9 @@ pub struct NotifyWindow {
     pub winit: Window,
     pub notification: Notification,
 
+    // Layout is cloned from config so each notification can have its own mutable copy.
+    // This is pretty much just so we can change some params on LayoutBlocks, which is a bit
+    // wasteful, but easy.
     pub layout: Option<LayoutBlock>,
 
     pub marked_for_destroy: bool,

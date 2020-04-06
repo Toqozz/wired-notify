@@ -1,12 +1,14 @@
-//use crate::config::Config;
-use crate::config::{Padding, Color};
+use pango::{
+    self,
+    prelude::*,
+    Layout,
+    FontDescription,
+};
 
-use pango;
-use pango::prelude::*;
-use pango::Layout;
-use pango::FontDescription;
-
-use crate::types::maths::{ Rect, Vec2 };
+use crate::{
+    maths::{Rect, Vec2},
+    config::{Padding, Color},
+};
 
 #[derive(Debug)]
 pub struct TextRenderer {

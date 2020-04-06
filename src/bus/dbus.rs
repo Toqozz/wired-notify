@@ -1,12 +1,14 @@
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 
-use dbus;
-use dbus::tree::{ self, DataType, Interface, Factory, Tree };
-use dbus::ffidisp::{Connection, BusType, NameFlag};
+use dbus::{
+    self,
+    tree::{self, DataType, Interface, Factory, Tree},
+    ffidisp::{Connection, BusType, NameFlag, RequestNameReply},
+};
 
-use super::receiver::BusNotification;
-use super::dbus_codegen::org_freedesktop_notifications_server;
+use crate::bus::receiver::BusNotification;
+use crate::bus::dbus_codegen::org_freedesktop_notifications_server;
 
 #[derive(Copy, Clone, Default, Debug)]
 struct TData;
@@ -45,7 +47,17 @@ pub fn init_bus(sender: mpsc::Sender<DBusNotification>) -> Connection {
     let tree = create_tree(iface);
 
     let c = Connection::get_private(BusType::Session).expect("Failed to get a session bus.");
-    c.register_name("org.freedesktop.Notifications", NameFlag::ReplaceExisting as u32).expect("Failed to register name.");
+    let reply = c.register_name("org.freedesktop.Notifications", NameFlag::ReplaceExisting as u32)
+        .expect("Failed to register name.");
+
+    // Be helpful to the user.
+    match reply {
+        RequestNameReply::PrimaryOwner => println!("Acquired notification bus name."),
+        RequestNameReply::InQueue => println!("In queue for notification bus name -- is another notification daemon running?"),
+        RequestNameReply::Exists => {},
+        RequestNameReply::AlreadyOwner => {},
+    };
+
     tree.set_registered(&c, true).unwrap();
 
     c.add_handler(tree);

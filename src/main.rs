@@ -1,27 +1,25 @@
 extern crate winit;
 extern crate dirs;
-//extern crate gl;
 
 mod rendering;
 mod notification;
 mod bus;
 mod config;
-mod types;
+mod maths;
 
-//use winit::EventsLoop;
+use std::time::{Instant, Duration};
+
 use winit::{
-    event::{ Event, WindowEvent, ElementState, MouseButton },
+    event::{ StartCause, Event, WindowEvent, ElementState, MouseButton },
     event_loop::{ ControlFlow, EventLoop },
     platform::desktop::EventLoopExtDesktop,
     platform::unix::EventLoopExtUnix,
 };
+use notify::DebouncedEvent;
+use dbus::message::MessageType;
 
 use config::Config;
 use notification::management::NotifyWindowManager;
-use bus::dbus;
-use winit::event::StartCause;
-use std::time::{Instant, Duration};
-use notify::DebouncedEvent;
 
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
@@ -36,13 +34,13 @@ fn main() {
     let mut manager = NotifyWindowManager::new();
 
     // Allows us to receive messages from dbus.
-    let (connection, receiver) = dbus::get_connection();
+    let (connection, receiver) = bus::dbus::get_connection();
 
     let timer_length = Duration::from_millis(Config::get().poll_interval);
     let mut prev_instant = Instant::now();
     event_loop.run_return(move |event, event_loop, control_flow| {
         match event {
-            // @TODO: maybe we should separate receiving dbus signals and drawing windows.
+            // @NOTE: maybe we should separate receiving dbus signals and drawing windows.
             Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + timer_length),
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
                 let now = Instant::now();
@@ -53,12 +51,16 @@ fn main() {
                 manager.update(time_passed);
 
                 // Check dbus signals.
-                // If we don't do this then we will block.
-                //let signal = connection.incoming(0).next();
-                connection.incoming(0).next();
-                //if let Some(s) = signal {
-                    //dbg!(s);
-                //}
+                // If we don't do get incoming signals, notify sender will block when sending.
+                let signal = connection.incoming(0).next();
+                if let Some(message) = signal {
+                    if message.msg_type() == MessageType::Signal &&
+                       &*message.interface().unwrap() == "org.freedesktop.DBus" &&
+                       &*message.member().unwrap() == "NameAcquired" &&
+                       &*message.get1::<&str>().unwrap() == "org.freedesktop.Notifications" {
+                        println!("Name acquired.");
+                    }
+                }
 
                 if let Ok(x) = receiver.try_recv() {
                     //spawn_window(x, &mut manager, &event_loop);
@@ -66,7 +68,6 @@ fn main() {
                 }
 
                 // If the watcher exists (.config/wiry exists), then we should process watcher events.
-                // TODO: needs cleaning.
                 if let Some(cw) = &maybe_watcher {
                     if let Ok(ev) = cw.receiver.try_recv() {
                         match ev {

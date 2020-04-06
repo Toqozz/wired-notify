@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::types::maths::{self, Rect, Vec2};
+use crate::maths::{self, Rect, Vec2};
 use crate::config::{Padding, Color};
 use crate::rendering::window::NotifyWindow;
 use crate::rendering::layout::{LayoutBlock, DrawableLayoutElement, Hook};

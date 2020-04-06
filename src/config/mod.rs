@@ -1,15 +1,19 @@
 #![allow(dead_code)]
 
+use std::{
+    sync::mpsc::{self, Receiver},
+    time::Duration,
+    io,
+    fmt::{self, Display, Formatter},
+};
+
 use serde::Deserialize;
-
-use crate::types::maths::{Vec2, Rect};
-use crate::rendering::layout::{LayoutBlock, LayoutElement};
-
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
-use std::sync::mpsc::{self, Receiver};
-use std::time::Duration;
-use std::io;
-use std::fmt::{self, Display, Formatter};
+
+use crate::{
+    maths::{Vec2, Rect},
+    rendering::layout::{LayoutBlock, LayoutElement},
+};
 
 static mut CONFIG: Option<Config> = None;
 
@@ -61,11 +65,10 @@ pub struct ConfigWatcher {
     pub receiver: Receiver<DebouncedEvent>,
 }
 
-// @TODO: do some stuff to verify the config at runtime.
-// i.e. check that the first block is a notificationblock.
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub max_notifications: u32,
+    // @TODO: this option should be removed.
     pub width: u32,
     pub height: u32,            // Base height.  NOTE: notification windows will generally be resized, ignoring this value.
 
@@ -77,10 +80,6 @@ pub struct Config {
     pub shortcuts: ShortcutsConfig,
 
     pub layout: LayoutBlock,
-
-    // Runtime useful things related to configuration.
-    //#[serde(skip)]
-    //pub monitor: Option<winit::monitor::MonitorHandle>,
 }
 
 impl Config {
