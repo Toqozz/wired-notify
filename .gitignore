@@ -1,2 +1,4 @@
 target/*
 Cargo.lock
+
+wiry_derive/target/*
