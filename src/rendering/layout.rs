@@ -12,8 +12,8 @@ use crate::{
     maths::{Vec2, Rect},
     config::{Config, AnchorPosition},
     rendering::window::NotifyWindow,
+    wiry_derive::DrawableLayoutElement,
 };
-
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct LayoutBlock {
@@ -29,47 +29,14 @@ pub struct Hook {
     pub self_hook: AnchorPosition,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+
+// DrawableLayoutElement is implemented via a macro -- see /wiry_derive/lib.rs.
+#[derive(Debug, Deserialize, Clone, DrawableLayoutElement)]
 pub enum LayoutElement {
     NotificationBlock(NotificationBlockParameters),
     TextBlock(TextBlockParameters),
     ScrollingTextBlock(ScrollingTextBlockParameters),
     ImageBlock(ImageBlockParameters),
-}
-
-pub trait DrawableLayoutElement {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn update(&mut self, _delta_time: Duration) -> bool { false }
-}
-
-impl DrawableLayoutElement for LayoutElement {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        match self {
-            LayoutElement::NotificationBlock(p) => p.draw(hook, offset, parent_rect, window),
-            LayoutElement::TextBlock(p) => p.draw(hook, offset, parent_rect, window),
-            LayoutElement::ScrollingTextBlock(p) => p.draw(hook, offset, parent_rect, window),
-            LayoutElement::ImageBlock(p) => p.draw(hook, offset, parent_rect, window),
-        }
-    }
-
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        match self {
-            LayoutElement::NotificationBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
-            LayoutElement::TextBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
-            LayoutElement::ScrollingTextBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
-            LayoutElement::ImageBlock(p) => p.predict_rect_and_init(hook, offset, parent_rect, window),
-        }
-    }
-
-    fn update(&mut self, delta_time: Duration) -> bool { 
-        match self {
-            LayoutElement::NotificationBlock(p) => p.update(delta_time),
-            LayoutElement::TextBlock(p) => p.update(delta_time),
-            LayoutElement::ScrollingTextBlock(p) => p.update(delta_time),
-            LayoutElement::ImageBlock(p) => p.update(delta_time),
-        }
-    }
 }
 
 impl LayoutBlock {
@@ -135,5 +102,11 @@ impl LayoutBlock {
 
         dirty
     }
+}
+
+pub trait DrawableLayoutElement {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
+    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
+    fn update(&mut self, _delta_time: Duration) -> bool { false }
 }
 

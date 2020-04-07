@@ -1,5 +1,6 @@
 extern crate winit;
 extern crate dirs;
+extern crate wiry_derive;
 
 mod rendering;
 mod notification;
@@ -70,6 +71,7 @@ fn main() {
                 // If the watcher exists (.config/wiry exists), then we should process watcher events.
                 if let Some(cw) = &maybe_watcher {
                     if let Ok(ev) = cw.receiver.try_recv() {
+                        // @TODO: print a notification when config reloaded?
                         match ev {
                             DebouncedEvent::Write(_) |
                             DebouncedEvent::Create(_) |
@@ -87,7 +89,17 @@ fn main() {
 
             // Window becomes visible and then position is set.  Need fix.
             Event::RedrawRequested(window_id) => manager.draw_window(window_id),
-            Event::WindowEvent { window_id, event: WindowEvent::MouseInput { state: ElementState::Pressed,  button: MouseButton::Left, .. } } => manager.drop_window(window_id),
+            Event::WindowEvent {
+                window_id,
+                event: WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. },
+                ..
+            } => {
+                manager.drop_window(window_id);
+            },
+                    //state: ElementState::Pressed,
+                    //button: MouseButton::Left,
+                    //.. }
+            //} => {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.

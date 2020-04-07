@@ -5,6 +5,8 @@ authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
+wiry_derive = { path = "./wiry_derive" }
+
 winit = "0.21.0"
 x11 = { version = "2.18.1", features = ["xlib"] }
 dbus = "0.8.2"

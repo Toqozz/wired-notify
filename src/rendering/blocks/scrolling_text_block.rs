@@ -19,15 +19,14 @@ pub struct ScrollingTextBlockParameters {
 
     pub scroll_t: f64,
 
-    // TODO: these should be private.
     #[serde(skip)]
-    pub clip_rect: Rect,
+    clip_rect: Rect,
     #[serde(skip)]
-    pub bounce_left: f64,
+    bounce_left: f64,
     #[serde(skip)]
-    pub bounce_right: f64,
+    bounce_right: f64,
     #[serde(skip)]
-    pub update_enabled: bool,
+    update_enabled: bool,
 }
 
 impl DrawableLayoutElement for ScrollingTextBlockParameters {
