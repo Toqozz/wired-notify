@@ -39,6 +39,9 @@ pub struct NotifyWindow {
     // It is useful when the notification expands in either left or top direction.
     pub master_offset: Vec2,
     pub fuse: i32,
+
+    // `update_enabled` is primarily used for pause functionality right now.
+    pub update_enabled: bool,
 }
 
 impl NotifyWindow {
@@ -91,6 +94,7 @@ impl NotifyWindow {
             marked_for_destroy: false,
             master_offset: Vec2::default(),
             fuse,
+            update_enabled: true,
         };
 
         let mut layout = cfg.layout.clone();
@@ -164,6 +168,10 @@ impl NotifyWindow {
     }
 
     pub fn update(&mut self, delta_time: Duration) -> bool {
+        if !self.update_enabled {
+            return false;
+        }
+
         let dirty = self.layout_mut().update_tree(delta_time);
         if dirty {
             self.winit.request_redraw();

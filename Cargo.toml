@@ -17,5 +17,5 @@ pango = "0.6.0"
 pangocairo = "0.7.0"
 cairo-rs = "0.6.0"
 cairo-sys-rs = { version = "0.8.0", features = ["xlib"] }
-dirs = "2.0.2"
+xdg = "2.2.0"
 notify = "4.0.15"

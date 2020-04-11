@@ -3,7 +3,9 @@
 use std::{
     sync::mpsc::{self, Receiver},
     time::Duration,
+    env,
     io,
+    path::PathBuf,
     fmt::{self, Display, Formatter},
 };
 
@@ -20,9 +22,7 @@ static mut CONFIG: Option<Config> = None;
 #[derive(Debug)]
 pub enum Error {
     // Config file not found.
-    NotFound(&'static str),
-    // Couldn't find config directory.
-    NoConfigDirectory(&'static str),
+    NotFound,
     // Validation error.
     Validate(&'static str),
     // IO error reading file.
@@ -36,8 +36,7 @@ pub enum Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::NotFound(_) => None,
-            Error::NoConfigDirectory(_) => None,
+            Error::NotFound => None,
             Error::Validate(_) => None,
             Error::Io(err) => err.source(),
             Error::Ron(err) => err.source(),
@@ -49,9 +48,7 @@ impl std::error::Error for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Error::NotFound(path) => write!(f, "Couldn't find a config file: {}", path),
-            Error::NoConfigDirectory(dir) =>
-                write!(f, "Couldn't locate a config directory a config file: {}", dir), 
+            Error::NotFound => write!(f, "No config found"),
             Error::Validate(problem) => write!(f, "Error validating config file: {}", problem), 
             Error::Io(err) => write!(f, "Error reading config file: {}", err), 
             Error::Ron(err) => write!(f, "Problem with config file: {}", err), 
@@ -86,28 +83,43 @@ impl Config {
     // Initialize the config.  This does a two things:
     // - Attempts to locate and load a config file on the machine, and if it can't, then loads the
     // default config.
-    // - Attempts to set up a watcher on the config directory to watch for changes, and returns the
-    // watcher or None.
+    // - If config was loaded successfully, then sets up a watcher on the config file to watch for changes,
+    // and returns the watcher or None.
     pub fn init() -> Option<ConfigWatcher> {
         unsafe {
             assert!(CONFIG.is_none());
-            let cfg = Config::load();
-            match cfg {
-                Ok(c) => CONFIG = Some(c),
-                Err(e) => {
-                    println!("Couldn't load a config, so will use default one:\n\t{}", e);
+            let cfg_file = Config::installed_config();
+            match cfg_file {
+                Some(f) => {
+                    let cfg = Config::load(f.clone());
+                    match cfg {
+                        Ok(c) => CONFIG = Some(c),
+                        Err(e) => {
+                            println!("Found a config but couldn't load it, so will use default one:\n\t{}", e);
+                        }
+                    }
+
+                    // Watch the config file for changes, even if it didn't load correctly; we
+                    // assume that the config we found is the one we're using.
+                    // It would be nice to be able to watch the config directories for when a user
+                    // creates a config, but it seems impractical to watch that many directories.
+                    let watch = Config::watch(f);
+                    match watch {
+                        Ok(w) => return Some(w),
+                        Err(e) => {
+                            println!("There was a problem watching the config for changes; so won't watch:\n\t{}", e);
+                            return None;
+                        },
+                    }
+                }
+
+                None => {
+                    println!("Couldn't load a config because we couldn't find one, so will use default.");
                     CONFIG = Some(Config::default());
+                    return None;
                 },
             };
 
-            let watch = Config::watch();
-            match watch {
-                Ok(w) => return Some(w),
-                Err(e) => {
-                    println!("Couldn't watch config directory for changes, so we won't:\n\t{}", e);
-                    return None;
-                },
-            }
         }
     }
 
@@ -132,22 +144,45 @@ impl Config {
     // Attempt to load the config again.
     // If we can, then replace the existing config.
     // If we can't, then do nothing.
-    pub fn try_reload() {
-        match Config::load() {
+    pub fn try_reload(path: PathBuf) {
+        match Config::load(path) {
             Ok(cfg) => unsafe { CONFIG = Some(cfg) },
             Err(e) => println!("Tried to reload the config but couldn't: {}", e),
         }
     }
 
-    // Load config or return error.
-    pub fn load() -> Result<Self, Error> {
-        let mut cfg_path = match dirs::config_dir() {
-            Some(path) => path,
-            None => return Err(Error::NoConfigDirectory("Couldn't find $XDG_CONFIG_HOME or $HOME/.config")),
-        };
+    // https://github.com/alacritty/alacritty/blob/f14d24542c3ceda3b508c707eb79cf2fe2a04bd1/alacritty/src/config/mod.rs#L98
+    fn installed_config() -> Option<PathBuf> {
+        xdg::BaseDirectories::with_prefix("wiry")
+            .ok()
+            .and_then(|xdg| xdg.find_config_file("wiry.ron"))
+            .or_else(|| {
+                xdg::BaseDirectories::new()
+                    .ok()
+                    .and_then(|fallback| fallback.find_config_file("wiry.ron"))
+            })
+            .or_else(|| {
+                if let Ok(home) = env::var("HOME") {
+                    // Fallback path: `$HOME/.config/wiry/wiry.ron`
+                    let fallback = PathBuf::from(&home).join(".config/wiry/wiry.ron");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
 
-        cfg_path.push("wiry/config.ron");
-        let cfg_string = std::fs::read_to_string(cfg_path);
+                    // Fallback path: `$HOME/.wiry.ron`
+                    let fallback = PathBuf::from(&home).join(".wiry.ron");
+                    if fallback.exists() {
+                        return Some(fallback);
+                    }
+                }
+
+                None
+            })
+    }
+
+    // Load config or return error.
+    pub fn load(path: PathBuf) -> Result<Self, Error> {
+        let cfg_string = std::fs::read_to_string(path);
         let cfg_string = match cfg_string {
             Ok(string) => string,
             Err(e) => return Err(Error::Io(e)),
@@ -160,20 +195,18 @@ impl Config {
         };
     }
 
-    // Watch config directory for changes, and send message to Configwatcher when something
+    // Watch config file for changes, and send message to `Configwatcher` when something
     // happens.
-    pub fn watch() -> Result<ConfigWatcher, Error> {
+    pub fn watch(mut path: PathBuf) -> Result<ConfigWatcher, Error> {
         let (sender, receiver) = mpsc::channel();
+
         // Duration is a debouncing period.
-        let mut watcher = notify::watcher(sender, Duration::from_millis(10)).expect("Unable to spawn file watcher.");
+        let mut watcher = notify::watcher(sender, Duration::from_millis(10))
+            .expect("Unable to spawn file watcher.");
 
-        let mut cfg_path = match dirs::config_dir() {
-            Some(path) => path,
-            None => return Err(Error::NoConfigDirectory("Couldn't find $XDG_CONFIG_HOME or $HOME/.config")),
-        };
-
-        cfg_path.push("wiry");
-        let result = watcher.watch(cfg_path.clone(), RecursiveMode::NonRecursive);
+        // Watch dir.
+        path.pop();
+        let result = watcher.watch(path, RecursiveMode::NonRecursive);
         match result {
             Ok(_) => return Ok(ConfigWatcher { watcher, receiver }),
             Err(e) => return Err(Error::Watch(e)),
@@ -199,10 +232,10 @@ impl Default for Config {
 
 #[derive(Debug, Deserialize)]
 pub struct ShortcutsConfig {
-    pub notification_close: u32,
-    pub notification_closeall: u32,
-    pub notification_pause: u32,
-    pub notification_url: u32,
+    pub notification_close: u8,
+    pub notification_closeall: u8,
+    pub notification_pause: u8,
+    pub notification_url: u8,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -272,5 +305,3 @@ impl AnchorPosition {
         }
     }
 }
-
-

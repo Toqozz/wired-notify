@@ -1,5 +1,5 @@
 extern crate winit;
-extern crate dirs;
+extern crate xdg;
 extern crate wiry_derive;
 
 mod rendering;
@@ -11,8 +11,8 @@ mod maths;
 use std::time::{Instant, Duration};
 
 use winit::{
-    event::{ StartCause, Event, WindowEvent, ElementState, MouseButton },
-    event_loop::{ ControlFlow, EventLoop },
+    event::{StartCause, Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
     platform::desktop::EventLoopExtDesktop,
     platform::unix::EventLoopExtUnix,
 };
@@ -73,10 +73,10 @@ fn main() {
                     if let Ok(ev) = cw.receiver.try_recv() {
                         // @TODO: print a notification when config reloaded?
                         match ev {
-                            DebouncedEvent::Write(_) |
-                            DebouncedEvent::Create(_) |
-                            DebouncedEvent::Chmod(_) => {
-                                Config::try_reload();
+                            DebouncedEvent::Write(p) |
+                            DebouncedEvent::Create(p) |
+                            DebouncedEvent::Chmod(p) => {
+                                Config::try_reload(p);
                             },
                             _ => {},
                         }
@@ -89,18 +89,13 @@ fn main() {
 
             // Window becomes visible and then position is set.  Need fix.
             Event::RedrawRequested(window_id) => manager.draw_window(window_id),
-            Event::WindowEvent {
-                window_id,
-                event: WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. },
-                ..
-            } => {
-                manager.drop_window(window_id);
-            },
-                    //state: ElementState::Pressed,
-                    //button: MouseButton::Left,
-                    //.. }
-            //} => {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
+
+            // TODO: fix this givinng whole window event.
+            Event::WindowEvent { window_id, event, .. } => {
+                manager.process_event(window_id, event);
+            },
+
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
             // This is ideal for games and similar applications.

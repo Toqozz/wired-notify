@@ -22,6 +22,7 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
 
     let traverse_draw = variants.iter().map(|f| {
         let variant_name = &f.ident;
+        // TODO: quote_spanned.
         quote! {
             #name::#variant_name(ref __self_0) => __self_0.draw(hook, offset, parent_rect, window)
         }

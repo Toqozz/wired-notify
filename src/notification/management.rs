@@ -1,9 +1,14 @@
 use std::time::Duration;
+use std::process::Command;
 use std::collections::HashMap;
 
 use winit::{
     event_loop::EventLoopWindowTarget,
     window::WindowId,
+    event::ElementState,
+    event::MouseButton,
+    event::WindowEvent,
+    event,
 };
 
 use crate::{
@@ -127,30 +132,90 @@ impl NotifyWindowManager {
         self.dirty = false;
     }
 
-    // @TODO: there's gotta be a better looking way to do this.
-    pub fn drop_window(&mut self, window_id: WindowId) {
-        for (_monitor, windows) in &mut self.monitor_windows {
-            for window in windows.iter_mut() {
-                if window.winit.id() == window_id {
-                    window.marked_for_destroy = true;
-                    self.dirty = true;
+    pub fn process_event(&mut self, window_id: WindowId, event: event::WindowEvent) {
+        // Simplify button presses into a uint, which matches our config.
+        let pressed = match event {
+            WindowEvent::MouseInput { state: ElementState::Pressed, button, .. } => {
+                match button {
+                    MouseButton::Left => Some(1),
+                    MouseButton::Right => Some(2),
+                    MouseButton::Middle => Some(3),
+                    MouseButton::Other(u) => Some(u),
+                }
+            }
+            _ => None,
+        };
 
-                    break;
+        // Match button press to config.
+        let config = Config::get();
+        if let Some(button) = pressed {
+            if button == config.shortcuts.notification_close {
+                self.drop_window(window_id);
+
+            } else if button == config.shortcuts.notification_closeall {
+                self.drop_windows();
+
+            } else if button == config.shortcuts.notification_url {
+                let mut body = String::from("");
+                if let Some((monitor, idx)) = self.find_window_idx(window_id) {
+                    let window = self.monitor_windows.get(&monitor).unwrap().get(idx).unwrap();
+                    body = window.notification.body.clone();
+                }
+
+                find_and_open_url(body);
+
+            } else if button == config.shortcuts.notification_pause {
+                if let Some((monitor, idx)) = self.find_window_idx(window_id) {
+                    let window = self.monitor_windows
+                        .get_mut(&monitor).unwrap()
+                        .get_mut(idx).unwrap();
+                    window.update_enabled = !window.update_enabled;
                 }
             }
         }
     }
 
-    // This feels heavy.
-    // Draw an individual window (mostly for expose events).
-    pub fn draw_window(&mut self, window_id: WindowId) {
+    // Find window across all monitors based on an id, which we receive from winit events.
+    pub fn find_window_idx(&self, window_id: WindowId) -> Option<(u32, usize)> {
+        for (monitor, windows) in &self.monitor_windows {
+            let found = windows.iter().position(|w| w.winit.id() == window_id);
+            if let Some(idx) = found {
+                return Some((*monitor, idx))
+            }
+        }
+
+        None
+    }
+
+    pub fn drop_window(&mut self, window_id: WindowId) {
+        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
+            let window = self.monitor_windows
+                .get_mut(&monitor).unwrap()
+                .get_mut(idx).unwrap();
+
+            window.marked_for_destroy = true;
+            self.dirty = true;
+        }
+    }
+
+    // @TODO: how about a shortcut for dropping all windows on one monitor?
+    pub fn drop_windows(&mut self) {
         for (_monitor, windows) in &mut self.monitor_windows {
             for window in windows.iter_mut() {
-                if window.winit.id() == window_id {
-                    window.draw();
-                    break;
-                }
+                window.marked_for_destroy = true;
+                self.dirty = true;
             }
+        }
+    }
+
+    // Draw an individual window (mostly for expose events).
+    pub fn draw_window(&mut self, window_id: WindowId) {
+        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
+            let window = self.monitor_windows
+                .get_mut(&monitor).unwrap()
+                .get_mut(idx).unwrap();
+
+            window.draw();
         }
     }
 
@@ -164,3 +229,23 @@ impl NotifyWindowManager {
     }
 }
 
+fn find_and_open_url(string: String) {
+    // This would be cleaner with regex, but we want to avoid the dependency.
+    // Find the first instance of either "http://" or "https://" and then split the
+    // string at the end of the word.
+    let idx = string.find("http://").or_else(|| string.find("https://"));
+    let maybe_url = if let Some(i) = idx {
+        let (_, end) = string.split_at(i);
+        end.split_whitespace().next()
+    } else {
+        eprintln!("Was requested to open a url but couldn't find one in the specified string");
+        None
+    };
+
+    if let Some(url) = maybe_url {
+        let status = Command::new("xdg-open").arg(url).status();
+        if status.is_err() {
+            eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", status);
+        }
+    }
+}

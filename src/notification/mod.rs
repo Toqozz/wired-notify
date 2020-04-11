@@ -33,7 +33,6 @@ impl Notification {
             timeout = Config::get().timeout;
         }
 
-        dbg!(&notification);
         let img_path = Path::new(&notification.app_icon);
         let image = image::open(img_path).ok();
 
