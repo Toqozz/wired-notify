@@ -104,6 +104,7 @@ impl NotifyWindow {
         window.layout = Some(layout);
         window.set_size(rect.width(), rect.height());
         window.master_offset = delta;
+        dbg!(&window.master_offset);
         window
     }
 

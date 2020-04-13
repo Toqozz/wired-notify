@@ -15,7 +15,9 @@ pub struct TextBlockParameters {
     pub font: String,
     pub color: Color,
     pub max_width: i32,
+    pub min_width: i32,
     pub max_height: i32,
+    pub min_height: i32,
 }
 
 impl DrawableLayoutElement for TextBlockParameters {
@@ -27,7 +29,7 @@ impl DrawableLayoutElement for TextBlockParameters {
             .replace("%b", &window.notification.body);
 
         window.text.set_text(&text, &self.font, self.max_width, self.max_height);
-        let mut rect = window.text.get_rect(&self.padding);
+        let mut rect = window.text.get_rect(&self.padding, self.min_width, self.min_height);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
@@ -49,7 +51,8 @@ impl DrawableLayoutElement for TextBlockParameters {
             .replace("%b", &window.notification.body);
 
         window.text.set_text(&text, &self.font, self.max_width, self.max_height);
-        let mut rect = window.text.get_rect(&self.padding);
+        let mut rect = window.text.get_rect(&self.padding, self.min_width, self.min_height);
+        dbg!(rect.width());
 
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 

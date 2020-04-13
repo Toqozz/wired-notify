@@ -31,6 +31,10 @@ pub struct Hook {
 
 
 // DrawableLayoutElement is implemented via a macro -- see /wiry_derive/lib.rs.
+// @IMPORTANT: DO NOT CACHE POSITIONS IN `predict_rect_and_init`! Real drawing uses a `master_offset`
+// based on the result of `predict_rect_and_init` to make sure we don't draw off canvas, so
+// the result of `LayoutBlock::find_anchor_pos()` can change between `predict_rect_and_init` and
+// `draw`!
 #[derive(Debug, Deserialize, Clone, DrawableLayoutElement)]
 pub enum LayoutElement {
     NotificationBlock(NotificationBlockParameters),
@@ -59,16 +63,16 @@ impl LayoutBlock {
 
     // Call draw on each block in tree.
     pub fn draw_tree(&self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
+        let rect = self.params.draw(&self.hook, &self.offset, parent_rect, window);
+        let mut acc_rect = accum_rect.union(&rect);
+
         // Draw debug rect around bounding box.
         if Config::get().debug {
             window.context.set_source_rgba(1.0, 0.0, 0.0, 1.0);
             window.context.set_line_width(1.0);
-            window.context.rectangle(accum_rect.x(), accum_rect.y(), accum_rect.width(), accum_rect.height());
+            window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
             window.context.stroke();
         }
-
-        let rect = self.params.draw(&self.hook, &self.offset, parent_rect, window);
-        let mut acc_rect = accum_rect.union(&rect);
 
         for child in &self.children {
             acc_rect = child.draw_tree(window, &rect, acc_rect);
@@ -81,7 +85,7 @@ impl LayoutBlock {
     pub fn predict_rect_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
         // Predict size is relatively cheap and lets us predict the size of elements, so we can set window size and other stuff
         // ahead of time.
-        // `predict_rect_independent` finds the bounding box of an individual layout -- children are not involved.
+        // `predict_rect_and_init` finds the bounding box of an individual element -- children are not involved.
         let rect = self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window);
         let mut acc_rect = accum_rect.union(&rect);
 

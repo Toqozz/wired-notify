@@ -206,6 +206,7 @@ impl Config {
 
         // Watch dir.
         path.pop();
+        let path = std::fs::canonicalize(path).expect("Couldn't canonicalize path, wtf.");
         let result = watcher.watch(path, RecursiveMode::NonRecursive);
         match result {
             Ok(_) => return Ok(ConfigWatcher { watcher, receiver }),
@@ -224,7 +225,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let cfg_string = include_str!("../config.ron");
+        let cfg_string = include_str!("../wiry.ron");
         ron::de::from_str(cfg_string)
             .expect("Failed to parse default config.  Something is fucked up.\n")
     }

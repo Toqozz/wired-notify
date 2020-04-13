@@ -13,6 +13,7 @@ pub struct ScrollingTextBlockParameters {
     pub font: String,
     pub color: Color,
     pub max_width: i32,
+    pub min_width: i32,
     pub scroll_speed: f64,
     pub lhs_dist: f64,
     pub rhs_dist: f64,
@@ -22,9 +23,10 @@ pub struct ScrollingTextBlockParameters {
     #[serde(skip)]
     clip_rect: Rect,
     #[serde(skip)]
-    bounce_left: f64,
+    text_rect: Rect,
     #[serde(skip)]
-    bounce_right: f64,
+    scroll_distance: f64,
+
     #[serde(skip)]
     update_enabled: bool,
 }
@@ -38,39 +40,52 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
             .replace("%s", &window.notification.summary)
             .replace("%b", &window.notification.body);
 
-        window.text.set_text(&text, &self.font, -1, 0);
-        let mut rect = window.text.get_rect(&self.padding);
+        window.text.set_text(&text, &self.font, self.max_width, 0);
+        let mut rect = window.text.get_rect(&self.padding, self.min_width, 0);
 
-        //let mut pos = self.find_anchor_pos(parent_rect, &rect);
+        window.text.set_text(&text, &self.font, -1, 0);
+
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
         pos.x += self.padding.left;
         pos.y += self.padding.top;
 
         // If we're larger than the max size, then we should scroll, which is just changing the
         // text's x position really.
-        if rect.width() > self.max_width as f64 {
-            //let clip_right = self.max_width as f64 - self.padding.right;
+        if self.text_rect.width() > self.max_width as f64 {
             window.context.rectangle(
-                self.clip_rect.x(),
-                self.clip_rect.y(),
+                pos.x,
+                pos.y,
                 self.clip_rect.width(),
                 self.clip_rect.height()
             );
             window.context.clip();
 
-            let lerp = maths::lerp(self.bounce_right, self.bounce_left, self.scroll_t);
+            // @TODO: also add dynamic scroll option.
+            // Equivalent to clip_rect.left() + self.lhs_dist if clip_rect had correct coordinates.
+            let bounce_left = pos.x + self.padding.left + self.lhs_dist;
+            // Equivalent to clip_rect.right() - self.rhs_dist - text_rect.width() if clip_rect had
+            // correct coordinates.
+            let bounce_right =
+                pos.x + self.padding.left + self.clip_rect.width() - self.rhs_dist - self.text_rect.width();
+
+            let lerp = maths::lerp(bounce_right, bounce_left, self.scroll_t);
+            // Keep track of pos.x; it's important for the layout.
+            let temp = pos.x;
             pos.x = lerp;
+            window.text.paint(&window.context, &pos, &self.color);
+            pos.x = temp;
+        } else {
+            window.text.paint(&window.context, &pos, &self.color);
         }
 
-        window.text.paint(&window.context, &pos, &self.color);
         pos.x -= self.padding.left;
         pos.y -= self.padding.top;
 
         window.context.restore();
 
         rect.set_xy(
-            pos.x - self.padding.left,
-            pos.y - self.padding.top
+            pos.x,
+            pos.y,
         );
         rect
     }
@@ -83,28 +98,31 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
 
         window.text.set_text(&text, &self.font, self.max_width, 0);
         // Padded rect, for calculating bounding box.
-        let mut rect = window.text.get_rect(&self.padding);
+        let mut rect = window.text.get_rect(&self.padding, self.min_width, 0);
+
         // Unpadded rect, used for clipping.
-        let mut clip_rect = window.text.get_rect(&Padding::new(0.0, 0.0, 0.0, 0.0));
+        let clip_rect = window.text.get_rect(&Padding::new(0.0, 0.0, 0.0, 0.0), 0, 0);
 
         // Real text rect, with infinite length.
         window.text.set_text(&text, &self.font, -1, 0);
-        let text_rect = window.text.get_rect(&self.padding);
+        let text_rect = window.text.get_rect(&self.padding, 0, 0);
         // If we're larger than the max width, then this block should be scrolled.
         if text_rect.width() > self.max_width as f64 {
             self.update_enabled = true;
         }
 
-        let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &clip_rect);
-        pos.x += self.padding.left;
-        pos.y += self.padding.top;
-        clip_rect.set_xy(pos.x, pos.y);
-        pos.x -= self.padding.left;
-        pos.y -= self.padding.top;
+        let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
-        // TODO: also add dynamic scroll option.
-        self.bounce_left = clip_rect.left() + self.lhs_dist;
-        self.bounce_right = clip_rect.right() + self.rhs_dist - text_rect.width();
+        // @TODO: also add dynamic scroll option.
+        // Equivalent to clip_rect.left() + self.lhs_dist if clip_rect had correct coordinates.
+        let bounce_left = pos.x + self.padding.left + self.lhs_dist;
+        // Equivalent to clip_rect.right() - self.rhs_dist - text_rect.width() if clip_rect had
+        // correct coordinates.
+        let bounce_right = pos.x + self.padding.left + clip_rect.width() - self.rhs_dist - text_rect.width();
+
+        self.scroll_distance = maths::distance(bounce_left, bounce_right);
+
+        self.text_rect = text_rect;
         self.clip_rect = clip_rect;
 
         rect.set_xy(
@@ -119,9 +137,8 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
             return false;
         }
 
-        let distance = maths::distance(self.bounce_left, self.bounce_right);
         self.scroll_t +=
-            delta_time.as_secs_f64() * self.scroll_speed * (self.max_width as f64 / distance);
+            delta_time.as_secs_f64() * self.scroll_speed * (self.max_width as f64 / self.scroll_distance);
 
         // If scrolling right.
         if self.scroll_speed > 0.0 {

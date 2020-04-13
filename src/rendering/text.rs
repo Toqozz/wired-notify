@@ -42,8 +42,14 @@ impl TextRenderer {
         self.layout.set_width(pango::SCALE * max_width);
     }
 
-    pub fn get_rect(&self, padding: &Padding) -> Rect {
-        let (width, height) = self.layout.get_pixel_size();
+    pub fn get_rect(&self, padding: &Padding, min_width: i32, min_height: i32) -> Rect {
+        let (mut width, mut height) = self.layout.get_pixel_size();
+        if width < min_width {
+            width = min_width;
+        }
+        if height < min_height {
+            height = min_height;
+        }
 
         Rect::new(0.0, 0.0, width as f64 + padding.width(), height as f64 + padding.height())
     }
