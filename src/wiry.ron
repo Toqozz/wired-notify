@@ -1,0 +1,74 @@
+(
+    max_notifications: 4,
+    width: 1,
+    height: 1,
+
+    timeout: 10000,
+    poll_interval: 6,
+
+    debug: false,
+
+    layout: LayoutBlock (
+        hook: Hook(parent_hook: TL, self_hook: TL),
+        offset: Vec2(x: 7.0, y: 7.0),
+        params: NotificationBlock(NotificationBlockParameters(
+            monitor: 0,
+            border_width: 3,
+            background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
+            border_color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+
+            gap: Vec2(x: 0.0, y: 8.0),
+            notification_hook: BL,
+        )),
+        children: [
+            LayoutBlock (
+                hook: Hook(parent_hook: TL, self_hook: TL),
+                offset: Vec2(x: 0.0, y: 0.0),
+                params: ImageBlock(ImageBlockParameters(  // image block
+                    padding: Padding(left: 7.0, right: 4.0, top: 7.0, bottom: 4.0),
+                    width: 64,
+                    height: 64,
+                )),
+                children: [
+                    LayoutBlock (         // summary block
+                        hook: Hook(parent_hook: TR, self_hook: TL),
+                        offset: Vec2(x: 0.0, y: 0.0),
+                        params: TextBlock(TextBlockParameters(
+                            text: "%s",
+                            font: "Operator Mono 10",
+                            color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+                            padding: Padding(left: 7.0, right: 7.0, top: 7.0, bottom: 4.0),
+                            max_width: 300,
+                            max_height: 50,
+                        )),
+                        children: [
+                            LayoutBlock (        // body block
+                                hook: Hook(parent_hook: BL, self_hook: TL),
+                                offset: Vec2(x: 0.0, y: 0.0),
+                                params: ScrollingTextBlock(ScrollingTextBlockParameters(
+                                    text: "%b",
+                                    font: "Operator Mono 10",
+                                    color: Color(r: 0.92157, g: 0.858824, b: 0.698039, a: 1.0),
+                                    padding: Padding(left: 7.0, right: 7.0, top: 0.0, bottom: 7.0),
+                                    max_width: 300,
+                                    scroll_speed: 0.4,
+                                    lhs_dist: 10.0,
+                                    rhs_dist: 10.0,
+                                    scroll_t: 1.0,
+                                )),
+                                children: [],
+                            )
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    ),
+
+    shortcuts: ShortcutsConfig (
+        notification_close: 1,
+        notification_closeall: 2,
+        notification_pause: 3,
+        notification_url: 8,
+    ),
+)
