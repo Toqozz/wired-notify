@@ -26,23 +26,20 @@ fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.
     std::env::set_var("WINIT_X11_SCALE_FACTOR", "1.0");
 
-    let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
-
-    //let config = Config::load().unwrap();
-    //let maybe_watcher = Config::watch();
     let maybe_watcher = Config::init();
 
+    let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
     let mut manager = NotifyWindowManager::new();
 
     // Allows us to receive messages from dbus.
     let (connection, receiver) = bus::dbus::get_connection();
 
-    let timer_length = Duration::from_millis(Config::get().poll_interval);
+    let mut poll_interval = Duration::from_millis(Config::get().poll_interval);
     let mut prev_instant = Instant::now();
     event_loop.run_return(move |event, event_loop, control_flow| {
         match event {
             // @NOTE: maybe we should separate receiving dbus signals and drawing windows.
-            Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + timer_length),
+            Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + poll_interval),
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
                 let now = Instant::now();
 
@@ -77,6 +74,7 @@ fn main() {
                             DebouncedEvent::Create(p) |
                             DebouncedEvent::Chmod(p) => {
                                 Config::try_reload(p);
+                                poll_interval = Duration::from_millis(Config::get().poll_interval);
                             },
                             _ => {},
                         }
@@ -84,7 +82,7 @@ fn main() {
                 }
 
                 // Restart timer for next loop.
-                *control_flow = ControlFlow::WaitUntil(now + timer_length);
+                *control_flow = ControlFlow::WaitUntil(now + poll_interval);
             },
 
             // Window becomes visible and then position is set.  Need fix.

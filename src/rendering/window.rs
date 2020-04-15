@@ -47,7 +47,7 @@ pub struct NotifyWindow {
 impl NotifyWindow {
     pub fn new(el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
         let cfg = Config::get();
-        let (width, height) = (cfg.width as f64, cfg.height as f64);
+        let (width, height) = (cfg.min_window_width as f64, cfg.min_window_height as f64);
 
         let winit = WindowBuilder::new()
             .with_inner_size(LogicalSize { width, height })
@@ -104,7 +104,6 @@ impl NotifyWindow {
         window.layout = Some(layout);
         window.set_size(rect.width(), rect.height());
         window.master_offset = delta;
-        dbg!(&window.master_offset);
         window
     }
 
@@ -149,7 +148,7 @@ impl NotifyWindow {
     /*
     pub fn predict_size(&self) -> (Rect, Vec2) {
         let layout = self.layout();
-        let rect = layout.predict_rect_tree(&self, &self.get_inner_rect(), &Rect::default());
+        let rect = layout.predict_rect_tree(&self, &self.get_inner_rect(), &Rect::EMPTY);
         // If x or y are not 0, then we have to offset our drawing by that amount.
         let delta = Vec2::new(-rect.x(), -rect.y());
 
@@ -157,7 +156,7 @@ impl NotifyWindow {
     }
     */
 
-    pub fn draw(&mut self) {
+    pub fn draw(&self) {
         let mut inner_rect = self.get_inner_rect();
         // If the master offset is anything other than `(0.0, 0.0)` it means that one of the
         // blocks is going to expand the big rectangle leftwards and/or upwards, which would

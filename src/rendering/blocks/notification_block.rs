@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::maths::{Vec2, Rect};
-use crate::config::{Color, AnchorPosition};
+use crate::config::Color;
 use crate::rendering::window::NotifyWindow;
 
 use crate::rendering::layout::{DrawableLayoutElement, Hook};
@@ -17,7 +17,7 @@ pub struct NotificationBlockParameters {
     pub border_color: Color,
 
     pub gap: Vec2,
-    pub notification_hook: AnchorPosition,
+    pub notification_hook: Hook,
 }
 
 impl DrawableLayoutElement for NotificationBlockParameters {

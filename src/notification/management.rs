@@ -1,5 +1,5 @@
 use std::time::Duration;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::collections::HashMap;
 
 use winit::{
@@ -41,10 +41,19 @@ impl NotifyWindowManager {
         let notification = Notification::from_dbus(dbus_notification);
 
         if let LayoutElement::NotificationBlock(p) = &Config::get().layout.params {
-            self.monitor_windows
+            let windows = self.monitor_windows
                 .entry(p.monitor)
-                .or_insert(vec![])
-                .push(NotifyWindow::new(el, notification));
+                .or_insert(vec![]);
+
+            // Push a new notification window.
+            windows.push(NotifyWindow::new(el, notification));
+
+            // If we've exceeded max notifications, then mark the top-most one for destroy.
+            let cfg = Config::get();
+            if cfg.max_notifications > 0 && windows.len() > cfg.max_notifications {
+                windows.first_mut().unwrap().marked_for_destroy = true;
+            }
+
 
             // Outer state is now out of sync with internal state because we have an invisible notification.
             self.dirty = true;
@@ -73,9 +82,6 @@ impl NotifyWindowManager {
         let cfg = Config::get();
         // TODO: gotta do something about this... can't I just cast it?
         if let LayoutElement::NotificationBlock(p) = &cfg.layout.params {
-            let gap = &p.gap;
-            //let monitor = self.config.monitor.as_ref().expect("No monitor defined.");
-
             for (monitor_id, windows) in &self.monitor_windows {
                 // If there are no windows for this monitor, leave it alone.
                 if windows.len() == 0 {
@@ -93,33 +99,48 @@ impl NotifyWindowManager {
 
                 let (pos, size) = (monitor.position(), monitor.size());
                 let monitor_rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
+                let mut prev_rect = monitor_rect;
 
-                let mut prev_pos = LayoutBlock::find_anchor_pos(
-                    &cfg.layout.hook,
-                    &cfg.layout.offset,
-                    &monitor_rect,
-                    &Rect::new(0.0, 0.0, 0.0, 0.0)
-                );
-                prev_pos.x -= gap.x;
-                prev_pos.y -= gap.y;
-
+                let mut real_idx = 0;
                 for i in 0..windows.len() {
-                    let window = &windows[i];
-
                     // Windows which are marked for destroy should be overlapped so that destroying them
                     // will be less noticeable.
-                    if window.marked_for_destroy {
+                    if windows[i].marked_for_destroy {
                         continue;
                     }
 
-                    // Warning: `set_position` doesn't happen instantly.  If we read
-                    // `window_rect`s position straight after this call it probably won't be correct.
-                    window.set_position(prev_pos.x + gap.x, prev_pos.y + gap.y);
+                    let window = &windows[i];
+                    let mut window_rect = window.get_inner_rect();
+
+                    // For the first notification, we attach to the monitor.
+                    // For the second and more notifications, we attach to the previous
+                    // notification.
+                    let pos = if real_idx == 0 {
+                        LayoutBlock::find_anchor_pos(
+                            &cfg.layout.hook,
+                            &cfg.layout.offset,
+                            &prev_rect,
+                            &Rect::EMPTY,
+                        )
+                    } else {
+                        LayoutBlock::find_anchor_pos(
+                            &p.notification_hook,
+                            &p.gap,
+                            &prev_rect,
+                            &window_rect,
+                        )
+                    };
+
+                    // Note: `set_position` doesn't happen instantly.  If we read
+                    // `get_rect()`s position straight after this call it probably won't be correct,
+                    // which is why we `set_xy` manually after.
+                    window.set_position(pos.x, pos.y);
                     window.set_visible(true);
 
-                    let mut window_rect = window.get_inner_rect();
-                    window_rect.set_xy(prev_pos.x + gap.x, prev_pos.y + gap.y);
-                    prev_pos = p.notification_hook.get_pos(&window_rect);
+                    window_rect.set_xy(pos.x, pos.y);
+                    prev_rect = window_rect;
+
+                    real_idx += 1;
                 }
             }
         } else {
@@ -209,20 +230,20 @@ impl NotifyWindowManager {
     }
 
     // Draw an individual window (mostly for expose events).
-    pub fn draw_window(&mut self, window_id: WindowId) {
+    pub fn draw_window(&self, window_id: WindowId) {
         if let Some((monitor, idx)) = self.find_window_idx(window_id) {
             let window = self.monitor_windows
-                .get_mut(&monitor).unwrap()
-                .get_mut(idx).unwrap();
+                .get(&monitor).unwrap()
+                .get(idx).unwrap();
 
             window.draw();
         }
     }
 
     // Draw all windows.
-    pub fn _draw_windows(&mut self) {
-        for (_monitor, windows) in &mut self.monitor_windows {
-            for window in windows.iter_mut() {
+    pub fn _draw_windows(&self) {
+        for (_monitor, windows) in &self.monitor_windows {
+            for window in windows.iter() {
                 window.draw();
             }
         }
@@ -243,9 +264,28 @@ fn find_and_open_url(string: String) {
     };
 
     if let Some(url) = maybe_url {
+        // `xdg-open` can be blocking, so opening like this can block our whole program because
+        // we're grabbing the command's status at the end (which will cause it to wait).
+        // I think it's important that we report at least some status back in case of error, so
+        // we use `spawn()` instead.
+        /*
         let status = Command::new("xdg-open").arg(url).status();
         if status.is_err() {
             eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", status);
+        }
+        */
+
+        // For some reason, Ctrl-C closes child processes, even when they're detached
+        // (`thread::spawn`), but `SIGINT`, `SIGTERM`, `SIGKILL`, and more (?) don't.
+        // Maybe it's this: https://unix.stackexchange.com/questions/149741/why-is-sigint-not-propagated-to-child-process-when-sent-to-its-parent-process
+        let child = Command::new("xdg-open")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .arg(url)
+            .spawn();
+
+        if child.is_err() {
+            eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", child);
         }
     }
 }

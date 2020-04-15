@@ -18,18 +18,16 @@ pub struct TextBlockParameters {
     pub min_width: i32,
     pub max_height: i32,
     pub min_height: i32,
+
+    #[serde(skip)]
+    real_text: String,
 }
 
 impl DrawableLayoutElement for TextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         // TODO: Some/None for summary/body?  We don't want to replace or even add the block if there is no body.
-        let mut text = self.text.clone();
-        text = text
-            .replace("%s", &window.notification.summary)
-            .replace("%b", &window.notification.body);
-
-        window.text.set_text(&text, &self.font, self.max_width, self.max_height);
-        let mut rect = window.text.get_rect(&self.padding, self.min_width, self.min_height);
+        window.text.set_text(&self.real_text, &self.font, self.max_width, self.max_height);
+        let mut rect = window.text.get_sized_rect(&self.padding, self.min_width, self.min_height);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
@@ -51,8 +49,9 @@ impl DrawableLayoutElement for TextBlockParameters {
             .replace("%b", &window.notification.body);
 
         window.text.set_text(&text, &self.font, self.max_width, self.max_height);
-        let mut rect = window.text.get_rect(&self.padding, self.min_width, self.min_height);
-        dbg!(rect.width());
+        let mut rect = window.text.get_sized_rect(&self.padding, self.min_width, self.min_height);
+
+        self.real_text = text;
 
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 

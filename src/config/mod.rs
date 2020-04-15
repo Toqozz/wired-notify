@@ -64,15 +64,19 @@ pub struct ConfigWatcher {
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub max_notifications: u32,
-    // @TODO: this option should be removed.
-    pub width: u32,
-    pub height: u32,            // Base height.  NOTE: notification windows will generally be resized, ignoring this value.
+    pub max_notifications: usize,
+    // Minimum window width and height.  This is used to create the base rect that the notification
+    // grows within.
+    // The notification window will never be smaller than this.
+    // A value of 1 means that the window will generally always resize with notification, unless
+    // you have a 1x1 pixel notification...
+    pub min_window_width: u32,
+    pub min_window_height: u32,
 
-    // TODO: timeout should be in seconds.
     pub timeout: i32,           // Default timeout.
     pub poll_interval: u64,
 
+    // Draws rectangles around elements.
     pub debug: bool,
     pub shortcuts: ShortcutsConfig,
 
@@ -95,7 +99,8 @@ impl Config {
                     match cfg {
                         Ok(c) => CONFIG = Some(c),
                         Err(e) => {
-                            println!("Found a config but couldn't load it, so will use default one:\n\t{}", e);
+                            println!("Found a config but couldn't load it, so will use default one for now:\n\t{}", e);
+                            CONFIG = Some(Config::default());
                         }
                     }
 
