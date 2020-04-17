@@ -158,24 +158,24 @@ impl Config {
 
     // https://github.com/alacritty/alacritty/blob/f14d24542c3ceda3b508c707eb79cf2fe2a04bd1/alacritty/src/config/mod.rs#L98
     fn installed_config() -> Option<PathBuf> {
-        xdg::BaseDirectories::with_prefix("wiry")
+        xdg::BaseDirectories::with_prefix("wired")
             .ok()
-            .and_then(|xdg| xdg.find_config_file("wiry.ron"))
+            .and_then(|xdg| xdg.find_config_file("wired.ron"))
             .or_else(|| {
                 xdg::BaseDirectories::new()
                     .ok()
-                    .and_then(|fallback| fallback.find_config_file("wiry.ron"))
+                    .and_then(|fallback| fallback.find_config_file("wired.ron"))
             })
             .or_else(|| {
                 if let Ok(home) = env::var("HOME") {
-                    // Fallback path: `$HOME/.config/wiry/wiry.ron`
-                    let fallback = PathBuf::from(&home).join(".config/wiry/wiry.ron");
+                    // Fallback path: `$HOME/.config/wired/wired.ron`
+                    let fallback = PathBuf::from(&home).join(".config/wired/wired.ron");
                     if fallback.exists() {
                         return Some(fallback);
                     }
 
-                    // Fallback path: `$HOME/.wiry.ron`
-                    let fallback = PathBuf::from(&home).join(".wiry.ron");
+                    // Fallback path: `$HOME/.wired.ron`
+                    let fallback = PathBuf::from(&home).join(".wired.ron");
                     if fallback.exists() {
                         return Some(fallback);
                     }
@@ -230,7 +230,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let cfg_string = include_str!("../wiry.ron");
+        let cfg_string = include_str!("../wired.ron");
         ron::de::from_str(cfg_string)
             .expect("Failed to parse default config.  Something is fucked up.\n")
     }

@@ -12,7 +12,7 @@ use winit::{
 };
 
 use crate::{
-    rendering::window::NotifyWindow,
+    rendering::window::{NotifyWindow, UpdateModes},
     rendering::layout::{LayoutElement, LayoutBlock},
     notification::Notification,
     bus::dbus::DBusNotification,
@@ -190,7 +190,9 @@ impl NotifyWindowManager {
                     let window = self.monitor_windows
                         .get_mut(&monitor).unwrap()
                         .get_mut(idx).unwrap();
-                    window.update_enabled = !window.update_enabled;
+
+                    window.update_mode.toggle(UpdateModes::FUSE);
+                    //window.update_enabled = !window.update_enabled;
                 }
             }
         }

@@ -18,6 +18,14 @@ use crate::{
     notification::Notification,
 };
 
+// FuseOnly probably won't be used, but it's here for completion's sake.
+bitflags! {
+    pub struct UpdateModes: u8 {
+        const DRAW = 0b00000001;
+        const FUSE = 0b00000010;
+    }
+}
+
 #[derive(Debug)]
 pub struct NotifyWindow {
     // Context/Surface are placed at the top (in order) so that they are dropped first when a
@@ -41,7 +49,8 @@ pub struct NotifyWindow {
     pub fuse: i32,
 
     // `update_enabled` is primarily used for pause functionality right now.
-    pub update_enabled: bool,
+    //pub update_enabled: bool,
+    pub update_mode: UpdateModes,
 }
 
 impl NotifyWindow {
@@ -52,7 +61,7 @@ impl NotifyWindow {
         let winit = WindowBuilder::new()
             .with_inner_size(LogicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Utility, XWindowType::Notification])
-            .with_title("wiry")
+            .with_title("wired")
             .with_transparent(true)
             .with_visible(false)    // Window not visible for first draw, because the position will probably be wrong.
             .build(el)
@@ -94,7 +103,7 @@ impl NotifyWindow {
             marked_for_destroy: false,
             master_offset: Vec2::default(),
             fuse,
-            update_enabled: true,
+            update_mode: UpdateModes::all(),
         };
 
         let mut layout = cfg.layout.clone();
@@ -168,23 +177,27 @@ impl NotifyWindow {
     }
 
     pub fn update(&mut self, delta_time: Duration) -> bool {
-        if !self.update_enabled {
-            return false;
+        let mut dirty = false;
+
+        if self.update_mode.contains(UpdateModes::FUSE) {
+            self.fuse -= delta_time.as_millis() as i32;
+            if self.fuse <= 0 {
+                // Window will be destroyed after others have been repositioned to replace it.
+                // We can return early because drawing will be discarded anyway.
+                self.marked_for_destroy = true;
+                return true
+            }
         }
 
-        let dirty = self.layout_mut().update_tree(delta_time);
+        if self.update_mode.contains(UpdateModes::DRAW) {
+            dirty |= self.layout_mut().update_tree(delta_time);
+        }
+
+
         if dirty {
             self.winit.request_redraw();
-            //self.draw();
         }
 
-        self.fuse -= delta_time.as_millis() as i32;
-        if self.fuse <= 0 {
-            // Window will be destroyed after others have been repositioned to replace it.
-            self.marked_for_destroy = true;
-            return true
-        }
-
-        false
+        dirty
     }
 }

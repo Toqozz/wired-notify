@@ -1,11 +1,11 @@
 [package]
-name = "wiry"
-version = "0.1.0"
+name = "wired"
+version = "0.8.0"
 authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
-wiry_derive = { path = "./wiry_derive" }
+wired_derive = { path = "./wired_derive" }
 
 winit = "0.21.0"
 x11 = { version = "2.18.1", features = ["xlib"] }
@@ -19,3 +19,4 @@ cairo-rs = "0.6.0"
 cairo-sys-rs = { version = "0.8.0", features = ["xlib"] }
 xdg = "2.2.0"
 notify = "4.0.15"
+bitflags = "1.2"

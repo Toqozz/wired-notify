@@ -1,6 +1,8 @@
+#[macro_use]
+extern crate bitflags;
 extern crate winit;
 extern crate xdg;
-extern crate wiry_derive;
+extern crate wired_derive;
 
 mod rendering;
 mod notification;
@@ -65,7 +67,7 @@ fn main() {
                     manager.new_notification(x, event_loop);
                 }
 
-                // If the watcher exists (.config/wiry exists), then we should process watcher events.
+                // If the watcher exists, then we should process watcher events.
                 if let Some(cw) = &maybe_watcher {
                     if let Ok(ev) = cw.receiver.try_recv() {
                         // @TODO: print a notification when config reloaded?

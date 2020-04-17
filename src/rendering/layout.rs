@@ -12,7 +12,7 @@ use crate::{
     maths::{Vec2, Rect},
     config::{Config, AnchorPosition},
     rendering::window::NotifyWindow,
-    wiry_derive::DrawableLayoutElement,
+    wired_derive::DrawableLayoutElement,
 };
 
 #[derive(Debug, Deserialize, Clone)]
@@ -30,7 +30,7 @@ pub struct Hook {
 }
 
 
-// DrawableLayoutElement is implemented via a macro -- see /wiry_derive/lib.rs.
+// DrawableLayoutElement is implemented via a macro -- see /wired_derive/lib.rs.
 // @IMPORTANT: DO NOT CACHE POSITIONS IN `predict_rect_and_init`! Real drawing uses a `master_offset`
 // based on the result of `predict_rect_and_init` to make sure we don't draw off canvas, so
 // the result of `LayoutBlock::find_anchor_pos()` can change between `predict_rect_and_init` and
