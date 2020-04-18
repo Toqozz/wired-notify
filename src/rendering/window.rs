@@ -15,7 +15,7 @@ use crate::{
     rendering::layout::LayoutBlock,
     maths::{Rect, Vec2},
     rendering::text::TextRenderer,
-    notification::Notification,
+    bus::dbus::Notification,
 };
 
 // FuseOnly probably won't be used, but it's here for completion's sake.

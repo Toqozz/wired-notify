@@ -14,8 +14,8 @@ use winit::{
 use crate::{
     rendering::window::{NotifyWindow, UpdateModes},
     rendering::layout::{LayoutElement, LayoutBlock},
-    notification::Notification,
-    bus::dbus::DBusNotification,
+    //notification::Notification,
+    bus::dbus::Notification,
     maths::Rect,
     config::Config,
 };
@@ -37,9 +37,7 @@ impl NotifyWindowManager {
     }
 
     // Summon a new notification.
-    pub fn new_notification(&mut self, dbus_notification: DBusNotification, el: &EventLoopWindowTarget<()>) {
-        let notification = Notification::from_dbus(dbus_notification);
-
+    pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
         if let LayoutElement::NotificationBlock(p) = &Config::get().layout.params {
             let windows = self.monitor_windows
                 .entry(p.monitor)

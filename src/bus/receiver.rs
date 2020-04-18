@@ -3,9 +3,9 @@ use std::sync::mpsc::Sender;
 
 use dbus::arg;
 use dbus::tree;
-use crate::bus::dbus::DBusNotification;
+use crate::bus::dbus::Notification;
 
-use super::dbus_codegen::{ OrgFreedesktopNotifications };
+use super::dbus_codegen::{ OrgFreedesktopNotifications, Value };
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct BusNotification;
@@ -42,23 +42,19 @@ impl OrgFreedesktopNotifications for BusNotification {
 
     fn notify(
         &self,
-        sender: Sender<DBusNotification>,
+        sender: Sender<Notification>,
         app_name: &str,
         replaces_id: u32,
         app_icon: &str,
         summary: &str,
         body: &str,
         _actions: Vec<&str>,
-        _hints: HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>,
+        hints: HashMap<String, Value>,
         expire_timeout: i32,
         ) -> Result<u32, tree::MethodErr> {
-        let notification = DBusNotification::new(
-            app_name.to_owned(),
-            replaces_id,
-            app_icon.to_owned(),
-            summary.to_owned(),
-            body.to_owned(),
-            expire_timeout
+
+        let notification = Notification::from_dbus(
+            app_name, replaces_id, app_icon, summary, body, hints, expire_timeout,
         );
 
         sender.send(notification).unwrap();
@@ -66,4 +62,3 @@ impl OrgFreedesktopNotifications for BusNotification {
         Ok(0 as u32)
     }
 }
-

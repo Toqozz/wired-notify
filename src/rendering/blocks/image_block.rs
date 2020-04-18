@@ -9,11 +9,28 @@ use cairo::Format;
 use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
 
 #[derive(Debug, Deserialize, Clone)]
+pub enum ImageType {
+    App,
+    Hint,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum FilterMode {
+    Nearest,
+    Triangle,
+    CatmullRom,
+    Gaussian,
+    Lanczos3,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct ImageBlockParameters {
+    pub image_type: ImageType,
     // @NOTE: -1 to scale to size with aspect ratio kept?
     pub padding: Padding,
     pub width: i32,
     pub height: i32,
+    pub filter_mode: FilterMode,
 
     // The process of resizing the image and changing colorspace is relatively expensive,
     // so we should cache it.
@@ -45,7 +62,13 @@ impl DrawableLayoutElement for ImageBlockParameters {
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        if let Some(img) = &window.notification.image {
+        let maybe_image = 
+            match self.image_type {
+                ImageType::App => &window.notification.app_image,
+                ImageType::Hint => &window.notification.hint_image,
+            };
+
+        if let Some(img) = maybe_image {
             let mut rect = Rect::new(
                 0.0,
                 0.0,
@@ -55,9 +78,18 @@ impl DrawableLayoutElement for ImageBlockParameters {
 
             let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
-            // @TODO: config option for scale filter type.
+            // Convert our filter_mode to `FilterType`.  We need our own type because `FilterType`
+            // is not serializable.
+            let filter_type = match self.filter_mode {
+                FilterMode::Nearest => FilterType::Nearest,
+                FilterMode::Triangle => FilterType::Triangle,
+                FilterMode::CatmullRom => FilterType::CatmullRom,
+                FilterMode::Gaussian => FilterType::Gaussian,
+                FilterMode::Lanczos3 => FilterType::Lanczos3,
+            };
+
             let pixels =
-                img.resize(self.width as u32, self.height as u32, FilterType::Nearest)
+                img.resize(self.width as u32, self.height as u32, filter_type)
                 .to_bgra() // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
                 .into_raw();
 
