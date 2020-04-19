@@ -144,8 +144,16 @@ impl Notification {
         }
 
         fn image_from_data(dbus_image: DBusImage) -> Option<DynamicImage> {
-            ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
-                .map(DynamicImage::ImageRgb8)
+            match dbus_image.channels {
+                3 => ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
+                        .map(DynamicImage::ImageRgb8),
+                4 => ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
+                        .map(DynamicImage::ImageRgba8),
+                _ => {
+                    eprintln!("Unsupported hint image format!  Couldn't load hint image.");
+                    None
+                },
+            }
         }
 
         let app_image = image_from_path(&app_icon);
@@ -159,7 +167,6 @@ impl Notification {
         } else if let Some(Value::String(path)) = hints.get("image-path").or(hints.get("image_path")) {
             hint_image = image_from_path(&path);
         } else if let Some(Value::Struct(dbus_image)) = hints.remove("icon_data") {
-            dbg!(&dbus_image.data);
             hint_image = image_from_data(dbus_image);
         } else {
             hint_image = None;
