@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
-use dbus::arg;
 use dbus::tree;
 use crate::bus::dbus::Notification;
 

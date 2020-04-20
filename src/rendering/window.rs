@@ -13,7 +13,7 @@ use cairo::{Surface, Context};
 use crate::{
     config::Config,
     rendering::layout::LayoutBlock,
-    maths::{Rect, Vec2},
+    maths_utility::{Rect, Vec2},
     rendering::text::TextRenderer,
     bus::dbus::Notification,
 };
@@ -107,7 +107,7 @@ impl NotifyWindow {
         };
 
         let mut layout = cfg.layout.clone();
-        let rect = layout.predict_rect_tree(&window, &window.get_inner_rect(), Rect::default());
+        let rect = layout.predict_rect_tree_and_init(&window, &window.get_inner_rect(), Rect::empty());
         let delta = Vec2::new(-rect.x(), -rect.y());
 
         window.layout = Some(layout);
@@ -173,7 +173,7 @@ impl NotifyWindow {
         // To fix this, we offset the initial drawing rect to make sure everything fits in the
         // canvas.
         inner_rect.set_xy(self.master_offset.x, self.master_offset.y);
-        self.layout().draw_tree(self, &inner_rect, Rect::default());
+        self.layout().draw_tree(self, &inner_rect, Rect::empty());
     }
 
     pub fn update(&mut self, delta_time: Duration) -> bool {

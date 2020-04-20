@@ -1,14 +1,12 @@
 use serde::Deserialize;
 
-use crate::maths::{Vec2, Rect};
+use crate::maths_utility::{Vec2, Rect};
 use crate::config::{Padding, Color};
 use crate::rendering::window::NotifyWindow;
 use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct TextBlockParameters {
-    //pub hook: (AnchorPosition, AnchorPosition),
-    //pub offset: Vec2,
     pub padding: Padding,
     //https://developer.gnome.org/pango/stable/pango-Markup.html
     pub text: String,
@@ -23,9 +21,11 @@ pub struct TextBlockParameters {
     real_text: String,
 }
 
+// @TODO: Some/None for summary/body  We don't want to replace or even add the block if there is no body.
+// `rect` will be empty anyway for empty text, but it stops people from putting custom text in those
+// blocks, because that will cause it to grow.
 impl DrawableLayoutElement for TextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        // TODO: Some/None for summary/body?  We don't want to replace or even add the block if there is no body.
         window.text.set_text(&self.real_text, &self.font, self.max_width, self.max_height);
         let mut rect = window.text.get_sized_rect(&self.padding, self.min_width, self.min_height);
 

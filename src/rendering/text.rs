@@ -6,7 +6,7 @@ use pango::{
 };
 
 use crate::{
-    maths::{Rect, Vec2},
+    maths_utility::{Rect, Vec2},
     config::{Padding, Color},
 };
 

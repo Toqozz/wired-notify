@@ -5,10 +5,10 @@ extern crate xdg;
 extern crate wired_derive;
 
 mod rendering;
-mod notification;
+mod management;
 mod bus;
 mod config;
-mod maths;
+mod maths_utility;
 
 use std::time::{Instant, Duration};
 
@@ -22,7 +22,7 @@ use notify::DebouncedEvent;
 use dbus::message::MessageType;
 
 use config::Config;
-use notification::management::NotifyWindowManager;
+use management::NotifyWindowManager;
 
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.

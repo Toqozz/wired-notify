@@ -144,6 +144,20 @@ impl Notification {
         }
 
         fn image_from_data(dbus_image: DBusImage) -> Option<DynamicImage> {
+            // Sometimes dbus (or the application) can give us junk image data, usually when lots of
+            // stuff is sent at the same time the same time, so we should sanity check the image.
+            // https://github.com/dunst-project/dunst/blob/3f3082efb3724dcd369de78dc94d41190d089acf/src/icon.c#L316
+            let pixelstride = (dbus_image.channels * dbus_image.bits_per_sample + 7)/8;
+            let len_expected = (dbus_image.height - 1) * dbus_image.rowstride + dbus_image.width * pixelstride;
+            let len_actual = dbus_image.data.len() as i32;
+            if len_actual != len_expected {
+                eprintln!(
+                    "Expected image data to be of length: {}, but got a length of {}.",
+                    len_expected, len_actual,
+                );
+                return None;
+            }
+
             match dbus_image.channels {
                 3 => ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
                         .map(DynamicImage::ImageRgb8),

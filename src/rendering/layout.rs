@@ -9,7 +9,7 @@ use crate::{
         scrolling_text_block::ScrollingTextBlockParameters,
         image_block::ImageBlockParameters,
     },
-    maths::{Vec2, Rect},
+    maths_utility::{Vec2, Rect},
     config::{Config, AnchorPosition},
     rendering::window::NotifyWindow,
     wired_derive::DrawableLayoutElement,
@@ -81,8 +81,8 @@ impl LayoutBlock {
         acc_rect
     }
 
-    // Predict the size of an entire layout.
-    pub fn predict_rect_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
+    // Predict the size of an entire layout, and initialize elements.
+    pub fn predict_rect_tree_and_init(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
         // Predict size is relatively cheap and lets us predict the size of elements, so we can set window size and other stuff
         // ahead of time.
         // `predict_rect_and_init` finds the bounding box of an individual element -- children are not involved.
@@ -91,7 +91,7 @@ impl LayoutBlock {
 
         // Recursively get child rects.
         for child in &mut self.children {
-            acc_rect = child.predict_rect_tree(window, &rect, acc_rect);
+            acc_rect = child.predict_rect_tree_and_init(window, &rect, acc_rect);
         }
 
         acc_rect

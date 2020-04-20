@@ -13,7 +13,7 @@ use serde::Deserialize;
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
 use crate::{
-    maths::{Vec2, Rect},
+    maths_utility::{Vec2, Rect},
     rendering::layout::{LayoutBlock, LayoutElement},
 };
 

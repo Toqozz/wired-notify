@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::maths::{self, Rect, Vec2};
+use crate::maths_utility::{self, Rect, Vec2};
 use crate::config::{Padding, Color};
 use crate::rendering::window::NotifyWindow;
 use crate::rendering::layout::{LayoutBlock, DrawableLayoutElement, Hook};
@@ -71,7 +71,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
             let bounce_right =
                 pos.x + self.padding.left + self.clip_rect.width() - self.rhs_dist - self.text_rect.width();
 
-            let lerp = maths::lerp(bounce_right, bounce_left, self.scroll_t);
+            let lerp = maths_utility::lerp(bounce_right, bounce_left, self.scroll_t);
             // Keep track of pos.x; it's important for the layout.
             let temp = pos.x;
             pos.x = lerp;
@@ -125,7 +125,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
 
         self.real_text = text;
 
-        self.scroll_distance = maths::distance(bounce_left, bounce_right);
+        self.scroll_distance = maths_utility::distance(bounce_left, bounce_right);
 
         self.text_rect = text_rect;
         self.clip_rect = clip_rect;

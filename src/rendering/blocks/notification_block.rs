@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::maths::{Vec2, Rect};
+use crate::maths_utility::{self, Vec2, Rect};
 use crate::config::Color;
 use crate::rendering::window::NotifyWindow;
 
@@ -13,6 +13,7 @@ pub struct NotificationBlockParameters {
     //pub monitor_offset: Vec2,
 
     pub border_width: f64,
+    pub border_rounding: f64,
     pub background_color: Color,
     pub border_color: Color,
 
@@ -36,10 +37,18 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         let bg_color = &self.background_color;
         let bw = &self.border_width;
         window.context.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
+        maths_utility::cairo_rounded_rectangle(
+            &window.context,
+            *bw, *bw,   // x, y
+            parent_rect.width() - bw * 2.0, parent_rect.height() - bw * 2.0,
+            self.border_rounding,
+        );
+        /*
         window.context.rectangle(
             *bw, *bw,     // x, y
             parent_rect.width() - bw * 2.0, parent_rect.height() - bw * 2.0,
         );
+        */
         window.context.fill();
 
         // Base notification background doesn't actually take up space, so use same rect.
