@@ -68,7 +68,8 @@ impl LayoutBlock {
 
         // Draw debug rect around bounding box.
         if Config::get().debug {
-            window.context.set_source_rgba(1.0, 0.0, 0.0, 1.0);
+            let c = &Config::get().debug_color;
+            window.context.set_source_rgba(c.r, c.g, c.b, c.a);
             window.context.set_line_width(1.0);
             window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
             window.context.stroke();
@@ -83,9 +84,11 @@ impl LayoutBlock {
 
     // Predict the size of an entire layout, and initialize elements.
     pub fn predict_rect_tree_and_init(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
-        // Predict size is relatively cheap and lets us predict the size of elements, so we can set window size and other stuff
-        // ahead of time.
-        // `predict_rect_and_init` finds the bounding box of an individual element -- children are not involved.
+        // Predict size is supposed to be relatively cheap and lets us predict the size of elements,
+        // so we can set window size and other stuff ahead of time.  We also initialize some stuff in
+        // here to save performance.
+        // `predict_rect_and_init` finds the bounding box of an individual element -- children are not
+        // involved.
         let rect = self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window);
         let mut acc_rect = accum_rect.union(&rect);
 

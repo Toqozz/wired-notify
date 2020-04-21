@@ -31,7 +31,7 @@ fn main() {
     let maybe_watcher = Config::init();
 
     let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
-    let mut manager = NotifyWindowManager::new();
+    let mut manager = NotifyWindowManager::new(&event_loop);
 
     // Allows us to receive messages from dbus.
     let (connection, receiver) = bus::dbus::get_connection();

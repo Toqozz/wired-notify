@@ -96,18 +96,21 @@ impl std::fmt::Debug for Notification {
     }
 }
 
-fn escape_ampersand(to_escape: &str) -> String {
-    // Escape ampersand manually, for fun.
+fn escape_decode(to_escape: &str) -> String {
+    // Escape ampersand and decode some html stuff manually, for fun.
     // can escape 3 ampersands without allocating (each is 4 chars, minus the existing char).
     let mut escaped: Vec<u8> = Vec::with_capacity(to_escape.len() + 9);
     let bytes = to_escape.as_bytes();
-    for i in 0..bytes.len() {
+    let mut i = 0;
+    while i < bytes.len() {
         let byte = bytes[i];
         match byte {
             b'&' => {
                 if i + 5 <= to_escape.len() {
                     match &to_escape[i..i+5] {
                         "&amp;" => escaped.push(byte),
+                        "&#39;" => { escaped.push(b'\''); i += 4 },
+                        "&#34;" => { escaped.push(b'"'); i += 4 },
                         _ => escaped.extend_from_slice(b"&amp;"),
                     }
                 } else {
@@ -116,6 +119,8 @@ fn escape_ampersand(to_escape: &str) -> String {
             }
             _ => escaped.push(byte),
         }
+
+        i += 1;
     }
 
     // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
@@ -133,9 +138,10 @@ impl Notification {
         expire_timeout: i32,
     ) -> Self {
 
-        // Pango is a bitch about ampersands -- we need to escape them.
-        let summary = escape_ampersand(summary);
-        let body = escape_ampersand(body);
+        // Pango is a bitch about ampersands, and also doesn't decode html entities for us, which
+        // applications /love/ to send -- we need to escape ampersands and decode html entities.
+        let summary = escape_decode(summary);
+        let body = escape_decode(body);
 
         fn image_from_path(path: &str) -> Option<DynamicImage> {
             // @TODO: this path shouldn't be active if app_icon is empty?

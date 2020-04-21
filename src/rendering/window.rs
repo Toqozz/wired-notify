@@ -12,6 +12,7 @@ use cairo::{Surface, Context};
 
 use crate::{
     config::Config,
+    management::NotifyWindowManager,
     rendering::layout::LayoutBlock,
     maths_utility::{Rect, Vec2},
     rendering::text::TextRenderer,
@@ -54,14 +55,44 @@ pub struct NotifyWindow {
 }
 
 impl NotifyWindow {
-    pub fn new(el: &EventLoopWindowTarget<()>, notification: Notification) -> Self {
+    pub fn new(el: &EventLoopWindowTarget<()>, notification: Notification, manager: &NotifyWindowManager) -> Self {
         let cfg = Config::get();
         let (width, height) = (cfg.min_window_width as f64, cfg.min_window_height as f64);
+
+        // @NOTE: this is pretty messed up... It's annoying that winit only exposes a handle to the
+        // xlib display through an existing window, which means we have to use a dummy (hidden)
+        // window to grab it.
+        // We need the display to do `XMatchVisualInfo`, which we can't set after we've created the
+        // window.
+        // We might consider moving away from winit and just using xlib directly.  The only part
+        // we're really using at the moment is the event loop.
+        let xlib_display = manager.base_window.xlib_display().expect("Couldn't get xlib_display.");
+
+        let mut visual_info = unsafe {
+            let mut vinfo = std::mem::MaybeUninit::<x11::xlib::XVisualInfo>::uninit();
+
+            let status = (x11::xlib::XMatchVisualInfo)(
+                xlib_display as _,
+                x11::xlib::XDefaultScreen(xlib_display as _) as i32,
+                32,
+                x11::xlib::TrueColor,
+                vinfo.as_mut_ptr(),
+            );
+
+            if status == 0 {
+                panic!("Couldn't get valid XVisualInfo.");
+            }
+
+            vinfo.assume_init();
+
+            vinfo
+        };
 
         let winit = WindowBuilder::new()
             .with_inner_size(LogicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Utility, XWindowType::Notification])
             .with_title("wired")
+            .with_x11_visual(&mut visual_info)
             .with_transparent(true)
             .with_visible(false)    // Window not visible for first draw, because the position will probably be wrong.
             .build(el)
@@ -69,19 +100,21 @@ impl NotifyWindow {
 
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
-        let xlib_display = winit.xlib_display().expect("Couldn't get xlib display.");
+        //let xlib_display = winit.xlib_display().expect("Couldn't get xlib display.");
         let xlib_window = winit.xlib_window().expect("Couldn't get xlib window.");
 
         let surface = unsafe {
+            /*
             let visual = x11::xlib::XDefaultVisual(
                 xlib_display as _,
                 0,
             );
+            */
 
             let sfc_raw = cairo_sys::cairo_xlib_surface_create(
                 xlib_display as _,
                 xlib_window,
-                visual,
+                (*visual_info.as_ptr()).visual,
                 width as _,
                 height as _,
             );

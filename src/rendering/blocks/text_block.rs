@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
-use crate::maths_utility::{Vec2, Rect};
-use crate::config::{Padding, Color};
+use crate::maths_utility::{Vec2, Rect, MinMax};
+use crate::config::{Padding, Color, TextDimensionVariants};
 use crate::rendering::window::NotifyWindow;
 use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
 
@@ -12,10 +12,7 @@ pub struct TextBlockParameters {
     pub text: String,
     pub font: String,
     pub color: Color,
-    pub max_width: i32,
-    pub min_width: i32,
-    pub max_height: i32,
-    pub min_height: i32,
+    pub dimensions: TextDimensionVariants,
 
     #[serde(skip)]
     real_text: String,
@@ -26,8 +23,10 @@ pub struct TextBlockParameters {
 // blocks, because that will cause it to grow.
 impl DrawableLayoutElement for TextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        window.text.set_text(&self.real_text, &self.font, self.max_width, self.max_height);
-        let mut rect = window.text.get_sized_rect(&self.padding, self.min_width, self.min_height);
+        let dimensions = self.dimensions.get_dimensions(&window.notification);
+
+        window.text.set_text(&self.real_text, &self.font, dimensions.width.max, dimensions.height.max);
+        let mut rect = window.text.get_sized_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
@@ -48,8 +47,9 @@ impl DrawableLayoutElement for TextBlockParameters {
             .replace("%s", &window.notification.summary)
             .replace("%b", &window.notification.body);
 
-        window.text.set_text(&text, &self.font, self.max_width, self.max_height);
-        let mut rect = window.text.get_sized_rect(&self.padding, self.min_width, self.min_height);
+        let dimensions = self.dimensions.get_dimensions(&window.notification);
+        window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max);
+        let mut rect = window.text.get_sized_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
         self.real_text = text;
 

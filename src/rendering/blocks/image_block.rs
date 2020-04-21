@@ -98,7 +98,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
             };
 
             let pixels =
-                img.resize(self.scale_width as u32, self.scale_height as u32, filter_type)
+                img.resize_exact(self.scale_width as u32, self.scale_height as u32, filter_type)
                 .to_bgra() // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
                 .into_raw();
 

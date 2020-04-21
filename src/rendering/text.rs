@@ -5,10 +5,14 @@ use pango::{
     FontDescription,
 };
 
+use serde::Deserialize;
+
 use crate::{
-    maths_utility::{Rect, Vec2},
+    maths_utility::{Rect, Vec2, MinMax},
     config::{Padding, Color},
+    bus::dbus::Notification,
 };
+
 
 #[derive(Debug)]
 pub struct TextRenderer {
