@@ -281,20 +281,6 @@ pub struct Color {
     pub a: f64,
 }
 
-#[derive(Default, Debug, Deserialize, Clone)]
-pub struct TextDimensions {
-    pub width: MinMax,
-    pub height: MinMax,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct TextDimensionVariants {
-    pub dimensions: TextDimensions,
-    pub dimensions_image_hint: TextDimensions,
-    pub dimensions_image_app: TextDimensions,
-    pub dimensions_image_both: TextDimensions,
-}
-
 impl Color {
     pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
         Color { r, g, b, a }
@@ -328,15 +314,3 @@ impl AnchorPosition {
         }
     }
 }
-
-impl TextDimensionVariants {
-    pub fn get_dimensions(&self, notification: &Notification) -> &TextDimensions {
-        match (notification.app_image.is_some(), notification.hint_image.is_some()) {
-            (true, true) => &self.dimensions_image_both,
-            (true, false) => &self.dimensions_image_app,
-            (false, true) => &self.dimensions_image_hint,
-            (false, false) => &self.dimensions,
-        }
-    }
-}
-

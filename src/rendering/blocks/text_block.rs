@@ -1,9 +1,16 @@
 use serde::Deserialize;
 
 use crate::maths_utility::{Vec2, Rect, MinMax};
-use crate::config::{Padding, Color, TextDimensionVariants};
+use crate::config::{Padding, Color};
+use crate::bus::dbus::Notification;
 use crate::rendering::window::NotifyWindow;
 use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Dimensions {
+    width: MinMax,
+    height: MinMax,
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct TextBlockParameters {
@@ -12,10 +19,25 @@ pub struct TextBlockParameters {
     pub text: String,
     pub font: String,
     pub color: Color,
-    pub dimensions: TextDimensionVariants,
+    //pub dimensions: TextDimensionVariants,
+    pub dimensions: Dimensions,
+    pub dimensions_image_hint: Dimensions,
+    pub dimensions_image_app: Dimensions,
+    pub dimensions_image_both: Dimensions,
 
     #[serde(skip)]
     real_text: String,
+}
+
+impl TextBlockParameters {
+    fn get_dimensions(&self, notification: &Notification) -> &Dimensions {
+        match (notification.app_image.is_some(), notification.hint_image.is_some()) {
+            (true, true) => &self.dimensions_image_both,
+            (true, false) => &self.dimensions_image_app,
+            (false, true) => &self.dimensions_image_hint,
+            (false, false) => &self.dimensions,
+        }
+    }
 }
 
 // @TODO: Some/None for summary/body  We don't want to replace or even add the block if there is no body.
@@ -23,7 +45,9 @@ pub struct TextBlockParameters {
 // blocks, because that will cause it to grow.
 impl DrawableLayoutElement for TextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        let dimensions = self.dimensions.get_dimensions(&window.notification);
+        window.context.set_operator(cairo::Operator::Over);
+
+        let dimensions = self.get_dimensions(&window.notification);
 
         window.text.set_text(&self.real_text, &self.font, dimensions.width.max, dimensions.height.max);
         let mut rect = window.text.get_sized_rect(&self.padding, dimensions.width.min, dimensions.height.min);
@@ -38,6 +62,7 @@ impl DrawableLayoutElement for TextBlockParameters {
         pos.y -= self.padding.top;
 
         rect.set_xy(pos.x, pos.y);
+
         rect
     }
 
@@ -47,7 +72,7 @@ impl DrawableLayoutElement for TextBlockParameters {
             .replace("%s", &window.notification.summary)
             .replace("%b", &window.notification.body);
 
-        let dimensions = self.dimensions.get_dimensions(&window.notification);
+        let dimensions = self.get_dimensions(&window.notification);
         window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max);
         let mut rect = window.text.get_sized_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 

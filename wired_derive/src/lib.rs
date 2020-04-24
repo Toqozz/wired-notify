@@ -45,15 +45,23 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
     let gen = quote! {
         impl DrawableLayoutElement for #name {
             fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-                match self {
+                window.context.save();
+                let rect = match self {
                     #(#traverse_draw),*
-                }
+                };
+                window.context.restore();
+
+                rect
             }
 
             fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-                match self {
+                window.context.save();
+                let rect = match self {
                     #(#traverse_predict),*
-                }
+                };
+                window.context.restore();
+
+                rect
             }
 
             fn update(&mut self, delta_time: Duration) -> bool { 

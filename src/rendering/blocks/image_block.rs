@@ -43,9 +43,11 @@ pub struct ImageBlockParameters {
 
 impl DrawableLayoutElement for ImageBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+        window.context.set_operator(cairo::Operator::Over);
+
         // `cached_surface` should always exist on notifications with images, because we always
-        // cache it.
-        if let Some(img_sfc) = &self.cached_surface {
+        // cache it.  If-let is just a precaution here.
+        if let Some(ref img_sfc) = self.cached_surface {
             let mut rect = Rect::new(
                 0.0, 0.0,
                 self.scale_width as f64 + self.padding.width(),
@@ -67,12 +69,13 @@ impl DrawableLayoutElement for ImageBlockParameters {
             let mut rect = Rect::new(0.0, 0.0, 0.0, 0.0);
             let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
             rect.set_xy(pos.x, pos.y);
+
             rect
         }
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        let maybe_image = 
+        let maybe_image =
             match self.image_type {
                 ImageType::App => &window.notification.app_image,
                 ImageType::Hint => &window.notification.hint_image,

@@ -137,19 +137,29 @@ impl Notification {
         mut hints: HashMap<String, Value>,
         expire_timeout: i32,
     ) -> Self {
-
         // Pango is a bitch about ampersands, and also doesn't decode html entities for us, which
         // applications /love/ to send -- we need to escape ampersands and decode html entities.
         let summary = escape_decode(summary);
         let body = escape_decode(body);
 
         fn image_from_path(path: &str) -> Option<DynamicImage> {
+            let start = std::time::Instant::now();
+            dbg!("Loading image from path...");
+
             // @TODO: this path shouldn't be active if app_icon is empty?
             let img_path = Path::new(path);
-            image::open(img_path).ok()
+            let x = image::open(img_path).ok();
+
+            let end = std::time::Instant::now();
+            dbg!(end - start);
+
+            return x;
         }
 
         fn image_from_data(dbus_image: DBusImage) -> Option<DynamicImage> {
+            let start = std::time::Instant::now();
+            dbg!("Loading image from data...");
+
             // Sometimes dbus (or the application) can give us junk image data, usually when lots of
             // stuff is sent at the same time the same time, so we should sanity check the image.
             // https://github.com/dunst-project/dunst/blob/3f3082efb3724dcd369de78dc94d41190d089acf/src/icon.c#L316
@@ -164,7 +174,7 @@ impl Notification {
                 return None;
             }
 
-            match dbus_image.channels {
+            let x = match dbus_image.channels {
                 3 => ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
                         .map(DynamicImage::ImageRgb8),
                 4 => ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
@@ -173,7 +183,12 @@ impl Notification {
                     eprintln!("Unsupported hint image format!  Couldn't load hint image.");
                     None
                 },
-            }
+            };
+
+            let end = std::time::Instant::now();
+            dbg!(end - start);
+
+            return x;
         }
 
         let app_image = image_from_path(&app_icon);

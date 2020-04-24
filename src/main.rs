@@ -92,9 +92,7 @@ fn main() {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
 
             // TODO: fix this givinng whole window event.
-            Event::WindowEvent { window_id, event, .. } => {
-                manager.process_event(window_id, event);
-            },
+            Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
 
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
