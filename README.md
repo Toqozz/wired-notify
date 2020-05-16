@@ -1,6 +1,6 @@
 <p float="left">
-  <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/musicc.gif" width="100" />
-  <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/simple.gif" width="100" /> 
+  <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/musicc.gif" width="400" />
+  <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/simple.gif" width="400" /> 
 </p>
 
 # Wired
