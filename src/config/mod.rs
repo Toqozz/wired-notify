@@ -232,7 +232,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let cfg_string = include_str!("../wired.ron");
+        let cfg_string = include_str!("../../wired.ron");
         ron::de::from_str(cfg_string)
             .expect("Failed to parse default config.  Something is fucked up.\n")
     }
