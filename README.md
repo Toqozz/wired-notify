@@ -23,6 +23,17 @@ Making your own layout elements is designed to be as easy as possible.
 Anybody who knows basic Rust should be able to make a layout element.
 See the wiki [link here] for a detailed tutorial on making and adding a layout element to Wired.
 
+## Building
+### Dependencies
+`rust, dbus, cairo, pango`
+### Build and Run
+```
+$ git clone https://github.com/Toqozz/wired-notify.git
+$ cd wired-notify
+$ cargo build --release
+$ ./target/release/wired
+```
+
 ## Wired is not finished, but it is usable for most people.
 There's a bunch of things that aren't done yet; here's a non-exhaustive version of the TODO list:
 - [ ] Notification urgency.
