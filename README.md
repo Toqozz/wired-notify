@@ -1,4 +1,7 @@
-![Image Demo](https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/musicc.gif) ![Simple Demo](https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/simple.gif)
+<p float="left">
+  <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/musicc.gif" width="100" />
+  <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/simple.gif" width="100" /> 
+</p>
 
 # Wired
 Wired is light and fully customizable notification daemon that provides you with powerful and extensible layout
