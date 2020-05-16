@@ -38,7 +38,7 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
     let traverse_update = variants.iter().map(|f| {
         let variant_name = &f.ident;
         quote! {
-            #name::#variant_name(ref mut __self_0) => __self_0.update(delta_time)
+            #name::#variant_name(ref mut __self_0) => __self_0.update(delta_time, window)
         }
     });
 
@@ -64,7 +64,7 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
                 rect
             }
 
-            fn update(&mut self, delta_time: Duration) -> bool { 
+            fn update(&mut self, delta_time: Duration, window: &NotifyWindow) -> bool { 
                 match self {
                     #(#traverse_update),*
                 }

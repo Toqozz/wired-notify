@@ -21,6 +21,3 @@ cairo-sys-rs = { version = "0.8.0", features = ["xlib"] }
 xdg = "2.2.0"
 notify = "4.0.15"
 bitflags = "1.2"
-
-[profile.release]
-debug = true

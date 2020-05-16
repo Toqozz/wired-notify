@@ -21,6 +21,7 @@ use crate::{
 
 // FuseOnly probably won't be used, but it's here for completion's sake.
 bitflags! {
+    #[derive(Default)]
     pub struct UpdateModes: u8 {
         const DRAW = 0b00000001;
         const FUSE = 0b00000010;
@@ -153,8 +154,8 @@ impl NotifyWindow {
         self.layout.as_ref().unwrap()
     }
 
-    pub fn layout_mut(&mut self) -> &mut LayoutBlock {
-        self.layout.as_mut().unwrap()
+    pub fn layout_take(&mut self) -> LayoutBlock {
+        self.layout.take().unwrap()
     }
 
     pub fn set_position(&self, x: f64, y: f64) {
@@ -223,9 +224,10 @@ impl NotifyWindow {
         }
 
         if self.update_mode.contains(UpdateModes::DRAW) {
-            dirty |= self.layout_mut().update_tree(delta_time);
+            let mut layout = self.layout_take();
+            dirty |= layout.update_tree(delta_time, &self);
+            self.layout = Some(layout);
         }
-
 
         if dirty {
             self.winit.request_redraw();

@@ -101,10 +101,10 @@ impl LayoutBlock {
     }
 
     // Call update on each block in tree.
-    pub fn update_tree(&mut self, delta_time: Duration) -> bool {
-        let mut dirty = self.params.update(delta_time);
+    pub fn update_tree(&mut self, delta_time: Duration, window: &NotifyWindow) -> bool {
+        let mut dirty = self.params.update(delta_time, window);
         for elem in &mut self.children {
-            dirty |= elem.update_tree(delta_time);
+            dirty |= elem.update_tree(delta_time, window);
         }
 
         dirty
@@ -114,6 +114,6 @@ impl LayoutBlock {
 pub trait DrawableLayoutElement {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn update(&mut self, _delta_time: Duration) -> bool { false }
+    fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool { false }
 }
 

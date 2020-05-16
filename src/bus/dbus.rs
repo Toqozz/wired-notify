@@ -74,6 +74,17 @@ pub fn get_connection() -> (Connection, Receiver<Notification>) {
     (c, receiver)
 }
 
+#[derive(Debug)]
+pub enum Urgency {
+    Low,
+    Normal,
+    Critical,
+}
+
+impl Default for Urgency {
+    fn default() -> Self { Self::Normal }
+}
+
 pub struct Notification {
     pub app_name: String,
     pub replaces_id: u32,
@@ -82,6 +93,8 @@ pub struct Notification {
     pub body: String,
     pub app_image: Option<DynamicImage>,
     pub hint_image: Option<DynamicImage>,
+
+    pub urgency: Urgency,
 
     pub timeout: i32,
 }
@@ -98,25 +111,36 @@ impl std::fmt::Debug for Notification {
 
 fn escape_decode(to_escape: &str) -> String {
     // Escape ampersand and decode some html stuff manually, for fun.
-    // can escape 3 ampersands without allocating (each is 4 chars, minus the existing char).
-    let mut escaped: Vec<u8> = Vec::with_capacity(to_escape.len() + 9);
+    // can escape about 6 ampersands without allocating (each is 4 chars, minus the existing char).
+    let mut escaped: Vec<u8> = Vec::with_capacity(to_escape.len() + 18);
     let bytes = to_escape.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
         let byte = bytes[i];
         match byte {
             b'&' => {
+                // TODO: not really happy with this, should clean it up.
                 if i + 5 <= to_escape.len() {
                     match &to_escape[i..i+5] {
-                        "&amp;" => escaped.push(byte),
-                        "&#39;" => { escaped.push(b'\''); i += 4 },
-                        "&#34;" => { escaped.push(b'"'); i += 4 },
-                        _ => escaped.extend_from_slice(b"&amp;"),
+                        // If we're trying to write "&amp;" then we should allow it.
+                        "&amp;" => { escaped.push(byte); i += 1; continue },
+                        "&#39;" => { escaped.push(b'\''); i += 5; continue },
+                        "&#34;" => { escaped.push(b'"'); i += 5; continue },
+                        _ => (),
                     }
-                } else {
-                    escaped.extend_from_slice(b"&amp;");
                 }
+
+                if i + 6 <= to_escape.len() {
+                    match &to_escape[i..i+6] {
+                        "&apos;" => { escaped.push(b'\''); i += 6; continue },
+                        "&quot;" => { escaped.push(b'\"'); i += 6; continue },
+                        _ => (),
+                    }
+                }
+
+                escaped.extend_from_slice(b"&amp;");
             }
+
             _ => escaped.push(byte),
         }
 
@@ -143,22 +167,22 @@ impl Notification {
         let body = escape_decode(body);
 
         fn image_from_path(path: &str) -> Option<DynamicImage> {
-            let start = std::time::Instant::now();
-            dbg!("Loading image from path...");
+            let _start = std::time::Instant::now();
+            //dbg!("Loading image from path...");
 
             // @TODO: this path shouldn't be active if app_icon is empty?
             let img_path = Path::new(path);
             let x = image::open(img_path).ok();
 
-            let end = std::time::Instant::now();
-            dbg!(end - start);
+            let _end = std::time::Instant::now();
+            //dbg!(end - start);
 
             return x;
         }
 
         fn image_from_data(dbus_image: DBusImage) -> Option<DynamicImage> {
-            let start = std::time::Instant::now();
-            dbg!("Loading image from data...");
+            //let start = std::time::Instant::now();
+            //dbg!("Loading image from data...");
 
             // Sometimes dbus (or the application) can give us junk image data, usually when lots of
             // stuff is sent at the same time the same time, so we should sanity check the image.
@@ -185,8 +209,8 @@ impl Notification {
                 },
             };
 
-            let end = std::time::Instant::now();
-            dbg!(end - start);
+            //let end = std::time::Instant::now();
+            //dbg!(end - start);
 
             return x;
         }
@@ -207,6 +231,18 @@ impl Notification {
             hint_image = None;
         }
 
+        let urgency: Urgency;
+        if let Some(Value::U8(level)) = hints.get("urgency") {
+            match level {
+                0 => urgency = Urgency::Low,
+                1 => urgency = Urgency::Normal,
+                2 => urgency = Urgency::Critical,
+                _ => urgency = Urgency::Normal,
+            }
+        } else {
+            urgency = Urgency::Normal;
+        }
+
         let mut timeout = expire_timeout;
         if timeout <= 0 {
             timeout = Config::get().timeout;
@@ -219,6 +255,7 @@ impl Notification {
             body,
             app_image,
             hint_image,
+            urgency,
             timeout,
         }
     }

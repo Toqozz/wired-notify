@@ -1,9 +1,11 @@
+use std::time::Duration;
+
 use serde::Deserialize;
 
 use crate::maths_utility::{self, Vec2, Rect};
 use crate::config::Color;
-use crate::rendering::window::NotifyWindow;
-
+use crate::bus::dbus::Urgency;
+use crate::rendering::window::{NotifyWindow, UpdateModes};
 use crate::rendering::layout::{DrawableLayoutElement, Hook};
 
 #[derive(Debug, Deserialize, Clone)]
@@ -15,10 +17,16 @@ pub struct NotificationBlockParameters {
     pub border_width: f64,
     pub border_rounding: f64,
     pub background_color: Color,
-    pub border_color: Color,
+    pub border_color_urgency_low: Color,
+    pub border_color_urgency_normal: Color,
+    pub border_color_urgency_critical: Color,
+    pub border_color_paused: Color,
 
     pub gap: Vec2,
     pub notification_hook: Hook,
+
+    #[serde(skip)]
+    current_update_mode: UpdateModes,
 }
 
 impl DrawableLayoutElement for NotificationBlockParameters {
@@ -30,7 +38,21 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         window.context.set_operator(cairo::Operator::Source);
 
         // Draw border + background.
-        let bd_color = &self.border_color;
+        // If anything isn't updating, we count it as paused, which overrides urgency.
+        // Otherwise, we evaluate urgency.
+        let bd_color = {
+            if window.update_mode != UpdateModes::all() {
+                &self.border_color_paused
+            } else {
+                match window.notification.urgency {
+                    Urgency::Low => &self.border_color_urgency_low,
+                    Urgency::Normal => &self.border_color_urgency_normal,
+                    Urgency::Critical => &self.border_color_urgency_critical,
+                }
+            }
+        };
+
+        //let bd_color = &self.border_color;
         window.context.set_source_rgba(bd_color.r, bd_color.g, bd_color.b, bd_color.a);
         window.context.paint();
 
@@ -55,8 +77,18 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         parent_rect.clone()
     }
 
-    fn predict_rect_and_init(&mut self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, _window: &NotifyWindow) -> Rect {
+    fn predict_rect_and_init(&mut self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+        self.current_update_mode = window.update_mode;
         parent_rect.clone()
+    }
+
+    fn update(&mut self, _delta_time: Duration, window: &NotifyWindow) -> bool {
+        if window.update_mode != self.current_update_mode {
+            self.current_update_mode = window.update_mode;
+            return true;
+        }
+
+        false
     }
 }
 

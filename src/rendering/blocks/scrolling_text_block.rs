@@ -149,7 +149,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         rect
     }
 
-    fn update(&mut self, delta_time: Duration) -> bool {
+    fn update(&mut self, delta_time: Duration, _window: &NotifyWindow) -> bool {
         if !self.update_enabled {
             return false;
         }

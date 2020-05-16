@@ -5,12 +5,9 @@ use pango::{
     FontDescription,
 };
 
-use serde::Deserialize;
-
 use crate::{
-    maths_utility::{Rect, Vec2, MinMax},
+    maths_utility::{Rect, Vec2},
     config::{Padding, Color},
-    bus::dbus::Notification,
 };
 
 

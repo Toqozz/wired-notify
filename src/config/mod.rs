@@ -13,9 +13,8 @@ use serde::Deserialize;
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
 use crate::{
-    maths_utility::{Vec2, Rect, MinMax},
+    maths_utility::{Vec2, Rect},
     rendering::layout::{LayoutBlock, LayoutElement},
-    bus::dbus::Notification,
 };
 
 static mut CONFIG: Option<Config> = None;
