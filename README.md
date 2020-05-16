@@ -41,8 +41,9 @@ $ ./target/release/wired
 
 ## Wired is not finished, but it is usable for most people.
 There's a bunch of things that aren't done yet; here's a non-exhaustive version of the TODO list:
-- [ ] Notification urgency.
+- [ ] Make config not as painful.
+- [ ] More options surrounding notification urgency.
 - [ ] Notification follows active monitor.
 - [ ] Pause drawing but keep timeout.
 - [ ] Lookup application icons via `.desktop` file
-- [ ] Escape '&quot;' and other edge cases in some applications.
+- [ ] Random html escape code edge cases.
