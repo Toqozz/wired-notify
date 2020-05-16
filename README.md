@@ -1,3 +1,6 @@
+![Image Demo](https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/musicc.gif)
+![Simple Demo](https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/simple.gif)
+
 # Wired
 Wired is light and fully customizable notification daemon that provides you with powerful and extensible layout
 tools.
