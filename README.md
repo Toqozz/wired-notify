@@ -42,6 +42,7 @@ $ ./target/release/wired
 ## Wired is not finished, but it is usable for most people.
 There's a bunch of things that aren't done yet; here's a non-exhaustive version of the TODO list:
 - [ ] Make config not as painful.
+- [ ] Allow hex/0-255 colors in config.
 - [ ] More options surrounding notification urgency.
 - [ ] Notification follows active monitor.
 - [ ] Pause drawing but keep timeout.
