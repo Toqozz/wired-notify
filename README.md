@@ -6,8 +6,9 @@
     <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/horizontal.gif" width="300" align="top"/>
   </div>
 </p>
+<br><br><br><br><br><br>
 
-
+---
 
 # Wired
 Wired is light and fully customizable notification daemon that provides you with powerful and extensible layout
