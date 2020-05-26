@@ -1,6 +1,7 @@
 <p align="middle">
   <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/musicc.gif" width="400" />
   <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/simple.gif" width="400" align="top"/> 
+  <img src="https://raw.githubusercontent.com/Toqozz/wired-notify/master/readme_stuff/horizontal.gif" width="400" align="top"/> 
 </p>
 
 # Wired

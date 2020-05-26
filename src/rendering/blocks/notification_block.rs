@@ -66,12 +66,6 @@ impl DrawableLayoutElement for NotificationBlockParameters {
             self.border_rounding,
         );
         window.context.fill();
-        /*
-        window.context.rectangle(
-            *bw, *bw,     // x, y
-            parent_rect.width() - bw * 2.0, parent_rect.height() - bw * 2.0,
-        );
-        */
 
         // Base notification background doesn't actually take up space, so use same rect.
         parent_rect.clone()
