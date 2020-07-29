@@ -45,7 +45,7 @@ impl NotifyWindowManager {
 
     // Summon a new notification.
     pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
-        if let LayoutElement::NotificationBlock(p) = &Config::get().layout.params {
+        if let LayoutElement::NotificationBlock(p) = &Config::get().layout.as_ref().unwrap().params {
             let window = NotifyWindow::new(el, notification, &self);
 
             let windows = self.monitor_windows
@@ -88,7 +88,7 @@ impl NotifyWindowManager {
     fn update_positions(&mut self) {
         let cfg = Config::get();
         // TODO: gotta do something about this... can't I just cast it?
-        if let LayoutElement::NotificationBlock(p) = &cfg.layout.params {
+        if let LayoutElement::NotificationBlock(p) = &cfg.layout.as_ref().unwrap().params {
             for (monitor_id, windows) in &self.monitor_windows {
                 // If there are no windows for this monitor, leave it alone.
                 if windows.len() == 0 {
@@ -124,8 +124,8 @@ impl NotifyWindowManager {
                     // notification.
                     let pos = if real_idx == 0 {
                         LayoutBlock::find_anchor_pos(
-                            &cfg.layout.hook,
-                            &cfg.layout.offset,
+                            &cfg.layout.as_ref().unwrap().hook,
+                            &cfg.layout.as_ref().unwrap().offset,
                             &prev_rect,
                             &Rect::EMPTY,
                         )

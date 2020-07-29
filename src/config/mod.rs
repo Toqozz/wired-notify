@@ -2,6 +2,7 @@
 
 use std::{
     sync::mpsc::{self, Receiver},
+    mem::MaybeUninit,
     time::Duration,
     env,
     io,
@@ -82,7 +83,10 @@ pub struct Config {
 
     pub shortcuts: ShortcutsConfig,
 
-    pub layout: LayoutBlock,
+    #[serde(skip)]
+    pub layout: Option<LayoutBlock>,
+
+    pub layout_dict: Vec<LayoutBlock>,
 }
 
 impl Config {
@@ -196,10 +200,44 @@ impl Config {
         };
 
         let config: Result<Self, _> = ron::de::from_str(cfg_string.as_str());
-        match config {
+        let config = match config {
             Ok(cfg) => return cfg.validate(),
             Err(e) => return Err(Error::Ron(e)),
         };
+    }
+
+    pub fn transform(config: Config) -> Config {
+        // TODO: check if length > 0.
+        let mut master_layout = self.layout_dict.swap_remove(0);
+
+        fn find_and_add_children(layout: &mut LayoutBlock, blocks: &mut Vec<LayoutBlock>) {
+            let mut i = 0;
+            while i < blocks.len() {
+                if blocks[i].parent == layout.name {
+                    layout.children.push(blocks.swap_remove(i));
+                    for child in &mut layout.children {
+                        find_and_add_children(child, blocks);
+                    }
+                } else {
+                    i += 1;
+                }
+            }
+        }
+
+        find_and_add_children(&mut master_layout, &mut self.layout_dict);
+        /*
+        let mut to_check = master_layout.children.as_mut_slice();
+        while to_check.len() > 0 {
+            for block in to_check {
+                find_and_add_children(block, &mut self.layout_dict);
+                to_check.append(block.children.as_mut_slice());
+            }
+        }
+        */
+
+        // TODO: make this work.
+        dbg!(&master_layout);
+        self.layout = Some(master_layout);
     }
 
     // Watch config file for changes, and send message to `Configwatcher` when something
@@ -222,8 +260,9 @@ impl Config {
     }
 
     // Verify that the config is constructed correctly.
-    fn validate(self) -> Result<Self, Error> {
-        match &self.layout.params {
+    fn validate(mut self) -> Result<Self, Error> {
+        // TODO: check that layout is populated.
+        match &self.layout.as_ref().unwrap().params {
             LayoutElement::NotificationBlock(_) => Ok(self),
             _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),
         }

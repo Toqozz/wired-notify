@@ -140,7 +140,7 @@ impl NotifyWindow {
             update_mode: UpdateModes::all(),
         };
 
-        let mut layout = cfg.layout.clone();
+        let mut layout = cfg.layout.as_ref().unwrap().clone();
         let rect = layout.predict_rect_tree_and_init(&window, &window.get_inner_rect(), Rect::empty());
         let delta = Vec2::new(-rect.x(), -rect.y());
 

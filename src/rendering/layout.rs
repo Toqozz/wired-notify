@@ -17,9 +17,12 @@ use crate::{
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct LayoutBlock {
+    pub name: String,
+    pub parent: String,
     pub hook: Hook,
     pub offset: Vec2,
     pub params: LayoutElement,
+    #[serde(skip)]
     pub children: Vec<LayoutBlock>,
 }
 
