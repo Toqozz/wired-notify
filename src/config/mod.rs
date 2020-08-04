@@ -86,7 +86,7 @@ pub struct Config {
     #[serde(skip)]
     pub layout: Option<LayoutBlock>,
 
-    pub layout_dict: Vec<LayoutBlock>,
+    pub layout_blocks: Vec<LayoutBlock>,
 }
 
 impl Config {
@@ -200,16 +200,22 @@ impl Config {
         };
 
         let config: Result<Self, _> = ron::de::from_str(cfg_string.as_str());
-        let config = match config {
-            Ok(cfg) => return cfg.validate(),
+        match config {
+            Ok(cfg) => return Config::transform_and_validate(cfg),
             Err(e) => return Err(Error::Ron(e)),
         };
     }
 
-    pub fn transform(config: Config) -> Config {
-        // TODO: check if length > 0.
-        let mut master_layout = self.layout_dict.swap_remove(0);
+    pub fn transform_and_validate(mut config: Config) -> Result<Self, Error> {
+        // NOTE: we might actually want to search for the "root" text.
+        if config.layout_blocks.len() == 0 {
+            return Err(Error::Validate("Config did not contain any layout blocks!"))
+        }
 
+        let mut master_layout = config.layout_blocks.swap_remove(0);
+
+        // Find children in the vec, and recursively add them to the master layout (and its
+        // children) to make a tree.
         fn find_and_add_children(layout: &mut LayoutBlock, blocks: &mut Vec<LayoutBlock>) {
             let mut i = 0;
             while i < blocks.len() {
@@ -224,20 +230,16 @@ impl Config {
             }
         }
 
-        find_and_add_children(&mut master_layout, &mut self.layout_dict);
-        /*
-        let mut to_check = master_layout.children.as_mut_slice();
-        while to_check.len() > 0 {
-            for block in to_check {
-                find_and_add_children(block, &mut self.layout_dict);
-                to_check.append(block.children.as_mut_slice());
-            }
-        }
-        */
+        find_and_add_children(&mut master_layout, &mut config.layout_blocks);
 
-        // TODO: make this work.
         dbg!(&master_layout);
-        self.layout = Some(master_layout);
+        match master_layout.params {
+            LayoutElement::NotificationBlock(_) => {
+                config.layout = Some(master_layout);
+                Ok(config)
+            }
+            _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),
+        }
     }
 
     // Watch config file for changes, and send message to `Configwatcher` when something
@@ -260,13 +262,19 @@ impl Config {
     }
 
     // Verify that the config is constructed correctly.
-    fn validate(mut self) -> Result<Self, Error> {
-        // TODO: check that layout is populated.
-        match &self.layout.as_ref().unwrap().params {
-            LayoutElement::NotificationBlock(_) => Ok(self),
-            _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),
+    /*
+    fn validate(mut config: Config) -> Result<Self, Error> {
+        let c = Config::transform(config);
+        match c.layout.as_ref() {
+            Some(layout) =>
+                match layout.params {
+                    LayoutElement::NotificationBlock(_) => Ok(c),
+                    _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),
+                }
+            None => Err(Error::Validate("The layout was not populated!")),
         }
     }
+    */
 }
 
 impl Default for Config {
