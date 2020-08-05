@@ -78,8 +78,10 @@ pub struct Config {
     pub poll_interval: u64,
 
     // Draws rectangles around elements.
+    // TODO: make these have defaults so people don't have to enter them?
     pub debug: bool,
     pub debug_color: Color,
+    pub debug_color_alt: Color,
 
     pub shortcuts: ShortcutsConfig,
 

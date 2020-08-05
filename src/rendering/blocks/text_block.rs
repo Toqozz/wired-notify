@@ -1,10 +1,11 @@
 use serde::Deserialize;
 
 use crate::maths_utility::{Vec2, Rect, MinMax};
-use crate::config::{Padding, Color};
+use crate::config::{Config, Padding, Color};
 use crate::bus::dbus::Notification;
 use crate::rendering::window::NotifyWindow;
 use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
+use crate::maths_utility;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Dimensions {
@@ -50,7 +51,7 @@ impl DrawableLayoutElement for TextBlockParameters {
         let dimensions = self.get_dimensions(&window.notification);
 
         window.text.set_text(&self.real_text, &self.font, dimensions.width.max, dimensions.height.max);
-        let mut rect = window.text.get_sized_rect(&self.padding, dimensions.width.min, dimensions.height.min);
+        let mut rect = window.text.get_sized_padded_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
@@ -58,6 +59,11 @@ impl DrawableLayoutElement for TextBlockParameters {
         pos.x += self.padding.left;
         pos.y += self.padding.top;
         window.text.paint(&window.context, &pos, &self.color);
+        // Debug, unpadded drawing, to help users.
+        if Config::get().debug {
+            let r = window.text.get_sized_rect(dimensions.width.min, dimensions.height.min);
+            maths_utility::debug_rect(&window.context, true, pos.x, pos.y, r.width(), r.height());
+        }
         pos.x -= self.padding.left;
         pos.y -= self.padding.top;
 
@@ -74,7 +80,7 @@ impl DrawableLayoutElement for TextBlockParameters {
 
         let dimensions = self.get_dimensions(&window.notification);
         window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max);
-        let mut rect = window.text.get_sized_rect(&self.padding, dimensions.width.min, dimensions.height.min);
+        let mut rect = window.text.get_sized_padded_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
         self.real_text = text;
 

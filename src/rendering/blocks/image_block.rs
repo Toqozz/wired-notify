@@ -63,6 +63,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
             );
             //window.context.rectangle(x, y, self.scale_width as f64, self.scale_height as f64);
             window.context.fill();
+            maths_utility::debug_rect(&window.context, true, x, y, self.scale_width as f64, self.scale_height as f64);
 
             rect
         } else {

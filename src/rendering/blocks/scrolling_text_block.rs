@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::maths_utility::{self, Rect, Vec2, MinMax};
-use crate::config::{Padding, Color};
+use crate::config::{Config, Padding, Color};
 use crate::rendering::window::NotifyWindow;
 use crate::bus::dbus::Notification;
 use crate::rendering::layout::{LayoutBlock, DrawableLayoutElement, Hook};
@@ -61,7 +61,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         // physically occupy.
         // We could cache this rect, but haven't yet.
         window.text.set_text(&self.real_text, &self.font, width.max, 0);
-        let mut rect = window.text.get_sized_rect(&self.padding, width.min, 0);
+        let mut rect = window.text.get_sized_padded_rect(&self.padding, width.min, 0);
 
         // Set the text to the real (scrolling) string.
         window.text.set_text(&self.real_text, &self.font, -1, 0);
@@ -69,6 +69,8 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
         pos.x += self.padding.left;
         pos.y += self.padding.top;
+        // Debug, unpadded drawing, to help users.
+        maths_utility::debug_rect(&window.context, true, pos.x, pos.y, self.clip_rect.width(), self.clip_rect.height());
 
         // If we're larger than the max size, then we should scroll, which is just changing the
         // text's x position really.
@@ -122,10 +124,10 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         // `rect`      -- Padded rect, for calculating bounding box.
         // `clip_rect` -- Unpadded rect, used for clipping.
         // `text_rect` -- Real text rect, with infinite length.
-        let mut rect = window.text.get_sized_rect(&self.padding, self.real_width.min, 0);
-        let clip_rect = window.text.get_sized_rect(&Padding::new(0.0, 0.0, 0.0, 0.0), 0, 0);
+        let mut rect = window.text.get_sized_padded_rect(&self.padding, self.real_width.min, 0);
+        let clip_rect = window.text.get_sized_padded_rect(&Padding::new(0.0, 0.0, 0.0, 0.0), 0, 0);
         window.text.set_text(&text, &self.font, -1, 0);
-        let text_rect = window.text.get_sized_rect(&self.padding, 0, 0);
+        let text_rect = window.text.get_sized_padded_rect(&self.padding, 0, 0);
 
         if text_rect.width() > self.real_width.max as f64 {
             self.update_enabled = true;

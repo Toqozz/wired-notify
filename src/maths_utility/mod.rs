@@ -184,6 +184,8 @@ pub fn distance(x: f64, y: f64) -> f64 {
 
 // http://cairographics.org/samples/rounded_rectangle/
 pub fn cairo_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) {
+    ctx.save();
+
     // Aspect ratio.
     let aspect = 1.0;
     let radius = corner_radius / aspect;
@@ -196,4 +198,29 @@ pub fn cairo_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64,
     ctx.arc(x + radius        , y + height - radius, radius         , 90.0 * degrees , 180.0 * degrees);
     ctx.arc(x + radius        , y + radius         , radius         , 180.0 * degrees, 270.0 * degrees);
     ctx.close_path();
+
+    ctx.restore();
+}
+
+pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, height: f64) {
+    use crate::config::Config;
+    // Often, modules will check for debug before calling this anyway to save work, but it's good
+    // to be sure we never draw any debug rects when debug is turned off.
+    if !Config::get().debug {
+        return;
+    }
+
+    ctx.save();
+
+    let c = if alt {
+        &Config::get().debug_color_alt
+    } else {
+        &Config::get().debug_color
+    };
+    ctx.set_source_rgba(c.r, c.g, c.b, c.a);
+    ctx.set_line_width(1.0);
+    ctx.rectangle(x, y, width, height);
+    ctx.stroke();
+
+    ctx.restore();
 }
