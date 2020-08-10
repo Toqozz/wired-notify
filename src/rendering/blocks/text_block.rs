@@ -20,11 +20,11 @@ pub struct TextBlockParameters {
     pub text: String,
     pub font: String,
     pub color: Color,
-    //pub dimensions: TextDimensionVariants,
     pub dimensions: Dimensions,
-    pub dimensions_image_hint: Dimensions,
-    pub dimensions_image_app: Dimensions,
-    pub dimensions_image_both: Dimensions,
+    // -- Optional fields.
+    pub dimensions_image_hint: Option<Dimensions>,
+    pub dimensions_image_app: Option<Dimensions>,
+    pub dimensions_image_both: Option<Dimensions>,
 
     #[serde(skip)]
     real_text: String,
@@ -33,9 +33,9 @@ pub struct TextBlockParameters {
 impl TextBlockParameters {
     fn get_dimensions(&self, notification: &Notification) -> &Dimensions {
         match (notification.app_image.is_some(), notification.hint_image.is_some()) {
-            (true, true) => &self.dimensions_image_both,
-            (true, false) => &self.dimensions_image_app,
-            (false, true) => &self.dimensions_image_hint,
+            (true, true) => self.dimensions_image_both.as_ref().unwrap_or(&self.dimensions),
+            (true, false) => self.dimensions_image_app.as_ref().unwrap_or(&self.dimensions),
+            (false, true) => self.dimensions_image_hint.as_ref().unwrap_or(&self.dimensions),
             (false, false) => &self.dimensions,
         }
     }

@@ -12,7 +12,7 @@ winit = "0.21.0"
 x11 = { version = "2.18.1", features = ["xlib"] }
 dbus = "0.8.2"
 image = "0.22.2"
-ron = "0.5.1"
+ron = "0.6.0"
 serde = { version = "1.0", features = ["derive"] }
 pango = "0.6.0"
 pangocairo = "0.7.0"

@@ -103,11 +103,14 @@ impl Config {
             let cfg_file = Config::installed_config();
             match cfg_file {
                 Some(f) => {
-                    let cfg = Config::load(f.clone());
+                    let cfg = Config::load_file(f.clone());
                     match cfg {
                         Ok(c) => CONFIG = Some(c),
                         Err(e) => {
-                            println!("Found a config but couldn't load it, so will use default one for now:\n\t{}", e);
+                            println!("Found a config file, but couldn't load it, so will \
+                                      use default one for now.\n\
+                                      Error: {}", e);
+
                             CONFIG = Some(Config::default());
                         }
                     }
@@ -132,7 +135,6 @@ impl Config {
                     return None;
                 },
             };
-
         }
     }
 
@@ -158,7 +160,7 @@ impl Config {
     // If we can, then replace the existing config.
     // If we can't, then do nothing.
     pub fn try_reload(path: PathBuf) {
-        match Config::load(path) {
+        match Config::load_file(path) {
             Ok(cfg) => unsafe { CONFIG = Some(cfg) },
             Err(e) => println!("Tried to reload the config but couldn't: {}", e),
         }
@@ -194,14 +196,27 @@ impl Config {
     }
 
     // Load config or return error.
-    pub fn load(path: PathBuf) -> Result<Self, Error> {
+    pub fn load_file(path: PathBuf) -> Result<Self, Error> {
         let cfg_string = std::fs::read_to_string(path);
         let cfg_string = match cfg_string {
-            Ok(string) => string,
+            Ok(mut string) => {
+                string.insert_str(0, "#![enable(implicit_some)]\n");
+                string
+            }
             Err(e) => return Err(Error::Io(e)),
         };
 
-        let config: Result<Self, _> = ron::de::from_str(cfg_string.as_str());
+        Config::load_str(cfg_string.as_str())
+    }
+
+    pub fn load_str(cfg_str: &str) -> Result<Self, Error> {
+        // Really ugly and annoying hack because ron doesn't allow implicit some by
+        // default.
+        // Eventually we probably want to switch to something friendlier like Yaml, so it's
+        // not worth worrying about too much.
+        // @TODO: Yaml.
+        let string = format!("#![enable(implicit_some)]\n{}", cfg_str);
+        let config: Result<Self, _> = ron::de::from_str(string.as_str());
         match config {
             Ok(cfg) => return Config::transform_and_validate(cfg),
             Err(e) => return Err(Error::Ron(e)),
@@ -281,9 +296,8 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let cfg_string = include_str!("../../wired.ron");
-        ron::de::from_str(cfg_string)
-            .expect("Failed to parse default config.  Something is fucked up.\n")
+        Config::load_str(include_str!("../../wired.ron"))
+            .expect("Failed to load default config.  Maintainer fucked something up.\n")
     }
 }
 

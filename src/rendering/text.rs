@@ -37,10 +37,15 @@ impl TextRenderer {
         let font_dsc = FontDescription::from_string(font);
         self.pctx.set_font_description(&font_dsc);
 
+        // Applying scale when `max_width`/`max_height` is < 0 seems to work, but let's not take
+        // chances.
+        let width = if max_width < 0 { -1 } else { pango::SCALE * max_width };
+        let height = if max_height < 0 { -1 } else { pango::SCALE * max_height };
+
         self.layout.set_markup(text);
         //self.layout.set_text(text);
-        self.layout.set_height(pango::SCALE * max_height);
-        self.layout.set_width(pango::SCALE * max_width);
+        self.layout.set_height(height);
+        self.layout.set_width(width);
     }
 
     pub fn get_sized_rect(&self, min_width: i32, min_height: i32) -> Rect {

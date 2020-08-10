@@ -1,3 +1,4 @@
+#![enable(implicit_some)]
 (
     max_notifications: 0,
     min_window_width: 1,
@@ -8,12 +9,13 @@
 
     debug: false,
     debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0),
+    debug_color_alt: Color(r: 1.0, g: 0.0, b: 0.0, a: 1.0),
 
     layout_blocks: [
         (
             name: "root",
             parent: "",
-            hook: Hook(parent_hook: TL, self_hook: TL),
+            hook: Hook(parent_anchor: TL, self_anchor: TL),
             offset: Vec2(x: 7.0, y: 7.0),
             params: NotificationBlock((
                 monitor: 0,
@@ -26,14 +28,14 @@
                 border_color_paused: Color(r: 0.98431, g: 0.741176, b: 0.184314, a: 1.0),
 
                 gap: Vec2(x: 0.0, y: 8.0),
-                notification_hook: Hook(parent_hook: BL, self_hook: TL),
+                notification_hook: Hook(parent_anchor: BL, self_anchor: TL),
             )),
         ),
 
         (
             name: "summary",
             parent: "root",
-            hook: Hook(parent_hook: TL, self_hook: TL),
+            hook: Hook(parent_anchor: TL, self_anchor: TL),
             offset: Vec2(x: 0.0, y: 0.0),
             params: TextBlock((
                 text: "%s",
@@ -50,7 +52,7 @@
         (
             name: "body",
             parent: "summary",
-            hook: Hook(parent_hook: MR, self_hook: ML),
+            hook: Hook(parent_anchor: MR, self_anchor: ML),
             offset: Vec2(x: 0.0, y: 0.0),
             params: ScrollingTextBlock((
                 text: "%b",

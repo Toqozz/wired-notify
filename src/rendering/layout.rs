@@ -28,8 +28,8 @@ pub struct LayoutBlock {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Hook {
-    pub parent_hook: AnchorPosition,
-    pub self_hook: AnchorPosition,
+    pub parent_anchor: AnchorPosition,
+    pub self_anchor: AnchorPosition,
 }
 
 
@@ -49,8 +49,8 @@ pub enum LayoutElement {
 impl LayoutBlock {
     pub fn find_anchor_pos(hook: &Hook, offset: &Vec2, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
         // Get position of anchor in each rectangle (parent and self).
-        let mut anchor = hook.parent_hook.get_pos(parent_rect);
-        let self_anchor = hook.self_hook.get_pos(self_rect);
+        let mut anchor = hook.parent_anchor.get_pos(parent_rect);
+        let self_anchor = hook.self_anchor.get_pos(self_rect);
 
         // To align the anchor of parent rect and self rect, we just need to move the parent anchor
         // by whatever the offset is for the self rect.
