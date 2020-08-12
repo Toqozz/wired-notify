@@ -12,6 +12,8 @@ use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
 pub enum ImageType {
     App,
     Hint,
+    AppThenHint,
+    HintThenApp,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -22,6 +24,19 @@ pub enum FilterMode {
     Gaussian,
     Lanczos3,
 }
+impl FilterMode {
+    // Convert our filter_mode to `FilterType`.  We need our own type because `FilterType`
+    // is not serializable.
+    pub fn to_image_mode(&self) -> image::FilterType {
+        match self {
+            FilterMode::Nearest => FilterType::Nearest,
+            FilterMode::Triangle => FilterType::Triangle,
+            FilterMode::CatmullRom => FilterType::CatmullRom,
+            FilterMode::Gaussian => FilterType::Gaussian,
+            FilterMode::Lanczos3 => FilterType::Lanczos3,
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ImageBlockParameters {
@@ -31,9 +46,12 @@ pub struct ImageBlockParameters {
     pub rounding: f64,
     pub scale_width: i32,
     pub scale_height: i32,
-    pub min_width: i32,
-    pub min_height: i32,
     pub filter_mode: FilterMode,
+
+    #[serde(default)]
+    pub min_width: i32,
+    #[serde(default)]
+    pub min_height: i32,
 
     // The process of resizing the image and changing colorspace is relatively expensive,
     // so we should cache it.
@@ -78,8 +96,12 @@ impl DrawableLayoutElement for ImageBlockParameters {
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         let maybe_image =
             match self.image_type {
-                ImageType::App => &window.notification.app_image,
-                ImageType::Hint => &window.notification.hint_image,
+                ImageType::App => window.notification.app_image.as_ref(),
+                ImageType::Hint => window.notification.hint_image.as_ref(),
+                ImageType::AppThenHint =>
+                    window.notification.app_image.as_ref().or(window.notification.hint_image.as_ref()),
+                ImageType::HintThenApp =>
+                    window.notification.hint_image.as_ref().or(window.notification.app_image.as_ref()),
             };
 
         if let Some(img) = maybe_image {
@@ -91,16 +113,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
 
             let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
-            // Convert our filter_mode to `FilterType`.  We need our own type because `FilterType`
-            // is not serializable.
-            let filter_type = match self.filter_mode {
-                FilterMode::Nearest => FilterType::Nearest,
-                FilterMode::Triangle => FilterType::Triangle,
-                FilterMode::CatmullRom => FilterType::CatmullRom,
-                FilterMode::Gaussian => FilterType::Gaussian,
-                FilterMode::Lanczos3 => FilterType::Lanczos3,
-            };
-
+            let filter_type = self.filter_mode.to_image_mode();
             let pixels =
                 img.resize_exact(self.scale_width as u32, self.scale_height as u32, filter_type)
                 .to_bgra() // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.

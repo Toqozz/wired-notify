@@ -5,11 +5,29 @@ use pango::{
     FontDescription,
 };
 
+use serde::Deserialize;
+
 use crate::{
     maths_utility::{Rect, Vec2},
     config::{Padding, Color},
 };
 
+#[derive(Debug, Deserialize, Clone)]
+pub enum EllipsizeMode { NoEllipsize, Start, Middle, End }
+impl Default for EllipsizeMode {
+    fn default() -> Self { EllipsizeMode::Middle }
+}
+
+impl EllipsizeMode {
+    pub fn to_pango_mode(&self) -> pango::EllipsizeMode {
+        match self {
+            EllipsizeMode::NoEllipsize => pango::EllipsizeMode::None,
+            EllipsizeMode::Start => pango::EllipsizeMode::Start,
+            EllipsizeMode::Middle => pango::EllipsizeMode::Middle,
+            EllipsizeMode::End => pango::EllipsizeMode::End,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct TextRenderer {
@@ -24,8 +42,6 @@ impl TextRenderer {
             .expect("Failed to create pango context.");
 
         let layout = Layout::new(&pctx);
-        // TODO: this should be a config option.
-        layout.set_ellipsize(pango::EllipsizeMode::Middle);
 
         Self {
             pctx,
@@ -33,7 +49,7 @@ impl TextRenderer {
         }
     }
 
-    pub fn set_text(&self, text: &str, font: &str, max_width: i32, max_height: i32) {
+    pub fn set_text(&self, text: &str, font: &str, max_width: i32, max_height: i32, ellipsize: &EllipsizeMode) {
         let font_dsc = FontDescription::from_string(font);
         self.pctx.set_font_description(&font_dsc);
 
@@ -42,8 +58,8 @@ impl TextRenderer {
         let width = if max_width < 0 { -1 } else { pango::SCALE * max_width };
         let height = if max_height < 0 { -1 } else { pango::SCALE * max_height };
 
+        self.layout.set_ellipsize(ellipsize.to_pango_mode());
         self.layout.set_markup(text);
-        //self.layout.set_text(text);
         self.layout.set_height(height);
         self.layout.set_width(width);
     }

@@ -34,6 +34,7 @@ pub struct NotifyWindow {
     // window is dropped.
     pub context: Context,
     pub surface: Surface,
+    // Each window has a text renderer to handle all text rendering for that window.
     pub text: TextRenderer,
 
     pub winit: Window,

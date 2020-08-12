@@ -5,6 +5,7 @@ use crate::config::{Config, Padding, Color};
 use crate::rendering::window::NotifyWindow;
 use crate::bus::dbus::Notification;
 use crate::rendering::layout::{LayoutBlock, DrawableLayoutElement, Hook};
+use crate::rendering::text::EllipsizeMode;
 use std::time::Duration;
 
 
@@ -16,9 +17,12 @@ pub struct ScrollingTextBlockParameters {
     pub color: Color,
 
     pub width: MinMax,
-    pub width_image_hint: MinMax,
-    pub width_image_app: MinMax,
-    pub width_image_both: MinMax,
+    // Optional fields ----
+    pub width_image_hint: Option<MinMax>,
+    pub width_image_app: Option<MinMax>,
+    pub width_image_both: Option<MinMax>,
+    #[serde(default)]
+    pub render_when_empty: bool,
 
     pub scroll_speed: f64,
     pub lhs_dist: f64,
@@ -45,9 +49,9 @@ pub struct ScrollingTextBlockParameters {
 impl ScrollingTextBlockParameters {
     fn get_width(&self, notification: &Notification) -> &MinMax {
         match (notification.app_image.is_some(), notification.hint_image.is_some()) {
-            (true, true) => &self.width_image_both,
-            (true, false) => &self.width_image_app,
-            (false, true) => &self.width_image_hint,
+            (true, true) => self.width_image_both.as_ref().unwrap_or(&self.width),
+            (true, false) => self.width_image_app.as_ref().unwrap_or(&self.width),
+            (false, true) => self.width_image_hint.as_ref().unwrap_or(&self.width),
             (false, false) => &self.width,
         }
     }
@@ -55,16 +59,24 @@ impl ScrollingTextBlockParameters {
 
 impl DrawableLayoutElement for ScrollingTextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+        // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
+        // optionally allow it.
+        if self.real_text.is_empty() && !self.render_when_empty {
+            return Rect::empty();
+        }
+
         let width = &self.real_width;
 
         // First, generate bounding rect with padding and stuff -- the space the text will
         // physically occupy.
         // We could cache this rect, but haven't yet.
-        window.text.set_text(&self.real_text, &self.font, width.max, 0);
+        // We need to set some ellipsize mode, or the text size will be forced larger despite our
+        // max width/height.
+        window.text.set_text(&self.real_text, &self.font, width.max, 0, &EllipsizeMode::Middle);
         let mut rect = window.text.get_sized_padded_rect(&self.padding, width.min, 0);
 
         // Set the text to the real (scrolling) string.
-        window.text.set_text(&self.real_text, &self.font, -1, 0);
+        window.text.set_text(&self.real_text, &self.font, -1, 0, &EllipsizeMode::NoEllipsize);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
         pos.x += self.padding.left;
@@ -114,19 +126,25 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
             .replace("%s", &window.notification.summary)
             .replace("%b", &window.notification.body);
 
+        if text.is_empty() && !self.render_when_empty {
+            self.update_enabled = false;
+            self.real_text = text;
+            return Rect::empty();
+        }
+
         // We cache real_width because we need to access it in `update()` later, which doesn't have
         // access to the notification.
         self.real_width = self.get_width(&window.notification).clone();
 
         // Max height of 0 = one line of text.
-        window.text.set_text(&text, &self.font, self.real_width.max, 0);
+        window.text.set_text(&text, &self.font, self.real_width.max, 0, &EllipsizeMode::Middle);
 
         // `rect`      -- Padded rect, for calculating bounding box.
         // `clip_rect` -- Unpadded rect, used for clipping.
         // `text_rect` -- Real text rect, with infinite length.
         let mut rect = window.text.get_sized_padded_rect(&self.padding, self.real_width.min, 0);
         let clip_rect = window.text.get_sized_padded_rect(&Padding::new(0.0, 0.0, 0.0, 0.0), 0, 0);
-        window.text.set_text(&text, &self.font, -1, 0);
+        window.text.set_text(&text, &self.font, -1, 0, &EllipsizeMode::NoEllipsize);
         let text_rect = window.text.get_sized_padded_rect(&self.padding, 0, 0);
 
         if text_rect.width() > self.real_width.max as f64 {

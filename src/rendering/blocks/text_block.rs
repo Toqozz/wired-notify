@@ -3,8 +3,11 @@ use serde::Deserialize;
 use crate::maths_utility::{Vec2, Rect, MinMax};
 use crate::config::{Config, Padding, Color};
 use crate::bus::dbus::Notification;
-use crate::rendering::window::NotifyWindow;
-use crate::rendering::layout::{DrawableLayoutElement, LayoutBlock, Hook};
+use crate::rendering::{
+    window::NotifyWindow,
+    layout::{DrawableLayoutElement, LayoutBlock, Hook},
+    text::EllipsizeMode,
+};
 use crate::maths_utility;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -25,6 +28,10 @@ pub struct TextBlockParameters {
     pub dimensions_image_hint: Option<Dimensions>,
     pub dimensions_image_app: Option<Dimensions>,
     pub dimensions_image_both: Option<Dimensions>,
+    #[serde(default)]
+    pub ellipsize: EllipsizeMode,
+    #[serde(default)]
+    pub render_when_empty: bool,
 
     #[serde(skip)]
     real_text: String,
@@ -46,12 +53,20 @@ impl TextBlockParameters {
 // blocks, because that will cause it to grow.
 impl DrawableLayoutElement for TextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+        // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
+        // optionally allow it.
+        if self.real_text.is_empty() && !self.render_when_empty {
+            return Rect::empty();
+        }
+
         window.context.set_operator(cairo::Operator::Over);
 
         let dimensions = self.get_dimensions(&window.notification);
 
-        window.text.set_text(&self.real_text, &self.font, dimensions.width.max, dimensions.height.max);
-        let mut rect = window.text.get_sized_padded_rect(&self.padding, dimensions.width.min, dimensions.height.min);
+        window.text
+            .set_text(&self.real_text, &self.font, dimensions.width.max, dimensions.height.max, &self.ellipsize);
+        let mut rect =
+            window.text.get_sized_padded_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
@@ -78,8 +93,13 @@ impl DrawableLayoutElement for TextBlockParameters {
             .replace("%s", &window.notification.summary)
             .replace("%b", &window.notification.body);
 
+        if text.is_empty() && !self.render_when_empty {
+            self.real_text = text;
+            return Rect::empty();
+        }
+
         let dimensions = self.get_dimensions(&window.notification);
-        window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max);
+        window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max, &self.ellipsize);
         let mut rect = window.text.get_sized_padded_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
         self.real_text = text;

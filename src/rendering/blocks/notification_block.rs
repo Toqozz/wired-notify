@@ -17,13 +17,14 @@ pub struct NotificationBlockParameters {
     pub border_width: f64,
     pub border_rounding: f64,
     pub background_color: Color,
-    pub border_color_urgency_low: Color,
-    pub border_color_urgency_normal: Color,
-    pub border_color_urgency_critical: Color,
-    pub border_color_paused: Color,
+    pub border_color: Color,
 
     pub gap: Vec2,
     pub notification_hook: Hook,
+
+    pub border_color_urgency_low: Option<Color>,
+    pub border_color_urgency_critical: Option<Color>,
+    pub border_color_paused: Option<Color>,
 
     #[serde(skip)]
     current_update_mode: UpdateModes,
@@ -42,12 +43,12 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         // Otherwise, we evaluate urgency.
         let bd_color = {
             if window.update_mode != UpdateModes::all() {
-                &self.border_color_paused
+                self.border_color_paused.as_ref().unwrap_or(&self.border_color)
             } else {
                 match window.notification.urgency {
-                    Urgency::Low => &self.border_color_urgency_low,
-                    Urgency::Normal => &self.border_color_urgency_normal,
-                    Urgency::Critical => &self.border_color_urgency_critical,
+                    Urgency::Low => self.border_color_urgency_low.as_ref().unwrap_or(&self.border_color),
+                    Urgency::Normal => &self.border_color,
+                    Urgency::Critical => self.border_color_urgency_critical.as_ref().unwrap_or(&self.border_color),
                 }
             }
         };
