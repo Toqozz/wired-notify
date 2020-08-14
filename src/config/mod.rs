@@ -2,7 +2,6 @@
 
 use std::{
     sync::mpsc::{self, Receiver},
-    mem::MaybeUninit,
     time::Duration,
     env,
     io,
@@ -10,7 +9,10 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    de::{self, Deserializer, Unexpected},
+};
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
 use crate::{
@@ -26,6 +28,8 @@ pub enum Error {
     NotFound,
     // Validation error.
     Validate(&'static str),
+    // Bad hex string error.
+    Hexidecimal(&'static str),
     // IO error reading file.
     Io(io::Error),
     // Deserialization error.
@@ -39,6 +43,7 @@ impl std::error::Error for Error {
         match self {
             Error::NotFound => None,
             Error::Validate(_) => None,
+            Error::Hexidecimal(_) => None,
             Error::Io(err) => err.source(),
             Error::Ron(err) => err.source(),
             Error::Watch(err) => err.source(),
@@ -51,6 +56,7 @@ impl Display for Error {
         match self {
             Error::NotFound => write!(f, "No config found"),
             Error::Validate(problem) => write!(f, "Error validating config file: {}", problem), 
+            Error::Hexidecimal(problem) => write!(f, "Error parsing hexidecimal string: {}", problem), 
             Error::Io(err) => write!(f, "Error reading config file: {}", err), 
             Error::Ron(err) => write!(f, "Problem with config file: {}", err), 
             Error::Watch(err) => write!(f, "Error watching config directory: {}", err), 
@@ -107,9 +113,9 @@ impl Config {
                     match cfg {
                         Ok(c) => CONFIG = Some(c),
                         Err(e) => {
-                            println!("Found a config file, but couldn't load it, so will \
+                            println!("Found a config file: {}, but couldn't load it, so will \
                                       use default one for now.\n\
-                                      Error: {}", e);
+                                      \tError: {}\n", f.to_str().unwrap(), e);
 
                             CONFIG = Some(Config::default());
                         }
@@ -249,7 +255,6 @@ impl Config {
 
         find_and_add_children(&mut master_layout, &mut config.layout_blocks);
 
-        dbg!(&master_layout);
         match master_layout.params {
             LayoutElement::NotificationBlock(_) => {
                 config.layout = Some(master_layout);
@@ -335,7 +340,7 @@ pub enum AnchorPosition {
     BL,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Color {
     pub r: f64,
     pub g: f64,
@@ -344,8 +349,79 @@ pub struct Color {
 }
 
 impl Color {
-    pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
+    pub fn from_rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
         Color { r, g, b, a }
+    }
+
+    pub fn from_hex(hex: &str) -> Result<Self, Error> {
+        // Sanitize string a little.
+        // Works for strings in format: "#ff000000", "#0xff000000", "0xff000000".
+        // We also support hex strings that don't specify alpha: "#000000"
+        let sanitized = hex.trim_start_matches("#").trim_start_matches("0x");
+
+        // Convert string to base-16 u32.
+        let dec = u32::from_str_radix(sanitized, 16);
+        let dec = match dec {
+            Ok(d) => d,
+            Err(_) => return Err(Error::Hexidecimal("Invalid hexidecimal string."))
+        };
+
+        // If we have 8 chars, then this is hex string includes alpha, if we have 6, then it
+        // doesn't.  Anything else at this point is invalid.
+        let len = sanitized.chars().count();
+        if len == 8 {
+            let a = ((dec >> 24) & 0xff) as f64 / 255.0;
+            let r = ((dec >> 16) & 0xff) as f64 / 255.0;
+            let g = ((dec >> 8) & 0xff) as f64 / 255.0;
+            let b = (dec & 0xff) as f64 / 255.0;
+            return Ok(Color::from_rgba(r, g, b, a));
+        } else if len == 6 {
+            let a = 1.0;
+            let r = ((dec >> 16) & 0xff) as f64 / 255.0;
+            let g = ((dec >> 8) & 0xff) as f64 / 255.0;
+            let b = (dec & 0xff) as f64 / 255.0;
+            return Ok(Color::from_rgba(r, g, b, a));
+        } else {
+            return Err(Error::Hexidecimal("Incorrect hexidecimal string length."));
+        }
+    }
+}
+
+
+// We manually implement deserialize so we can nicely support letting users use hex or rgba codes.
+// Ron says the position is col: 0, line: 0 when we error during this, because we're directly
+// deserializing the struct?  Not sure how we would fix this.
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Intermediate struct with optional fields for ergonomics.
+        #[derive(Deserialize)]
+        #[serde(rename = "Color")]
+        struct Col {
+            r: Option<f64>,
+            g: Option<f64>,
+            b: Option<f64>,
+            a: Option<f64>,
+            hex: Option<String>,
+        }
+
+        // Deserialize into the intermediate struct.
+        let col = Col::deserialize(deserializer)?;
+        // Check that user hasn't defined both rgba and hex.
+        if col.hex.is_some() && (col.r.is_some() || col.g.is_some() || col.b.is_some() || col.a.is_some()) {
+            return Err(de::Error::custom("`hex` and `rgba` fields cannot both be present in the same `Color`"))
+        }
+
+        if let Some(hex) = col.hex {
+            return Color::from_hex(&hex)
+                .or(Err(de::Error::invalid_value(Unexpected::Str(&hex), &"a valid hexidecimal string")));
+        } else if let (Some(r), Some(g), Some(b), Some(a)) = (col.r, col.g, col.b, col.a) {
+            return Ok(Color::from_rgba(r, g, b, a));
+        } else {
+            return Err(de::Error::missing_field("`r`, `g`, `b`, `a` or `hex`"));
+        }
     }
 }
 
