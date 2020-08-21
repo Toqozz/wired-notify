@@ -22,8 +22,8 @@ pub struct NotificationBlockParameters {
     pub gap: Vec2,
     pub notification_hook: Hook,
 
-    pub border_color_urgency_low: Option<Color>,
-    pub border_color_urgency_critical: Option<Color>,
+    pub border_color_low: Option<Color>,
+    pub border_color_critical: Option<Color>,
     pub border_color_paused: Option<Color>,
 
     #[serde(skip)]
@@ -46,9 +46,9 @@ impl DrawableLayoutElement for NotificationBlockParameters {
                 self.border_color_paused.as_ref().unwrap_or(&self.border_color)
             } else {
                 match window.notification.urgency {
-                    Urgency::Low => self.border_color_urgency_low.as_ref().unwrap_or(&self.border_color),
+                    Urgency::Low => self.border_color_low.as_ref().unwrap_or(&self.border_color),
                     Urgency::Normal => &self.border_color,
-                    Urgency::Critical => self.border_color_urgency_critical.as_ref().unwrap_or(&self.border_color),
+                    Urgency::Critical => self.border_color_critical.as_ref().unwrap_or(&self.border_color),
                 }
             }
         };

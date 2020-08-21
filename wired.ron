@@ -1,4 +1,3 @@
-#![enable(implicit_some)]
 (
     max_notifications: 0,
     min_window_width: 1,
@@ -19,13 +18,13 @@
             offset: Vec2(x: 7.0, y: 7.0),
             params: NotificationBlock((
                 monitor: 0,
-                border_width: 3.0,
-                border_rounding: 3.0,
+                border_width: 7.0,
+                border_rounding: 10.0,
                 //background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
                 background_color: Color(hex: "#282828"),
                 border_color: Color(hex: "#ebdbb2"),
-                border_color_urgency_low: Color(hex: "#282828"),
-                border_color_urgency_critical: Color(hex: "#fb4934"),
+                border_color_low: Color(hex: "#282828"),
+                border_color_critical: Color(hex: "#fb4934"),
                 border_color_paused: Color(hex: "#fabd2f"),
 
                 gap: Vec2(x: 0.0, y: 8.0),
@@ -40,13 +39,13 @@
             offset: Vec2(x: 0.0, y: 0.0),
             params: TextBlock((
                 text: "%s",
-                font: "Operator Mono 10",
+                font: "Arial Bold 10",
                 color: Color(hex: "#ebdbb2"),
-                padding: Padding(left: 7.0, right: 7.0, top: 7.0, bottom: 7.0),
+                padding: Padding(left: 20.0, right: 20.0, top: 20.0, bottom: 20.0),
                 dimensions: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
-                dimensions_image_hint: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
-                dimensions_image_app: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
-                dimensions_image_both: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
+                //dimensions_image_hint: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
+                //dimensions_image_app: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
+                //dimensions_image_both: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
             )),
         ),
 
@@ -57,7 +56,7 @@
             offset: Vec2(x: 0.0, y: 0.0),
             params: ScrollingTextBlock((
                 text: "%b",
-                font: "Operator Mono 10",
+                font: "Ariel Bold 10",
                 color: Color(hex: "#ebdbb2"),
                 padding: Padding(left: 1.0, right: 7.0, top: 7.0, bottom: 7.0),
                 width: (min: 0, max: 250),
