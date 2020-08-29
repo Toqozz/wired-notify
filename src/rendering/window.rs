@@ -59,7 +59,9 @@ pub struct NotifyWindow {
 impl NotifyWindow {
     pub fn new(el: &EventLoopWindowTarget<()>, notification: Notification, manager: &NotifyWindowManager) -> Self {
         let cfg = Config::get();
-        let (width, height) = (cfg.min_window_width as f64, cfg.min_window_height as f64);
+        // The minimum window width and height is 1.0.  We need this size to generate an initial window.
+        let (width, height)
+            = ((cfg.min_window_width as f64).max(1.0), (cfg.min_window_height as f64).max(1.0));
 
         // @NOTE: this is pretty messed up... It's annoying that winit only exposes a handle to the
         // xlib display through an existing window, which means we have to use a dummy (hidden)

@@ -72,32 +72,46 @@ pub struct ConfigWatcher {
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub max_notifications: usize,
+
+    pub timeout: i32,           // Default timeout.
+    pub poll_interval: u64,
+
+    pub layout_blocks: Vec<LayoutBlock>,
+
+    // Optional Properties
+    // Draws rectangles around elements.
+    #[serde(default)]
+    pub debug: bool,
+    #[serde(default = "Config::default_debug_color")]
+    pub debug_color: Color,
+    #[serde(default = "Config::default_debug_color_alt")]
+    pub debug_color_alt: Color,
+
     // Minimum window width and height.  This is used to create the base rect that the notification
     // grows within.
     // The notification window will never be smaller than this.
     // A value of 1 means that the window will generally always resize with notification, unless
     // you have a 1x1 pixel notification...
+    #[serde(default)]
     pub min_window_width: u32,
+    #[serde(default)]
     pub min_window_height: u32,
-
-    pub timeout: i32,           // Default timeout.
-    pub poll_interval: u64,
-
-    // Draws rectangles around elements.
-    // TODO: make these have defaults so people don't have to enter them?
-    pub debug: bool,
-    pub debug_color: Color,
-    pub debug_color_alt: Color,
 
     pub shortcuts: ShortcutsConfig,
 
     #[serde(skip)]
     pub layout: Option<LayoutBlock>,
-
-    pub layout_blocks: Vec<LayoutBlock>,
 }
 
 impl Config {
+    pub fn default_debug_color() -> Color {
+        return Color::from_rgba(0.0, 1.0, 0.0, 1.0);
+    }
+
+    pub fn default_debug_color_alt() -> Color {
+        return Color::from_rgba(1.0, 0.0, 0.0, 1.0);
+    }
+
     // Initialize the config.  This does a two things:
     // - Attempts to locate and load a config file on the machine, and if it can't, then loads the
     // default config.

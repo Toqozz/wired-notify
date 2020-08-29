@@ -17,18 +17,18 @@ pub struct ScrollingTextBlockParameters {
     pub color: Color,
 
     pub width: MinMax,
+
+    pub scroll_speed: f64,
+    pub lhs_dist: f64,
+    pub rhs_dist: f64,
+    pub scroll_t: f64,
+
     // Optional fields ----
     pub width_image_hint: Option<MinMax>,
     pub width_image_app: Option<MinMax>,
     pub width_image_both: Option<MinMax>,
     #[serde(default)]
     pub render_when_empty: bool,
-
-    pub scroll_speed: f64,
-    pub lhs_dist: f64,
-    pub rhs_dist: f64,
-
-    pub scroll_t: f64,
 
     #[serde(skip)]
     real_text: String,
@@ -62,7 +62,8 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
         // optionally allow it.
         if self.real_text.is_empty() && !self.render_when_empty {
-            return Rect::empty();
+            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
+            return Rect::new(pos.x, pos.y, 0.0, 0.0);
         }
 
         let width = &self.real_width;
@@ -129,7 +130,8 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         if text.is_empty() && !self.render_when_empty {
             self.update_enabled = false;
             self.real_text = text;
-            return Rect::empty();
+            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
+            return Rect::new(pos.x, pos.y, 0.0, 0.0);
         }
 
         // We cache real_width because we need to access it in `update()` later, which doesn't have

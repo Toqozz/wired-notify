@@ -56,7 +56,8 @@ impl DrawableLayoutElement for TextBlockParameters {
         // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
         // optionally allow it.
         if self.real_text.is_empty() && !self.render_when_empty {
-            return Rect::empty();
+            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
+            return Rect::new(pos.x, pos.y, 0.0, 0.0);
         }
 
         window.context.set_operator(cairo::Operator::Over);
@@ -93,9 +94,14 @@ impl DrawableLayoutElement for TextBlockParameters {
             .replace("%s", &window.notification.summary)
             .replace("%b", &window.notification.body);
 
+        // If text is empty and we shouldn't render it, then we should be safe to just return an
+        // empty rect.
+        // We still need to set the position correctly, because other layout elements may be
+        // depending on its position (e.g. in the center), even if it may not be being rendered.
         if text.is_empty() && !self.render_when_empty {
             self.real_text = text;
-            return Rect::empty();
+            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
+            return Rect::new(pos.x, pos.y, 0.0, 0.0);
         }
 
         let dimensions = self.get_dimensions(&window.notification);
@@ -105,7 +111,6 @@ impl DrawableLayoutElement for TextBlockParameters {
         self.real_text = text;
 
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
-
         rect.set_xy(pos.x, pos.y);
         rect
     }
