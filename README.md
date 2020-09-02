@@ -14,12 +14,6 @@
 Wired is light and fully customizable notification daemon that provides you with powerful and extensible layout
 tools.
 
-- Vertical demo, regular notification.
-- Vertical demo, no image and side by side.
-    - Pause notification.
-- Horizontal demo.
-- Indented demo if we have space.
-
 ## Features
 - **Layout** - position everything how you want it, through a pretty clunky configuration file right now.
 - **Programmable Layout Elements** - code your own or use layout elements from wired and contributors (accepting pull requests!).
