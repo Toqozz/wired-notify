@@ -40,6 +40,9 @@ $ cargo build --release
 $ ./target/release/wired
 ```
 
+## Wiki
+See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else you need to know about using Wired.
+
 ## Wired is not finished, but it is usable for most people.
 There's a bunch of things that aren't done yet; here's a non-exhaustive version of the TODO list:
 - [x] Make config not as painful.
@@ -47,5 +50,4 @@ There's a bunch of things that aren't done yet; here's a non-exhaustive version 
 - [ ] Lookup application icons via `.desktop` file
 - [ ] More options surrounding notification urgency.
 - [ ] Notification follows active monitor.
-- [ ] Pause drawing but keep timeout.
 - [ ] Random html escape code edge cases.
