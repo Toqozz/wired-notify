@@ -27,7 +27,7 @@ tools.
 ## Making your own elements
 Making your own layout elements is designed to be as easy as possible.
 Anybody who knows basic Rust should be able to make a layout element.
-See the wiki [link here] for a detailed tutorial on making and adding a layout element to Wired.
+See [the wiki](https://github.com/Toqozz/wired-notify/wiki/Making-Your-Own-Blocks) for a detailed tutorial on making and adding a layout element to Wired.
 
 ## Building
 ### Dependencies
