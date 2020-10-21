@@ -13,6 +13,7 @@ use dbus::{
 use crate::Config;
 use crate::bus::receiver::BusNotification;
 use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, Value, DBusImage};
+use crate::maths_utility;
 
 #[derive(Copy, Clone, Default, Debug)]
 struct TData;
@@ -109,48 +110,6 @@ impl std::fmt::Debug for Notification {
     }
 }
 
-fn escape_decode(to_escape: &str) -> String {
-    // Escape ampersand and decode some html stuff manually, for fun.
-    // can escape about 6 ampersands without allocating (each is 4 chars, minus the existing char).
-    let mut escaped: Vec<u8> = Vec::with_capacity(to_escape.len() + 18);
-    let bytes = to_escape.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        let byte = bytes[i];
-        match byte {
-            b'&' => {
-                // TODO: not really happy with this, should clean it up.
-                if i + 5 <= to_escape.len() {
-                    match &to_escape[i..i+5] {
-                        // If we're trying to write "&amp;" then we should allow it.
-                        "&amp;" => { escaped.push(byte); i += 1; continue },
-                        "&#39;" => { escaped.push(b'\''); i += 5; continue },
-                        "&#34;" => { escaped.push(b'"'); i += 5; continue },
-                        _ => (),
-                    }
-                }
-
-                if i + 6 <= to_escape.len() {
-                    match &to_escape[i..i+6] {
-                        "&apos;" => { escaped.push(b'\''); i += 6; continue },
-                        "&quot;" => { escaped.push(b'\"'); i += 6; continue },
-                        _ => (),
-                    }
-                }
-
-                escaped.extend_from_slice(b"&amp;");
-            }
-
-            _ => escaped.push(byte),
-        }
-
-        i += 1;
-    }
-
-    // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
-    String::from_utf8(escaped).expect("Error when escaping ampersand.")
-}
-
 impl Notification {
     pub fn from_dbus(
         app_name: &str,
@@ -163,8 +122,8 @@ impl Notification {
     ) -> Self {
         // Pango is a bitch about ampersands, and also doesn't decode html entities for us, which
         // applications /love/ to send -- we need to escape ampersands and decode html entities.
-        let summary = escape_decode(summary);
-        let body = escape_decode(body);
+        let summary = maths_utility::escape_decode(summary);
+        let body = maths_utility::escape_decode(body);
 
         fn image_from_path(path: &str) -> Option<DynamicImage> {
             let _start = std::time::Instant::now();

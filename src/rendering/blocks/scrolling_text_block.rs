@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::maths_utility::{self, Rect, Vec2, MinMax};
-use crate::config::{Config, Padding, Color};
+use crate::config::{Padding, Color};
 use crate::rendering::window::NotifyWindow;
 use crate::bus::dbus::Notification;
 use crate::rendering::layout::{LayoutBlock, DrawableLayoutElement, Hook};
@@ -122,10 +122,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        let mut text = self.text.clone();
-        text = text
-            .replace("%s", &window.notification.summary)
-            .replace("%b", &window.notification.body);
+        let text = maths_utility::format_notification_string(&self.text, &window.notification.summary, &window.notification.body);
 
         if text.is_empty() && !self.render_when_empty {
             self.update_enabled = false;

@@ -75,8 +75,13 @@ fn main() {
                             DebouncedEvent::Write(p) |
                             DebouncedEvent::Create(p) |
                             DebouncedEvent::Chmod(p) => {
-                                Config::try_reload(p);
-                                poll_interval = Duration::from_millis(Config::get().poll_interval);
+                                if let Some(file_name) = p.file_name() {
+                                    // Make sure the file that was changed is our file.
+                                    if file_name == "wired.ron" {
+                                        Config::try_reload(p);
+                                        poll_interval = Duration::from_millis(Config::get().poll_interval);
+                                    }
+                                }
                             },
                             _ => {},
                         }

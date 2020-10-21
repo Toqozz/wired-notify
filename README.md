@@ -48,6 +48,7 @@ There's a bunch of things that aren't done yet; here's a non-exhaustive version 
 - [x] Make config not as painful.
 - [x] Allow hex colors in config.
 - [ ] `%t` for time, etc, in text blocks.
+- [ ] Tests...
 - [ ] Lookup application icons via `.desktop` file
 - [ ] More options surrounding notification urgency.
 - [ ] Notification follows active monitor.

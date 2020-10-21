@@ -224,3 +224,86 @@ pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, h
 
     ctx.restore();
 }
+
+pub fn escape_decode(to_escape: &str) -> String {
+    // Escape ampersand and decode some html stuff manually, for fun.
+    // can escape about 6 ampersands without allocating (each is 4 chars, minus the existing char).
+    let mut escaped: Vec<u8> = Vec::with_capacity(to_escape.len() + 18);
+    let bytes = to_escape.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let byte = bytes[i];
+        match byte {
+            b'&' => {
+                // TODO: not really happy with this, should clean it up.
+                if i + 5 <= to_escape.len() {
+                    // The end of the slice range is exclusive, so we need to go one higher.
+                    match &to_escape[i..i+5] {
+                        // If we're trying to write "&amp;" then we should allow it.
+                        "&amp;" => { escaped.push(byte); i += 1; continue },
+                        "&#39;" => { escaped.push(b'\''); i += 5; continue },
+                        "&#34;" => { escaped.push(b'"'); i += 5; continue },
+                        _ => (),
+                    }
+                }
+
+                if i + 6 <= to_escape.len() {
+                    match &to_escape[i..i+6] {
+                        "&apos;" => { escaped.push(b'\''); i += 6; continue },
+                        "&quot;" => { escaped.push(b'\"'); i += 6; continue },
+                        _ => (),
+                    }
+                }
+
+                escaped.extend_from_slice(b"&amp;");
+            }
+
+            _ => escaped.push(byte),
+        }
+
+        i += 1;
+    }
+
+    // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
+    String::from_utf8(escaped).expect("Error when escaping ampersand.")
+}
+
+// str.replace() won't work for this because we'd have to do it twice: once for the summary and
+// once for the body.  The first insertion could insert format strings which would mess up the
+// second insertion.
+// This solution is pretty fast (microseconds in release).
+pub fn format_notification_string(format_string: &str, summary: &str, body: &str) -> String {
+    let mut formatted: Vec<u8> = vec![];
+    let bytes = format_string.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let byte = bytes[i];
+        // We need at least 2 chars to match a format string, so if we only have one, then let's
+        // leave.
+        if i == bytes.len()-1 {
+            formatted.push(byte);
+            i += 1;
+            continue;
+        }
+
+        match byte {
+            b'%' => {
+                // This range is exclusive on the right hand side, so we go +2.
+                match &format_string[i..i+2] {
+                    "%s" => { formatted.extend_from_slice(summary.as_bytes()); i += 2; continue },
+                    "%b" => { formatted.extend_from_slice(body.as_bytes()); i += 2; continue },
+                    _ => (),
+                }
+
+                formatted.push(b'%');
+            }
+
+            _ => formatted.push(byte),
+        }
+
+        i += 1;
+    }
+
+    // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
+    String::from_utf8(formatted).expect("Error when formatting notification string.")
+}

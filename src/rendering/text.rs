@@ -67,8 +67,8 @@ impl TextRenderer {
     }
 
     // Gets a raw, unpadded rect which surrounds the text.
-    pub fn get_rect(&self) -> Rect {
-        let (mut width, mut height) = self.layout.get_pixel_size();
+    pub fn _get_rect(&self) -> Rect {
+        let (width, height) = self.layout.get_pixel_size();
         Rect::new(0.0, 0.0, width as f64, height as f64)
     }
 

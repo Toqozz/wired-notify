@@ -129,16 +129,21 @@ impl Config {
                         Err(e) => {
                             println!("Found a config file: {}, but couldn't load it, so will \
                                       use default one for now.\n\
+                                      If you fix the error the config will be reloaded automatically.\n\
                                       \tError: {}\n", f.to_str().unwrap(), e);
 
                             CONFIG = Some(Config::default());
                         }
                     }
 
-                    // Watch the config file for changes, even if it didn't load correctly; we
+                    // Watch the config file directory for changes, even if it didn't load correctly; we
                     // assume that the config we found is the one we're using.
                     // It would be nice to be able to watch the config directories for when a user
-                    // creates a config, but it seems impractical to watch that many directories.
+                    // creates a config, but it doesn't seem worthwhile to watch that many directories.
+                    //
+                    // NOTE: watching the directory can actually cause us to try and read all file
+                    // changes in this directory, so we need to remember to check the filename
+                    // before reloading.
                     let watch = Config::watch(f);
                     match watch {
                         Ok(w) => return Some(w),

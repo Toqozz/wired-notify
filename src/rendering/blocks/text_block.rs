@@ -73,7 +73,7 @@ impl DrawableLayoutElement for TextBlockParameters {
         // Debug, unpadded drawing, to help users.
         if Config::get().debug {
             let r = window.text.get_sized_rect(dimensions.width.min, dimensions.height.min);
-            maths_utility::debug_rect(&window.context, true, pos.x, pos.y, r.width(), r.height());
+            maths_utility::debug_rect(&window.context, true, pos.x + self.padding.left, pos.y + self.padding.top, r.width(), r.height());
         }
 
         rect.set_xy(pos.x, pos.y);
@@ -81,7 +81,7 @@ impl DrawableLayoutElement for TextBlockParameters {
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        let text = format_notification_string(&self.text, &window.notification.summary, &window.notification.body);
+        let text = maths_utility::format_notification_string(&self.text, &window.notification.summary, &window.notification.body);
 
         // If text is empty and we shouldn't render it, then we should be safe to just return an
         // empty rect.
@@ -104,37 +104,3 @@ impl DrawableLayoutElement for TextBlockParameters {
         rect
     }
 }
-
-// str.replace() won't work for this because we'd have to do it twice: once for the summary and
-// once for the body.  The first insertion could insert format strings which would mess up the
-// second insertion.
-// This solution is pretty fast (microseconds in release).
-fn format_notification_string(format_string: &str, summary: &str, body: &str) -> String {
-    let mut formatted: Vec<u8> = vec![];
-    let bytes = format_string.as_bytes();
-    let mut i = 0;
-    // We need at least 2 chars to match a format string, so only go to the end of the string - 1.
-    while i < bytes.len()-1 {
-        let byte = bytes[i];
-        match byte {
-            b'%' => {
-                match &format_string[i..i+1] {
-                    // If we're trying to write "&amp;" then we should allow it.
-                    "%s" => { formatted.extend_from_slice(summary.as_bytes()); i += 2; continue },
-                    "%b" => { formatted.extend_from_slice(body.as_bytes()); i += 2; continue },
-                    _ => (),
-                }
-
-                formatted.push(b'%');
-            }
-
-            _ => formatted.push(byte),
-        }
-
-        i += 1;
-    }
-
-    // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
-    String::from_utf8(formatted).expect("Error when formatting notification string.")
-}
-
