@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate bitflags;
-extern crate winit;
-extern crate xdg;
-extern crate wired_derive;
 
 mod rendering;
 mod management;
@@ -23,6 +20,7 @@ use dbus::message::MessageType;
 
 use config::Config;
 use management::NotifyWindowManager;
+use wired_derive;
 
 fn main() {
     // Hack to avoid winit dpi scaling -- we just want pixels.

@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use crate::proc_macro::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::quote; //quote_spanned;
 use syn;
 
 #[proc_macro_derive(DrawableLayoutElement)]
