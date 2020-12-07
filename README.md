@@ -40,6 +40,12 @@ $ cargo build --release
 $ ./target/release/wired
 ```
 
+## AUR
+Wired is available on the [AUR](https://aur.archlinux.org/packages/wired/)!
+```
+yay -S wired
+```
+
 ## Wiki
 See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else you need to know about using Wired.
 
