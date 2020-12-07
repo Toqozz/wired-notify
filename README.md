@@ -15,7 +15,7 @@ Wired is light and fully customizable notification daemon that provides you with
 tools.
 
 ## Features
-- **Layout** - position everything how you want it, through a pretty clunky configuration file right now.
+- **Layout** - position every element how you want it, see [wiki](https://github.com/Toqozz/wired-notify/wiki/Blocks) for more info.
 - **Programmable Layout Elements** - code your own or use layout elements from wired and contributors (accepting pull requests!).
     - Text blocks which scroll.
     - Backgrounds which reflect state (paused, active, extended, etc).
