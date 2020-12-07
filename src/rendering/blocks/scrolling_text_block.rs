@@ -122,7 +122,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        let text = maths_utility::format_notification_string(&self.text, &window.notification.summary, &window.notification.body);
+        let text = maths_utility::format_notification_string(&self.text, &window.notification);
 
         if text.is_empty() && !self.render_when_empty {
             self.update_enabled = false;

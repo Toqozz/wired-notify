@@ -47,9 +47,10 @@ See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else 
 There's a bunch of things that aren't done yet; here's a non-exhaustive version of the TODO list:
 - [x] Make config not as painful.
 - [x] Allow hex colors in config.
-- [ ] `%t` for time, etc, in text blocks.
-- [ ] Tests...
+- [x] `%t` for time, etc, in text blocks.
 - [ ] Lookup application icons via `.desktop` file
+- [ ] Support `replaces_id` functionality.
 - [ ] More options surrounding notification urgency.
 - [ ] Notification follows active monitor.
+- [ ] Tests...
 - [ ] Random html escape code edge cases.

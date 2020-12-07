@@ -81,7 +81,7 @@ impl DrawableLayoutElement for TextBlockParameters {
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        let text = maths_utility::format_notification_string(&self.text, &window.notification.summary, &window.notification.body);
+        let text = maths_utility::format_notification_string(&self.text, &window.notification);
 
         // If text is empty and we shouldn't render it, then we should be safe to just return an
         // empty rect.

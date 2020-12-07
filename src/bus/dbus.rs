@@ -10,6 +10,8 @@ use dbus::{
     ffidisp::{Connection, BusType, NameFlag, RequestNameReply},
 };
 
+use chrono::{ DateTime, Utc };
+
 use crate::Config;
 use crate::bus::receiver::BusNotification;
 use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, Value, DBusImage};
@@ -97,6 +99,7 @@ pub struct Notification {
 
     pub urgency: Urgency,
 
+    pub time: DateTime<Utc>,
     pub timeout: i32,
 }
 
@@ -120,6 +123,11 @@ impl Notification {
         mut hints: HashMap<String, Value>,
         expire_timeout: i32,
     ) -> Self {
+        // The time this notification arrived.  The spec actually doesn't include this for some reason, but
+        // we do it for convenience.
+        // Put it at the top so it's more accurate to the actual arrival time.
+        let time = Utc::now();
+
         // Pango is a bitch about ampersands, and also doesn't decode html entities for us, which
         // applications /love/ to send -- we need to escape ampersands and decode html entities.
         let summary = maths_utility::escape_decode(summary);
@@ -215,6 +223,7 @@ impl Notification {
             app_image,
             hint_image,
             urgency,
+            time,
             timeout,
         }
     }

@@ -268,11 +268,13 @@ pub fn escape_decode(to_escape: &str) -> String {
     String::from_utf8(escaped).expect("Error when escaping ampersand.")
 }
 
+use crate::bus::dbus::Notification;
+
 // str.replace() won't work for this because we'd have to do it twice: once for the summary and
 // once for the body.  The first insertion could insert format strings which would mess up the
 // second insertion.
 // This solution is pretty fast (microseconds in release).
-pub fn format_notification_string(format_string: &str, summary: &str, body: &str) -> String {
+pub fn format_notification_string(format_string: &str, notification: &Notification) -> String {
     let mut formatted: Vec<u8> = vec![];
     let bytes = format_string.as_bytes();
     let mut i = 0;
@@ -290,8 +292,20 @@ pub fn format_notification_string(format_string: &str, summary: &str, body: &str
             b'%' => {
                 // This range is exclusive on the right hand side, so we go +2.
                 match &format_string[i..i+2] {
-                    "%s" => { formatted.extend_from_slice(summary.as_bytes()); i += 2; continue },
-                    "%b" => { formatted.extend_from_slice(body.as_bytes()); i += 2; continue },
+                    // We need room for at least 2 brackets, so check for that.
+                    "%t" => if i+4 < format_string.len() {
+                        let (time_format, len) =
+                            extract_time_format(&format_string[i+2..]).unwrap_or(("", 0));
+
+                        formatted.extend_from_slice(
+                            notification.time.format(time_format).to_string().as_bytes()
+                        );
+
+                        i += 2 + len;
+                        continue;
+                    }
+                    "%s" => { formatted.extend_from_slice(notification.summary.as_bytes()); i += 2; continue },
+                    "%b" => { formatted.extend_from_slice(notification.body.as_bytes()); i += 2; continue },
                     _ => (),
                 }
 
@@ -306,4 +320,27 @@ pub fn format_notification_string(format_string: &str, summary: &str, body: &str
 
     // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
     String::from_utf8(formatted).expect("Error when formatting notification string.")
+}
+
+// This function expects a string that has an open bracket to start, and a closing bracket
+// *somewhere*.  It will return the string between the open bracket and the first closing bracket.
+fn extract_time_format(string: &str) -> Option<(&str, usize)> {
+    // To extract a format string, we just need to grab whatever is between '(' and ')'.
+    // This mostly just means sanity checking.
+
+    // We should also consider checking `string.is_char_boundary(0)`, to make sure the string we're
+    // provided is correct.
+    if !string.starts_with("(") {
+        println!("Warning: tried to parse a time format string, but it didn't start with '('.");
+        return None;
+    }
+
+    if let Some(close_idx) = string.find(")") {
+        // Step forward one to skip past the opening bracket.  We assume it's one byte...
+        let time_format = &string[1..close_idx];
+        return Some((time_format, time_format.len() + 2));
+    } else {
+        println!("Warning: tried to parse a time format string, but couldn't find a closing ')'.");
+        return None;
+    }
 }
