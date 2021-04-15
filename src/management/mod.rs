@@ -127,7 +127,7 @@ impl NotifyWindowManager {
                             &cfg.layout.as_ref().unwrap().hook,
                             &cfg.layout.as_ref().unwrap().offset,
                             &prev_rect,
-                            &Rect::EMPTY,
+                            &window_rect,
                         )
                     } else {
                         LayoutBlock::find_anchor_pos(
