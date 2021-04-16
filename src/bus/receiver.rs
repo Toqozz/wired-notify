@@ -29,13 +29,12 @@ impl OrgFreedesktopNotifications for BusNotification {
         Ok(capabilities)
     }
 
-    // TODO: fill out this.
     fn get_server_information(&self) -> Result<(String, String, String, String), tree::MethodErr> {
         Ok((
-            "dummy".to_string(),
-            "dummy".to_string(),
-            "dummy".to_string(),
-            "dummy".to_string(),
+            env!("CARGO_PKG_NAME").to_string(),
+            env!("CARGO_PKG_AUTHORS").to_string(),
+            env!("CARGO_PKG_VERSION").to_string(),
+            "1.2".to_string(),
         ))
     }
 
