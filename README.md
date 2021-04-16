@@ -49,7 +49,7 @@ yay -S wired
 ## Wiki
 See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else you need to know about using Wired.
 
-## Wired is not finished, but it is usable for most people.
+## Wired pretty much finished, but there are a few things I'd like:
 There's a bunch of things that aren't done yet; here's a non-exhaustive version of the TODO list:
 - [x] Make config not as painful.
 - [x] Allow hex colors in config.
