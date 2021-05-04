@@ -15,6 +15,7 @@ use chrono::{ DateTime, Utc };
 use crate::Config;
 use crate::bus::receiver::BusNotification;
 use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, Value, DBusImage};
+use crate::bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked;
 use crate::maths_utility;
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -94,6 +95,7 @@ pub struct Notification {
 
     pub summary: String,
     pub body: String,
+    pub actions: HashMap<String, String>,
     pub app_image: Option<DynamicImage>,
     pub hint_image: Option<DynamicImage>,
 
@@ -107,8 +109,8 @@ impl std::fmt::Debug for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Notification: {{\n\tapp_name: {}, replaces_id: {}, summary: {}, body: {}, app_image: {}, hint_image: {}, timeout: {}\n}}",
-            self.app_name, self.replaces_id, self.summary, self.body, self.app_image.is_some(), self.hint_image.is_some(), self.timeout,
+            "Notification: {{\n\tapp_name: {},\n\treplaces_id: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\ttimeout: {}\n}}",
+            self.app_name, self.replaces_id, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.timeout,
         )
     }
 }
@@ -120,6 +122,7 @@ impl Notification {
         app_icon: &str,
         summary: &str,
         body: &str,
+        actions: Vec<&str>,
         mut hints: HashMap<String, Value>,
         expire_timeout: i32,
     ) -> Self {
@@ -132,6 +135,15 @@ impl Notification {
         // applications /love/ to send -- we need to escape ampersands and decode html entities.
         let summary = maths_utility::escape_decode(summary);
         let body = maths_utility::escape_decode(body);
+
+        let mut i = 0;
+        let mut actions_map = HashMap::new();
+        // The length of this should always be even, since actions are sent as a list of pairs, but
+        // we safeguard against bad implementations anyway by checking that i+1 is safe.
+        while i < actions.len() {
+            actions_map.insert(actions[i].to_owned(), actions[i+1].to_owned());
+            i += 2;
+        }
 
         fn image_from_path(path: &str) -> Option<DynamicImage> {
             let _start = std::time::Instant::now();
@@ -220,6 +232,7 @@ impl Notification {
             replaces_id,
             summary,
             body,
+            actions: actions_map,
             app_image,
             hint_image,
             urgency,

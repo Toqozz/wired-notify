@@ -331,6 +331,11 @@ pub struct ShortcutsConfig {
     pub notification_closeall: u8,
     pub notification_pause: u8,
     pub notification_url: u8,
+
+    pub notification_action1: u8,
+    pub notification_action2: u8,
+    pub notification_action3: u8,
+    pub notification_action4: u8,
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -45,6 +45,7 @@ impl NotifyWindowManager {
 
     // Summon a new notification.
     pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
+        dbg!(&notification);
         if let LayoutElement::NotificationBlock(p) = &Config::get().layout.as_ref().unwrap().params {
             let window = NotifyWindow::new(el, notification, &self);
 
@@ -201,6 +202,11 @@ impl NotifyWindowManager {
                     window.update_mode.toggle(UpdateModes::FUSE);
                     //window.update_enabled = !window.update_enabled;
                 }
+
+            } else if button == config.shortcuts.notification_action1 {
+            } else if button == config.shortcuts.notification_action1 {
+            } else if button == config.shortcuts.notification_action1 {
+            } else if button == config.shortcuts.notification_action1 {
             }
         }
     }
@@ -297,4 +303,8 @@ fn find_and_open_url(string: String) {
             eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", child);
         }
     }
+}
+
+fn trigger_action(notification: &Notification, key: &str) {
+    
 }

@@ -9,21 +9,21 @@ use super::dbus_codegen::{ OrgFreedesktopNotifications, Value };
 #[derive(Copy, Clone, Default, Debug)]
 pub struct BusNotification;
 impl OrgFreedesktopNotifications for BusNotification {
-    //type Err = dbus::tree::MethodErr;
     fn close_notification(&self, _id: u32) -> Result<(), tree::MethodErr> {
         Ok(())
     }
 
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr> {
         let capabilities: Vec<String> = vec![
+            //"action-icons".to_string(),
             "actions".to_string(),
             "body".to_string(),
             "body-hyperlinks".to_string(),
             "body-markup".to_string(),
+            //"icon-multi".to_string(),
             "icon-static".to_string(),
-            "sound".to_string(),
-            "persistence".to_string(),
-            "action-icons".to_string(),
+            //"persistence".to_string(),
+            //"sound".to_string(),
         ];
 
         Ok(capabilities)
@@ -46,13 +46,13 @@ impl OrgFreedesktopNotifications for BusNotification {
         app_icon: &str,
         summary: &str,
         body: &str,
-        _actions: Vec<&str>,
+        actions: Vec<&str>,
         hints: HashMap<String, Value>,
         expire_timeout: i32,
         ) -> Result<u32, tree::MethodErr> {
 
         let notification = Notification::from_dbus(
-            app_name, replaces_id, app_icon, summary, body, hints, expire_timeout,
+            app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout,
         );
 
         sender.send(notification).unwrap();

@@ -60,6 +60,12 @@ fn main() {
                     }
                 }
 
+                let x = bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked { action_key: "default".to_owned(), id: 0 };
+                use dbus::message::SignalArgs;
+                let path = dbus::strings::Path::new("/org/freedesktop/Notifications").unwrap();
+                let res = connection.send(x.to_emit_message(&path));
+                dbg!(res);
+
                 if let Ok(x) = receiver.try_recv() {
                     //spawn_window(x, &mut manager, &event_loop);
                     manager.new_notification(x, event_loop);

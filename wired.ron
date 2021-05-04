@@ -89,5 +89,10 @@
         notification_closeall: 3,
         notification_pause: 2,
         notification_url: 8,
+
+        notification_action1: 99,
+        notification_action2: 99,
+        notification_action3: 99,
+        notification_action4: 99,
     ),
 )

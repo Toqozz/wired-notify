@@ -1,3 +1,3 @@
 pub mod dbus;
-mod dbus_codegen;
+pub mod dbus_codegen;
 mod receiver;
