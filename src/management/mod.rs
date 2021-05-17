@@ -2,6 +2,9 @@ use std::time::Duration;
 use std::process::{Command, Stdio};
 use std::collections::HashMap;
 
+use dbus::ffidisp::Connection;
+use dbus::message::SignalArgs;
+use dbus::strings::Path;
 use winit::{
     event_loop::EventLoopWindowTarget,
     window::WindowId,
@@ -15,7 +18,9 @@ use crate::{
     rendering::window::{NotifyWindow, UpdateModes},
     rendering::layout::{LayoutElement, LayoutBlock},
     //notification::Notification,
+    bus::self,
     bus::dbus::Notification,
+    bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked,
     maths_utility::Rect,
     config::Config,
 };
@@ -161,7 +166,7 @@ impl NotifyWindowManager {
         self.dirty = false;
     }
 
-    pub fn process_event(&mut self, window_id: WindowId, event: event::WindowEvent) {
+    pub fn process_event(&mut self, window_id: WindowId, dbus: &Connection, event: event::WindowEvent) {
         // Simplify button presses into a uint, which matches our config.
         let pressed = match event {
             WindowEvent::MouseInput { state: ElementState::Pressed, button, .. } => {
@@ -175,38 +180,62 @@ impl NotifyWindowManager {
             _ => None,
         };
 
-        // Match button press to config.
+        // If nothing was pressed, then there is no event to process.
+        // The code below won't work with None naturally, because the config is allowed to have
+        // None shortcuts.
+        if !pressed.is_some() {
+            return;
+        }
+
         let config = Config::get();
-        if let Some(button) = pressed {
-            if button == config.shortcuts.notification_close {
-                self.drop_window(window_id);
+        if pressed == config.shortcuts.notification_close {
+            self.drop_window(window_id);
+        } else if pressed == config.shortcuts.notification_closeall {
+            self.drop_windows();
+        } else if pressed == config.shortcuts.notification_url {
+            let window = self.find_window(window_id).unwrap();
+            let body = window.notification.body.clone();
+            find_and_open_url(body);
+        } else if pressed == config.shortcuts.notification_pause {
+            if let Some((monitor, idx)) = self.find_window_idx(window_id) {
+                let window = self.monitor_windows
+                    .get_mut(&monitor).unwrap()
+                    .get_mut(idx).unwrap();
 
-            } else if button == config.shortcuts.notification_closeall {
-                self.drop_windows();
+                window.update_mode.toggle(UpdateModes::FUSE);
+            }
+        } else {
+            let notification = &self.find_window(window_id).unwrap().notification;
+            // Creates an iterator without the "default" key, which is preserved for action1.
+            let mut keys = notification.actions.keys().filter(|s| *s != "default");
 
-            } else if button == config.shortcuts.notification_url {
-                let mut body = String::from("");
-                if let Some((monitor, idx)) = self.find_window_idx(window_id) {
-                    let window = self.monitor_windows.get(&monitor).unwrap().get(idx).unwrap();
-                    body = window.notification.body.clone();
+            // action1 is the default action.  Maybe we should rename it to action_default or
+            // something.
+            let key = if pressed == config.shortcuts.notification_action1 {
+                if notification.actions.contains_key("default") {
+                    Some("default".to_owned())
+                } else {
+                    None
                 }
+            } else if pressed == config.shortcuts.notification_action2 {
+                keys.nth(0).cloned()
+            } else if pressed == config.shortcuts.notification_action3 {
+                keys.nth(1).cloned()
+            } else if pressed == config.shortcuts.notification_action4 {
+                keys.nth(2).cloned()
+            } else {
+                None
+            };
 
-                find_and_open_url(body);
-
-            } else if button == config.shortcuts.notification_pause {
-                if let Some((monitor, idx)) = self.find_window_idx(window_id) {
-                    let window = self.monitor_windows
-                        .get_mut(&monitor).unwrap()
-                        .get_mut(idx).unwrap();
-
-                    window.update_mode.toggle(UpdateModes::FUSE);
-                    //window.update_enabled = !window.update_enabled;
-                }
-
-            } else if button == config.shortcuts.notification_action1 {
-            } else if button == config.shortcuts.notification_action1 {
-            } else if button == config.shortcuts.notification_action1 {
-            } else if button == config.shortcuts.notification_action1 {
+            // Found an action -> button press combo, great!  Send dbus a signal to invoke it.
+            if let Some(k) = key {
+                let message = OrgFreedesktopNotificationsActionInvoked {
+                    action_key: k.to_owned(), id: notification.id
+                };
+                let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
+                let _result = dbus.send(message.to_emit_message(&path));
+            } else {
+                println!("Received action shortcut but could not find a matching action to trigger.");
             }
         }
     }
@@ -217,6 +246,18 @@ impl NotifyWindowManager {
             let found = windows.iter().position(|w| w.winit.id() == window_id);
             if let Some(idx) = found {
                 return Some((*monitor, idx))
+            }
+        }
+
+        None
+    }
+
+    // This call should always succeed, unless for some reason the event came from a window that we
+    // don't know about -- which should never happen, or the id is wrong.
+    pub fn find_window(&self, window_id: WindowId) -> Option<&NotifyWindow> {
+        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
+            if let Some(windows) = self.monitor_windows.get(&monitor) {
+                return windows.get(idx);
             }
         }
 
@@ -274,7 +315,7 @@ fn find_and_open_url(string: String) {
         let (_, end) = string.split_at(i);
         end.split_whitespace().next()
     } else {
-        eprintln!("Was requested to open a url but couldn't find one in the specified string");
+        println!("Was requested to open a url but couldn't find one in the specified string");
         None
     };
 
@@ -303,8 +344,4 @@ fn find_and_open_url(string: String) {
             eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", child);
         }
     }
-}
-
-fn trigger_action(notification: &Notification, key: &str) {
-    
 }

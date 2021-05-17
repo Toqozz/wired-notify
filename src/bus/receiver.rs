@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
 
 use dbus::tree;
 use crate::bus::dbus::Notification;
 
 use super::dbus_codegen::{ OrgFreedesktopNotifications, Value };
+
+static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 
 #[derive(Copy, Clone, Default, Debug)]
 pub struct BusNotification;
@@ -51,12 +55,26 @@ impl OrgFreedesktopNotifications for BusNotification {
         expire_timeout: i32,
         ) -> Result<u32, tree::MethodErr> {
 
+        // The spec says that:
+        // If `replaces_id` is 0, we should create a fresh id and notification.
+        // If `replaces_id` is not 0, we should create a replace the notification with that id,
+        // using the same id.
+        // With our implementation, we send a "new" notification anyway, and let management deal
+        // with replacing data.
+        let id = if replaces_id == 0 {
+            // Grab an ID atomically.  This is moreso to allow global access to `ID_COUNT`, but I'm
+            // also not sure if `notify` is called in a single-threaded way, so it's best to be safe.
+            ID_COUNT.fetch_add(1, Ordering::Relaxed)
+        } else {
+            replaces_id
+        };
+
         let notification = Notification::from_dbus(
-            app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout,
+            id, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout,
         );
 
         sender.send(notification).unwrap();
 
-        Ok(0 as u32)
+        Ok(id)
     }
 }

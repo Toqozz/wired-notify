@@ -15,7 +15,6 @@ use chrono::{ DateTime, Utc };
 use crate::Config;
 use crate::bus::receiver::BusNotification;
 use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, Value, DBusImage};
-use crate::bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked;
 use crate::maths_utility;
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -28,6 +27,8 @@ impl DataType for TData {
     type Method = ();
     type Signal = ();
 }
+
+pub const PATH: &str = "/org/freedesktop/Notifications";
 
 fn create_iface(sender: mpsc::Sender<Notification>) -> Interface<tree::MTFn<TData>, TData> {
     let f = Factory::new_fn();
@@ -43,7 +44,7 @@ fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TD
 
     let f = Factory::new_fn();
     let mut tree = f.tree(());
-    tree = tree.add(f.object_path("/org/freedesktop/Notifications", n)
+    tree = tree.add(f.object_path(PATH, n)
         .introspectable()
         .add(iface));
 
@@ -90,6 +91,8 @@ impl Default for Urgency {
 }
 
 pub struct Notification {
+    pub id: u32,
+
     pub app_name: String,
     pub replaces_id: u32,
 
@@ -109,14 +112,15 @@ impl std::fmt::Debug for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Notification: {{\n\tapp_name: {},\n\treplaces_id: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\ttimeout: {}\n}}",
-            self.app_name, self.replaces_id, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.timeout,
+            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\treplaces_id: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\ttimeout: {}\n}}",
+            self.id, self.app_name, self.replaces_id, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.timeout,
         )
     }
 }
 
 impl Notification {
     pub fn from_dbus(
+        id: u32,
         app_name: &str,
         replaces_id: u32,
         app_icon: &str,
@@ -228,6 +232,7 @@ impl Notification {
         }
 
         Self {
+            id,
             app_name: app_name.to_owned(),
             replaces_id,
             summary,

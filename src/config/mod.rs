@@ -97,6 +97,7 @@ pub struct Config {
     #[serde(default)]
     pub min_window_height: u32,
 
+    #[serde(default)]
     pub shortcuts: ShortcutsConfig,
 
     #[serde(skip)]
@@ -325,17 +326,89 @@ impl Default for Config {
     }
 }
 
+/*
+// If we want to transition to "real" hotkeys at some point, this may be valuable.
+#[derive(Debug, Deserialize)]
+pub enum ActionKey {
+    Key(VirtualKeyCode),
+    MouseButton(MouseButton),
+}
+
+impl ActionKey {
+    pub fn compare(&self, event: &WindowEvent) -> bool {
+        match *self {
+            ActionKey::MouseButton(b) => {
+                match *event {
+                    WindowEvent::MouseInput { state: ElementState::Pressed, button, .. } => {
+                        if button == b {
+                            return true;
+                        }
+                    }
+                    _ => return false,
+                }
+            },
+
+            ActionKey::Key(k) => {
+                match *event {
+                    WindowEvent::KeyboardInput { input: KeyboardInput { state: ElementState::Pressed, virtual_keycode, .. }, .. } => {
+                        if let Some(vk) = virtual_keycode {
+                            if vk == k {
+                                return true;
+                            }
+                        }
+                    },
+                    _ => return false,
+                }
+            }
+        }
+
+        false
+    }
+
+    // Simple shortcut comparisons to make things easier when processing events.
+    pub fn compare_mousebutton(&self, button: MouseButton) -> bool {
+        match *self {
+            ActionKey::MouseButton(b) => { if b == button { true } else { false } },
+            _ => false
+        }
+    }
+
+    pub fn compare_key(&self, key: VirtualKeyCode) -> bool {
+        match *self {
+            ActionKey::Key(k) => { if k == key { true } else { false } },
+            _ => false
+        }
+    }
+}
+*/
+
 #[derive(Debug, Deserialize)]
 pub struct ShortcutsConfig {
-    pub notification_close: u8,
-    pub notification_closeall: u8,
-    pub notification_pause: u8,
-    pub notification_url: u8,
+    pub notification_close: Option<u8>,
+    pub notification_closeall: Option<u8>,
+    pub notification_pause: Option<u8>,
+    pub notification_url: Option<u8>,
 
-    pub notification_action1: u8,
-    pub notification_action2: u8,
-    pub notification_action3: u8,
-    pub notification_action4: u8,
+    pub notification_action1: Option<u8>,
+    pub notification_action2: Option<u8>,
+    pub notification_action3: Option<u8>,
+    pub notification_action4: Option<u8>,
+}
+
+impl Default for ShortcutsConfig {
+    fn default() -> Self {
+        Self {
+            notification_close: Some(1),
+            notification_closeall: Some(3),
+            notification_pause: None,
+            notification_url: Some(8),
+
+            notification_action1: Some(2),
+            notification_action2: None,
+            notification_action3: None,
+            notification_action4: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

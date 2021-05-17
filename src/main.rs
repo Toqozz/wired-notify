@@ -56,15 +56,9 @@ fn main() {
                        &*message.interface().unwrap() == "org.freedesktop.DBus" &&
                        &*message.member().unwrap() == "NameAcquired" &&
                        &*message.get1::<&str>().unwrap() == "org.freedesktop.Notifications" {
-                        println!("Name acquired.");
+                        println!("DBus Init Success.");
                     }
                 }
-
-                let x = bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked { action_key: "default".to_owned(), id: 0 };
-                use dbus::message::SignalArgs;
-                let path = dbus::strings::Path::new("/org/freedesktop/Notifications").unwrap();
-                let res = connection.send(x.to_emit_message(&path));
-                dbg!(res);
 
                 if let Ok(x) = receiver.try_recv() {
                     //spawn_window(x, &mut manager, &event_loop);
@@ -99,10 +93,7 @@ fn main() {
             // Window becomes visible and then position is set.  Need fix.
             Event::RedrawRequested(window_id) => manager.draw_window(window_id),
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
-
-            // TODO: fix this givinng whole window event.
-            Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
-
+            Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, &connection, event),
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
             // This is ideal for games and similar applications.

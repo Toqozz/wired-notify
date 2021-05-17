@@ -86,11 +86,11 @@
 
     shortcuts: ShortcutsConfig (
         notification_close: 1,
-        notification_closeall: 3,
-        notification_pause: 2,
-        notification_url: 8,
+        notification_closeall: 8,
+        //notification_pause: 2,
+        notification_url: 3,
 
-        notification_action1: 99,
+        notification_action1: 2,
         notification_action2: 99,
         notification_action3: 99,
         notification_action4: 99,
