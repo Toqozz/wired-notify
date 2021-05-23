@@ -153,6 +153,16 @@ impl NotifyWindow {
         window
     }
 
+    pub fn replace_notification(&mut self, new_notification: Notification) {
+        self.notification = new_notification;
+
+        let mut layout = Config::get().layout.as_ref().unwrap().clone();
+        let rect = layout.predict_rect_tree_and_init(&self, &self.get_inner_rect(), Rect::empty());
+
+        self.layout = Some(layout);
+        self.set_size(rect.width(), rect.height());
+    }
+
     pub fn layout(&self) -> &LayoutBlock {
         self.layout.as_ref().unwrap()
     }

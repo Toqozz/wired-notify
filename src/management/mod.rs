@@ -20,20 +20,21 @@ use crate::{
     //notification::Notification,
     bus::self,
     bus::dbus::Notification,
-    bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked,
+    bus::dbus_codegen::{OrgFreedesktopNotificationsActionInvoked, OrgFreedesktopNotificationsNotificationClosed},
     maths_utility::Rect,
     config::Config,
 };
 
-pub struct NotifyWindowManager {
+pub struct NotifyWindowManager<'conn> {
     //pub windows: Vec<NotifyWindow<'config>>,
+    pub dbus_connection: &'conn Connection,
     pub base_window: winit::window::Window,
     pub monitor_windows: HashMap<u32, Vec<NotifyWindow>>,
     pub dirty: bool,
 }
 
-impl NotifyWindowManager {
-    pub fn new(el: &EventLoopWindowTarget<()>) -> Self {
+impl<'conn> NotifyWindowManager<'conn> {
+    pub fn new(el: &EventLoopWindowTarget<()>, dbus_connection: &'conn Connection) -> Self {
         let monitor_windows = HashMap::new();
 
         let base_window = winit::window::WindowBuilder::new()
@@ -42,6 +43,7 @@ impl NotifyWindowManager {
             .expect("Failed to create base window.");
 
         Self {
+            dbus_connection,
             base_window,
             monitor_windows,
             dirty: false,
@@ -50,7 +52,7 @@ impl NotifyWindowManager {
 
     // Summon a new notification.
     pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
-        dbg!(&notification);
+        if Config::get().debug { dbg!(&notification); }
         if let LayoutElement::NotificationBlock(p) = &Config::get().layout.as_ref().unwrap().params {
             let window = NotifyWindow::new(el, notification, &self);
 
@@ -73,6 +75,23 @@ impl NotifyWindowManager {
         }
     }
 
+    pub fn replace_notification(&mut self, new_notification: Notification) {
+        if Config::get().debug { dbg!(&new_notification); }
+        if new_notification.replaces_id == 0 { panic!("Cannot replace notification with a `replaces_id` of 0."); }
+        let maybe_window =
+            self.monitor_windows
+                .values_mut()
+                .flatten()
+                .find(|w| w.notification.id == new_notification.replaces_id);
+
+        // It may be that the notification has already expired, in which case we just ignore the
+        // update request.
+        if let Some(window) = maybe_window {
+            window.replace_notification(new_notification);
+            window.winit.request_redraw();
+        }
+    }
+
     pub fn update(&mut self, delta_time: Duration) {
         // Returning dirty from a window update means the window has been deleted / needs
         // positioning updated.
@@ -86,6 +105,15 @@ impl NotifyWindowManager {
             self.update_positions();
             // Finally drop windows.
             for (_monitor_id, windows) in &mut self.monitor_windows {
+                // Send signal for notifications that are going to be closed, then drop them.
+                for window in windows.iter().filter(|w| w.marked_for_destroy) {
+                    let message = OrgFreedesktopNotificationsNotificationClosed {
+                        id: window.notification.id,
+                        reason: 4,  // TODO: get real reason. -- 1 expired, 2 dismissed by user, 3 `CloseNotification`, 4 undefined.
+                    };
+                    let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
+                    let _result = self.dbus_connection.send(message.to_emit_message(&path));
+                }
                 windows.retain(|w| !w.marked_for_destroy);
             }
         }
@@ -166,7 +194,7 @@ impl NotifyWindowManager {
         self.dirty = false;
     }
 
-    pub fn process_event(&mut self, window_id: WindowId, dbus: &Connection, event: event::WindowEvent) {
+    pub fn process_event(&mut self, window_id: WindowId, event: event::WindowEvent) {
         // Simplify button presses into a uint, which matches our config.
         let pressed = match event {
             WindowEvent::MouseInput { state: ElementState::Pressed, button, .. } => {
@@ -233,7 +261,7 @@ impl NotifyWindowManager {
                     action_key: k.to_owned(), id: notification.id
                 };
                 let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
-                let _result = dbus.send(message.to_emit_message(&path));
+                let _result = self.dbus_connection.send(message.to_emit_message(&path));
             } else {
                 println!("Received action shortcut but could not find a matching action to trigger.");
             }
@@ -302,6 +330,14 @@ impl NotifyWindowManager {
             for window in windows.iter() {
                 window.draw();
             }
+        }
+    }
+
+    pub fn drop_notification(&mut self, id: u32) {
+        // This should be Some, otherwise we were given a bad id.
+        let maybe_window = self.monitor_windows.values_mut().flatten().find(|w| w.notification.id == id);
+        if let Some(window) = maybe_window {
+            window.marked_for_destroy = true;
         }
     }
 }

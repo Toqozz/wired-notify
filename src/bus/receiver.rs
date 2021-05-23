@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use dbus::tree;
-use crate::bus::dbus::Notification;
+use crate::bus::dbus::{Message, Notification};
 
 use super::dbus_codegen::{ OrgFreedesktopNotifications, Value };
 
@@ -13,8 +13,11 @@ static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 #[derive(Copy, Clone, Default, Debug)]
 pub struct BusNotification;
 impl OrgFreedesktopNotifications for BusNotification {
-    fn close_notification(&self, _id: u32) -> Result<(), tree::MethodErr> {
-        Ok(())
+    fn close_notification(&self, sender: Sender<Message>, id: u32) -> Result<(), tree::MethodErr> {
+        match sender.send(Message::Close(id)) {
+            Ok(_) => return Ok(()),
+            Err(e) => return Err(tree::MethodErr::failed(&e)),
+        };
     }
 
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr> {
@@ -44,7 +47,7 @@ impl OrgFreedesktopNotifications for BusNotification {
 
     fn notify(
         &self,
-        sender: Sender<Notification>,
+        sender: Sender<Message>,
         app_name: &str,
         replaces_id: u32,
         app_icon: &str,
@@ -73,7 +76,7 @@ impl OrgFreedesktopNotifications for BusNotification {
             id, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout,
         );
 
-        sender.send(notification).unwrap();
+        sender.send(Message::Notify(notification)).unwrap();
 
         Ok(id)
     }

@@ -17,6 +17,7 @@ use winit::{
 };
 use notify::DebouncedEvent;
 use dbus::message::MessageType;
+use bus::dbus::Message;
 
 use config::Config;
 use management::NotifyWindowManager;
@@ -28,15 +29,15 @@ fn main() {
 
     let maybe_watcher = Config::init();
 
-    let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
-    let mut manager = NotifyWindowManager::new(&event_loop);
-
     // Allows us to receive messages from dbus.
-    let (connection, receiver) = bus::dbus::get_connection();
+    let (dbus_connection, receiver) = bus::dbus::get_connection();
+
+    let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
+    let mut manager = NotifyWindowManager::new(&event_loop, &dbus_connection);
 
     let mut poll_interval = Duration::from_millis(Config::get().poll_interval);
     let mut prev_instant = Instant::now();
-    event_loop.run_return(move |event, event_loop, control_flow| {
+    event_loop.run_return(|event, event_loop, control_flow| {
         match event {
             // @NOTE: maybe we should separate receiving dbus signals and drawing windows.
             Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + poll_interval),
@@ -50,7 +51,7 @@ fn main() {
 
                 // Check dbus signals.
                 // If we don't do get incoming signals, notify sender will block when sending.
-                let signal = connection.incoming(0).next();
+                let signal = dbus_connection.incoming(0).next();
                 if let Some(message) = signal {
                     if message.msg_type() == MessageType::Signal &&
                        &*message.interface().unwrap() == "org.freedesktop.DBus" &&
@@ -60,9 +61,18 @@ fn main() {
                     }
                 }
 
-                if let Ok(x) = receiver.try_recv() {
-                    //spawn_window(x, &mut manager, &event_loop);
-                    manager.new_notification(x, event_loop);
+                // Receives `Notification`s from dbus.
+                if let Ok(msg) = receiver.try_recv() {
+                    match msg {
+                        Message::Close(id) => { manager.drop_notification(id); },
+                        Message::Notify(n) => {
+                            if n.replaces_id != 0 {
+                                manager.replace_notification(n);
+                            } else {
+                                manager.new_notification(n, event_loop);
+                            }
+                        }
+                    }
                 }
 
                 // If the watcher exists, then we should process watcher events.
@@ -93,7 +103,7 @@ fn main() {
             // Window becomes visible and then position is set.  Need fix.
             Event::RedrawRequested(window_id) => manager.draw_window(window_id),
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
-            Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, &connection, event),
+            Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
             // This is ideal for games and similar applications.

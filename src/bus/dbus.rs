@@ -30,7 +30,7 @@ impl DataType for TData {
 
 pub const PATH: &str = "/org/freedesktop/Notifications";
 
-fn create_iface(sender: mpsc::Sender<Notification>) -> Interface<tree::MTFn<TData>, TData> {
+fn create_iface(sender: mpsc::Sender<Message>) -> Interface<tree::MTFn<TData>, TData> {
     let f = Factory::new_fn();
     org_freedesktop_notifications_server(sender, &f, (), |m| {
         let a: &Arc<BusNotification> = m.path.get_data();
@@ -51,7 +51,7 @@ fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TD
     tree
 }
 
-pub fn init_bus(sender: mpsc::Sender<Notification>) -> Connection {
+pub fn init_bus(sender: mpsc::Sender<Message>) -> Connection {
     let iface = create_iface(sender);
     let tree = create_tree(iface);
 
@@ -73,7 +73,7 @@ pub fn init_bus(sender: mpsc::Sender<Notification>) -> Connection {
     c
 }
 
-pub fn get_connection() -> (Connection, Receiver<Notification>) {
+pub fn get_connection() -> (Connection, Receiver<Message>) {
     let (sender, receiver) = mpsc::channel();
     let c = init_bus(sender);
     (c, receiver)
@@ -88,6 +88,11 @@ pub enum Urgency {
 
 impl Default for Urgency {
     fn default() -> Self { Self::Normal }
+}
+
+pub enum Message {
+    Close(u32),
+    Notify(Notification),
 }
 
 pub struct Notification {

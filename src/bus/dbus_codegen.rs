@@ -5,7 +5,7 @@
 use dbus;
 use dbus::arg;
 use dbus::tree;
-use crate::bus::dbus::Notification;
+use crate::bus::dbus::Message;
 use std::sync::mpsc::Sender;
 use std::collections::HashMap;
 
@@ -109,12 +109,12 @@ impl<'a> arg::Get<'a> for Value {
 
 pub trait OrgFreedesktopNotifications {
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr>;
-    fn notify(&self, sender: Sender<Notification>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: HashMap<String, Value> /*::std::collections::HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>*/, expire_timeout: i32) -> Result<u32, tree::MethodErr>;
-    fn close_notification(&self, id: u32) -> Result<(), tree::MethodErr>;
+    fn notify(&self, sender: Sender<Message>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: HashMap<String, Value> /*::std::collections::HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>*/, expire_timeout: i32) -> Result<u32, tree::MethodErr>;
+    fn close_notification(&self, sender: Sender<Message>, id: u32) -> Result<(), tree::MethodErr>;
     fn get_server_information(&self) -> Result<(String, String, String, String), tree::MethodErr>;
 }
 
-pub fn org_freedesktop_notifications_server<F, T, D>(sender: Sender<Notification>, factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F) -> tree::Interface<tree::MTFn<D>, D>
+pub fn org_freedesktop_notifications_server<F, T, D>(sender: Sender<Message>, factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F) -> tree::Interface<tree::MTFn<D>, D>
 where
     D: tree::DataType,
     D::Method: Default,
@@ -137,8 +137,8 @@ where
     let i = i.add_m(m);
 
     let fclone = f.clone();
+    let sclone = sender.clone();
     let h = move |minfo: &tree::MethodInfo<tree::MTFn<D>, D>| {
-        let s_clone = sender.clone();
         let mut i = minfo.msg.iter_init();
         let app_name: &str = i.read()?;
         let replaces_id: u32 = i.read()?;
@@ -150,7 +150,7 @@ where
         //let hints: ::std::collections::HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>> = i.read()?;
         let expire_timeout: i32 = i.read()?;
         let d = fclone(minfo);
-        let id = d.notify(s_clone, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout)?;
+        let id = d.notify(sclone.clone(), app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout)?;
         let rm = minfo.msg.method_return();
         let rm = rm.append1(id);
         Ok(vec!(rm))
@@ -168,11 +168,12 @@ where
     let i = i.add_m(m);
 
     let fclone = f.clone();
+    let sclone = sender.clone();
     let h = move |minfo: &tree::MethodInfo<tree::MTFn<D>, D>| {
         let mut i = minfo.msg.iter_init();
         let id: u32 = i.read()?;
         let d = fclone(minfo);
-        d.close_notification(id)?;
+        d.close_notification(sclone.clone(), id)?;
         let rm = minfo.msg.method_return();
         Ok(vec!(rm))
     };
