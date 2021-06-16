@@ -11,7 +11,6 @@ use std::time::Duration;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ScrollingTextBlockParameters {
-    pub padding: Padding,
     pub text: String,
     pub font: String,
     pub color: Color,
@@ -22,14 +21,17 @@ pub struct ScrollingTextBlockParameters {
     pub lhs_dist: f64,
     pub rhs_dist: f64,
     pub scroll_t: f64,
+    pub padding: Padding,
 
-    // Optional fields ----
+    // -- Optional fields
+    pub color_hovered: Option<Color>,
     pub width_image_hint: Option<MinMax>,
     pub width_image_app: Option<MinMax>,
     pub width_image_both: Option<MinMax>,
     #[serde(default)]
     pub render_when_empty: bool,
 
+    // -- Runtime fields
     #[serde(skip)]
     real_text: String,
 
@@ -44,6 +46,9 @@ pub struct ScrollingTextBlockParameters {
 
     #[serde(skip)]
     update_enabled: bool,
+
+    #[serde(skip)]
+    hover: bool,
 }
 
 impl ScrollingTextBlockParameters {
@@ -85,6 +90,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         // Debug, unpadded drawing, to help users.
         maths_utility::debug_rect(&window.context, true, pos.x, pos.y, self.clip_rect.width(), self.clip_rect.height());
 
+        let col = if self.hover { self.color_hovered.as_ref().unwrap_or(&self.color) } else { &self.color };
         // If we're larger than the max size, then we should scroll, which is just changing the
         // text's x position really.
         if self.text_rect.width() > width.max as f64 {
@@ -108,10 +114,10 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
             // Keep track of pos.x; it's important for the layout.
             let temp = pos.x;
             pos.x = lerp;
-            window.text.paint(&window.context, &pos, &self.color);
+            window.text.paint(&window.context, &pos, col);
             pos.x = temp;
         } else {
-            window.text.paint(&window.context, &pos, &self.color);
+            window.text.paint(&window.context, &pos, col);
         }
 
         pos.x -= self.padding.left;
@@ -192,6 +198,16 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
             }
         }
 
+        true
+    }
+
+    fn clicked(&mut self, _window: &NotifyWindow) -> bool {
+        maths_utility::find_and_open_url(self.real_text.clone());
+        false
+    }
+
+    fn hovered(&mut self, entered: bool, _window: &NotifyWindow) -> bool {
+        self.hover = entered;
         true
     }
 }

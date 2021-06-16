@@ -8,6 +8,7 @@ use crate::{
         text_block::TextBlockParameters,
         scrolling_text_block::ScrollingTextBlockParameters,
         image_block::ImageBlockParameters,
+        button_block::ButtonBlockParameters,
     },
     maths_utility::{Vec2, Rect},
     config::{Config, AnchorPosition},
@@ -24,6 +25,13 @@ pub struct LayoutBlock {
     pub params: LayoutElement,
     #[serde(skip)]
     pub children: Vec<LayoutBlock>,
+
+    // The most recent rect that has been drawn.
+    // This is updated every draw, so should always be accurate.
+    #[serde(skip)]
+    pub cache_rect: Rect,
+    #[serde(skip)]
+    pub hovered: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -44,6 +52,7 @@ pub enum LayoutElement {
     TextBlock(TextBlockParameters),
     ScrollingTextBlock(ScrollingTextBlockParameters),
     ImageBlock(ImageBlockParameters),
+    ButtonBlock(ButtonBlockParameters),
 }
 
 impl LayoutBlock {
@@ -65,7 +74,7 @@ impl LayoutBlock {
     }
 
     // Call draw on each block in tree.
-    pub fn draw_tree(&self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
+    pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
         let rect = self.params.draw(&self.hook, &self.offset, parent_rect, window);
         let mut acc_rect = accum_rect.union(&rect);
 
@@ -78,10 +87,11 @@ impl LayoutBlock {
             window.context.stroke();
         }
 
-        for child in &self.children {
+        for child in &mut self.children {
             acc_rect = child.draw_tree(window, &rect, acc_rect);
         }
 
+        self.cache_rect = rect.clone();
         acc_rect
     }
 
@@ -112,11 +122,45 @@ impl LayoutBlock {
 
         dirty
     }
+
+    pub fn check_and_send_click(&mut self, position: &Vec2, window: &NotifyWindow) -> bool {
+        let mut dirty = false;
+        if self.cache_rect.contains_point(position) {
+            dirty |= self.params.clicked(window);
+        }
+
+        for child in &mut self.children {
+            dirty |= child.check_and_send_click(position, window);
+        }
+
+        dirty
+    }
+
+    pub fn check_and_send_hover(&mut self, position: &Vec2, window: &NotifyWindow) -> bool {
+        let mut dirty = false;
+        // If we aren't hovered already, and we enter the rect, then send event.
+        // If we are hovered already, and we leave the rect, then send event.
+        if !self.hovered && self.cache_rect.contains_point(position) {
+            self.hovered = true;
+            dirty |= self.params.hovered(true, window);
+        } else if self.hovered && !self.cache_rect.contains_point(position) {
+            self.hovered = false;
+            dirty |= self.params.hovered(false, window);
+        }
+
+        for child in &mut self.children {
+            dirty |= child.check_and_send_hover(position, window);
+        }
+
+        dirty
+    }
 }
 
 pub trait DrawableLayoutElement {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
     fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool { false }
+    fn clicked(&mut self, _window: &NotifyWindow) -> bool { false }
+    fn hovered(&mut self, _entered: bool, _window: &NotifyWindow) -> bool { false }
 }
 

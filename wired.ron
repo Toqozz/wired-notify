@@ -1,14 +1,34 @@
 (
+    // Maximum number of notifications to show at any one time.
+    // A value of 0 means that there is no limit.
     max_notifications: 0,
-    min_window_width: 1,
-    min_window_height: 1,
 
+    // The default timeout, in miliseconds, for notifications that don't have an initial timeout set.
+    // 1000ms = 1s.
     timeout: 10000,
-    poll_interval: 6,
 
+    // The update rate, in millisecondss.  This decides how often notifications update, including how often
+    // they redraw (if required).  16ms ~= 60hz / 7ms ~= 144hz.
+    poll_interval: 16,
+
+    // Enable/disable replacement functionality.
+    // If this is disabled, replacement requests will just send a new notification.
+    // E.g., with replacing_enabled: true, Pidgin will only show the latest message from each contact, instead of sending a new one for each message.
+    replacing_enabled: true,
+
+    // Enable/disable debug rendering.
     debug: false,
-    debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0),
-    debug_color_alt: Color(r: 1.0, g: 0.0, b: 0.0, a: 1.0),
+    debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0), // Primary color for debug rectangles.
+    debug_color_alt: Color(r: 1.0, g: 0.0, b: 0.0, a: 1.0), // Secondary color for debug rectangles.
+
+    // Minimum window width and height.  This is used to create the base rect that the notification
+    // grows within.
+    // The notification window will never be smaller than this.
+    // A value of 1 means that the window will generally always resize with notification, unless
+    // you have a 1x1 pixel notification...
+    // Generally, you shouldn't need to set this.
+    //min_window_width: 1,
+    //min_window_height: 1,
 
     layout_blocks: [
         (
@@ -84,6 +104,7 @@
         ),
     ],
 
+    // https://github.com/Toqozz/wired-notify/wiki/Shortcuts
     shortcuts: ShortcutsConfig (
         notification_close: 1,
         notification_closeall: 8,

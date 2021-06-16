@@ -18,13 +18,15 @@ pub struct Dimensions {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct TextBlockParameters {
-    pub padding: Padding,
     //https://developer.gnome.org/pango/stable/pango-Markup.html
     pub text: String,
     pub font: String,
     pub color: Color,
+    pub padding: Padding,
     pub dimensions: Dimensions,
+
     // -- Optional fields.
+    pub color_hovered: Option<Color>,
     pub dimensions_image_hint: Option<Dimensions>,
     pub dimensions_image_app: Option<Dimensions>,
     pub dimensions_image_both: Option<Dimensions>,
@@ -33,8 +35,11 @@ pub struct TextBlockParameters {
     #[serde(default)]
     pub render_when_empty: bool,
 
+    // -- Runtime fields
     #[serde(skip)]
     real_text: String,
+    #[serde(skip)]
+    hover: bool,
 }
 
 impl TextBlockParameters {
@@ -68,8 +73,9 @@ impl DrawableLayoutElement for TextBlockParameters {
 
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
+        let col = if self.hover { self.color_hovered.as_ref().unwrap_or(&self.color) } else { &self.color };
         // Move block to text position (ignoring padding) for draw operation.
-        window.text.paint_padded(&window.context, &pos, &self.color, &self.padding);
+        window.text.paint_padded(&window.context, &pos, col, &self.padding);
         // Debug, unpadded drawing, to help users.
         if Config::get().debug {
             let r = window.text.get_sized_rect(dimensions.width.min, dimensions.height.min);
@@ -102,5 +108,15 @@ impl DrawableLayoutElement for TextBlockParameters {
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
         rect.set_xy(pos.x, pos.y);
         rect
+    }
+
+    fn clicked(&mut self, _window: &NotifyWindow) -> bool {
+        maths_utility::find_and_open_url(self.real_text.clone());
+        false
+    }
+
+    fn hovered(&mut self, entered: bool, _window: &NotifyWindow) -> bool {
+        self.hover = entered;
+        true
     }
 }

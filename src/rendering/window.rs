@@ -4,7 +4,7 @@ use winit::{
     window::{WindowBuilder, Window},
     event_loop::EventLoopWindowTarget,
     platform::unix::{WindowBuilderExtUnix, XWindowType, WindowExtUnix},
-    dpi::{LogicalSize, LogicalPosition},
+    dpi::{PhysicalSize, PhysicalPosition},
 };
 
 use cairo_sys;
@@ -54,6 +54,12 @@ pub struct NotifyWindow {
     // `update_enabled` is primarily used for pause functionality right now.
     //pub update_enabled: bool,
     pub update_mode: UpdateModes,
+
+    // Dirty state -- will be redrawn if this is true.
+    pub dirty: bool,
+
+    // Last mouse pos, relative to top left of window.
+    last_mouse_pos: Vec2,
 }
 
 impl NotifyWindow {
@@ -93,7 +99,7 @@ impl NotifyWindow {
         };
 
         let winit = WindowBuilder::new()
-            .with_inner_size(LogicalSize { width, height })
+            .with_inner_size(PhysicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Utility, XWindowType::Notification])
             .with_title("wired")
             .with_x11_visual(&mut visual_info)
@@ -141,8 +147,12 @@ impl NotifyWindow {
             master_offset: Vec2::default(),
             fuse,
             update_mode: UpdateModes::all(),
+            dirty: true,    // New windows are dirty -- no drawing has happened yet.
+            last_mouse_pos: Vec2::new(0.0, 0.0),
         };
 
+        // When we spawn a window, we get a `RedrawRequested` event which we draw from, so we don't
+        // manually draw here.
         let mut layout = cfg.layout.as_ref().unwrap().clone();
         let rect = layout.predict_rect_tree_and_init(&window, &window.get_inner_rect(), Rect::empty());
         let delta = Vec2::new(-rect.x(), -rect.y());
@@ -156,11 +166,16 @@ impl NotifyWindow {
     pub fn replace_notification(&mut self, new_notification: Notification) {
         self.notification = new_notification;
 
+        // As above.  May be valuable to put this into a function like `prepare_notification` or
+        // something if we keep changing stuff.
         let mut layout = Config::get().layout.as_ref().unwrap().clone();
         let rect = layout.predict_rect_tree_and_init(&self, &self.get_inner_rect(), Rect::empty());
+        let delta = Vec2::new(-rect.x(), -rect.y());
 
         self.layout = Some(layout);
         self.set_size(rect.width(), rect.height());
+        self.master_offset = delta;
+        self.dirty = true;
     }
 
     pub fn layout(&self) -> &LayoutBlock {
@@ -172,7 +187,7 @@ impl NotifyWindow {
     }
 
     pub fn set_position(&self, x: f64, y: f64) {
-        self.winit.set_outer_position(LogicalPosition { x, y });
+        self.winit.set_outer_position(PhysicalPosition { x, y });
     }
 
     pub fn set_visible(&self, visible: bool) {
@@ -180,7 +195,7 @@ impl NotifyWindow {
     }
 
     pub fn set_size(&self, width: f64, height: f64) {
-        self.winit.set_inner_size(LogicalSize { width, height });
+        self.winit.set_inner_size(PhysicalSize { width, height });
         unsafe {
             cairo_sys::cairo_xlib_surface_set_size(self.surface.to_raw_none(), width as i32, height as i32);
         }
@@ -212,7 +227,12 @@ impl NotifyWindow {
     }
     */
 
-    pub fn draw(&self) {
+    // This should only ever be called by the windows own `update()`.
+    // To trigger a redraw, `window.dirty` should be set to `true`.
+    fn draw(&mut self) {
+        dbg!("Drawing a window.");
+        if !self.dirty { eprintln!("A draw was triggered for a window that wasn't dirty!"); }
+
         let mut inner_rect = self.get_inner_rect();
         // If the master offset is anything other than `(0.0, 0.0)` it means that one of the
         // blocks is going to expand the big rectangle leftwards and/or upwards, which would
@@ -220,12 +240,12 @@ impl NotifyWindow {
         // To fix this, we offset the initial drawing rect to make sure everything fits in the
         // canvas.
         inner_rect.set_xy(self.master_offset.x, self.master_offset.y);
-        self.layout().draw_tree(self, &inner_rect, Rect::empty());
+        let mut layout = self.layout_take();
+        layout.draw_tree(self, &inner_rect, Rect::empty());
+        self.layout = Some(layout);
     }
 
     pub fn update(&mut self, delta_time: Duration) -> bool {
-        let mut dirty = false;
-
         if self.update_mode.contains(UpdateModes::FUSE) {
             self.fuse -= delta_time.as_millis() as i32;
             if self.fuse <= 0 {
@@ -238,14 +258,32 @@ impl NotifyWindow {
 
         if self.update_mode.contains(UpdateModes::DRAW) {
             let mut layout = self.layout_take();
-            dirty |= layout.update_tree(delta_time, &self);
+            self.dirty |= layout.update_tree(delta_time, &self);
             self.layout = Some(layout);
         }
 
-        if dirty {
-            self.winit.request_redraw();
+        if self.dirty {
+            self.draw();
         }
 
+        // Clean now, updated everything, but still need to inform manager that we may have changed.
+        let dirty = self.dirty;
+        self.dirty = false;
         dirty
+    }
+
+    pub fn process_mouse_click(&mut self) {
+        let mut layout = self.layout_take();
+        self.dirty |= layout.check_and_send_click(&self.last_mouse_pos, &self);
+        self.layout = Some(layout);
+    }
+
+    pub fn process_mouse_move(&mut self, position: PhysicalPosition<f64>) {
+        self.last_mouse_pos.x = position.x;
+        self.last_mouse_pos.y = position.y;
+
+        let mut layout = self.layout_take();
+        self.dirty |= layout.check_and_send_hover(&self.last_mouse_pos, &self);
+        self.layout = Some(layout);
     }
 }

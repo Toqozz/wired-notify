@@ -24,16 +24,15 @@ use management::NotifyWindowManager;
 use wired_derive;
 
 fn main() {
-    // Hack to avoid winit dpi scaling -- we just want pixels.
-    std::env::set_var("WINIT_X11_SCALE_FACTOR", "1.0");
-
     let maybe_watcher = Config::init();
 
     // Allows us to receive messages from dbus.
-    let (dbus_connection, receiver) = bus::dbus::get_connection();
+    let receiver = bus::dbus::init_connection();
+    let dbus_connection = bus::dbus::get_connection();
+    //let (dbus_connection, receiver) = bus::dbus::get_connection();
 
     let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
-    let mut manager = NotifyWindowManager::new(&event_loop, &dbus_connection);
+    let mut manager = NotifyWindowManager::new(&event_loop);
 
     let mut poll_interval = Duration::from_millis(Config::get().poll_interval);
     let mut prev_instant = Instant::now();
@@ -66,7 +65,7 @@ fn main() {
                     match msg {
                         Message::Close(id) => { manager.drop_notification(id); },
                         Message::Notify(n) => {
-                            if n.replaces_id != 0 {
+                            if Config::get().replacing_enabled && n.replaces_id != 0 {
                                 manager.replace_notification(n);
                             } else {
                                 manager.new_notification(n, event_loop);
@@ -101,7 +100,7 @@ fn main() {
             },
 
             // Window becomes visible and then position is set.  Need fix.
-            Event::RedrawRequested(window_id) => manager.draw_window(window_id),
+            Event::RedrawRequested(window_id) => manager.request_redraw(window_id),
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
 

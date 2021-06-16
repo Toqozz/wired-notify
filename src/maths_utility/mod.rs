@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use std::process::{Command, Stdio};
 
 use serde::Deserialize;
 
@@ -159,6 +160,11 @@ impl Rect {
         self.set_width(r - x);
         self.set_height(b - y);
         self
+    }
+
+    pub fn contains_point(&self, point: &Vec2) -> bool {
+        (point.x >= self.x) && (point.x < (self.x + self.width())) &&
+        (point.y >= self.y) && (point.y < (self.y + self.height()))
     }
 }
 
@@ -343,4 +349,50 @@ fn extract_time_format(string: &str) -> Option<(&str, usize)> {
         println!("Warning: tried to parse a time format string, but couldn't find a closing ')'.");
         return None;
     }
+}
+
+pub fn find_and_open_url(string: String) {
+    // This would be cleaner with regex, but we want to avoid the dependency.
+    // Find the first instance of either "http://" or "https://" and then split the
+    // string at the end of the word.
+    let idx = string.find("http://").or_else(|| string.find("https://"));
+    let maybe_url = if let Some(i) = idx {
+        let (_, end) = string.split_at(i);
+        end.split_whitespace().next()
+    } else {
+        println!("Was requested to open a url but couldn't find one in the specified string");
+        None
+    };
+
+    if let Some(url) = maybe_url {
+        // `xdg-open` can be blocking, so opening like this can block our whole program because
+        // we're grabbing the command's status at the end (which will cause it to wait).
+        // I think it's important that we report at least some status back in case of error, so
+        // we use `spawn()` instead.
+        /*
+        let status = Command::new("xdg-open").arg(url).status();
+        if status.is_err() {
+            eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", status);
+        }
+        */
+
+        // For some reason, Ctrl-C closes child processes, even when they're detached
+        // (`thread::spawn`), but `SIGINT`, `SIGTERM`, `SIGKILL`, and more (?) don't.
+        // Maybe it's this: https://unix.stackexchange.com/questions/149741/why-is-sigint-not-propagated-to-child-process-when-sent-to-its-parent-process
+        let child = Command::new("xdg-open")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .arg(url)
+            .spawn();
+
+        if child.is_err() {
+            eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", child);
+        }
+    }
+}
+
+// For serde defaults.  So annoying that we need a function for this.
+// Issue been open since 2018, so I guess it's never getting fixed.
+pub fn val_true() -> bool {
+    true
 }

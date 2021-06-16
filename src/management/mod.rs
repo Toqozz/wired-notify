@@ -1,11 +1,10 @@
 use std::time::Duration;
-use std::process::{Command, Stdio};
 use std::collections::HashMap;
 
-use dbus::ffidisp::Connection;
 use dbus::message::SignalArgs;
 use dbus::strings::Path;
 use winit::{
+    dpi::PhysicalPosition,
     event_loop::EventLoopWindowTarget,
     window::WindowId,
     event::ElementState,
@@ -25,16 +24,15 @@ use crate::{
     config::Config,
 };
 
-pub struct NotifyWindowManager<'conn> {
+pub struct NotifyWindowManager {
     //pub windows: Vec<NotifyWindow<'config>>,
-    pub dbus_connection: &'conn Connection,
     pub base_window: winit::window::Window,
     pub monitor_windows: HashMap<u32, Vec<NotifyWindow>>,
     pub dirty: bool,
 }
 
-impl<'conn> NotifyWindowManager<'conn> {
-    pub fn new(el: &EventLoopWindowTarget<()>, dbus_connection: &'conn Connection) -> Self {
+impl NotifyWindowManager {
+    pub fn new(el: &EventLoopWindowTarget<()>) -> Self {
         let monitor_windows = HashMap::new();
 
         let base_window = winit::window::WindowBuilder::new()
@@ -43,7 +41,6 @@ impl<'conn> NotifyWindowManager<'conn> {
             .expect("Failed to create base window.");
 
         Self {
-            dbus_connection,
             base_window,
             monitor_windows,
             dirty: false,
@@ -87,12 +84,13 @@ impl<'conn> NotifyWindowManager<'conn> {
         // It may be that the notification has already expired, in which case we just ignore the
         // update request.
         if let Some(window) = maybe_window {
+            // Replacing notification data may mean the notification position has to change.
             window.replace_notification(new_notification);
-            window.winit.request_redraw();
         }
     }
 
     pub fn update(&mut self, delta_time: Duration) {
+        // Update windows and then check for dirty state.
         // Returning dirty from a window update means the window has been deleted / needs
         // positioning updated.
         for (_monitor, windows) in &mut self.monitor_windows {
@@ -112,7 +110,7 @@ impl<'conn> NotifyWindowManager<'conn> {
                         reason: 4,  // TODO: get real reason. -- 1 expired, 2 dismissed by user, 3 `CloseNotification`, 4 undefined.
                     };
                     let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
-                    let _result = self.dbus_connection.send(message.to_emit_message(&path));
+                    let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
                 }
                 windows.retain(|w| !w.marked_for_destroy);
             }
@@ -195,18 +193,31 @@ impl<'conn> NotifyWindowManager<'conn> {
     }
 
     pub fn process_event(&mut self, window_id: WindowId, event: event::WindowEvent) {
-        // Simplify button presses into a uint, which matches our config.
-        let pressed = match event {
+        let mut pressed = None;
+        match event {
             WindowEvent::MouseInput { state: ElementState::Pressed, button, .. } => {
                 match button {
-                    MouseButton::Left => Some(1),
-                    MouseButton::Right => Some(2),
-                    MouseButton::Middle => Some(3),
-                    MouseButton::Other(u) => Some(u),
-                }
+                    MouseButton::Left => pressed = Some(1),
+                    MouseButton::Right => pressed = Some(2),
+                    MouseButton::Middle => pressed = Some(3),
+                    MouseButton::Other(u) => pressed = Some(u),
+                };
+            },
+
+            WindowEvent::CursorMoved { position, .. } => {
+                self.find_window_mut(window_id).unwrap().process_mouse_move(position);
+            },
+
+            // If we don't notify when the cursor left, then we have issues moving the cursor off
+            // the side of the window and the hover status not being reset.
+            // Since the position given is from the top left of the window, a negative value should
+            // always be outside it.
+            WindowEvent::CursorLeft { .. } => {
+                self.find_window_mut(window_id).unwrap().process_mouse_move(PhysicalPosition::new(-1.0, -1.0));
             }
-            _ => None,
-        };
+
+            _ => (),
+        }
 
         // If nothing was pressed, then there is no event to process.
         // The code below won't work with None naturally, because the config is allowed to have
@@ -216,15 +227,13 @@ impl<'conn> NotifyWindowManager<'conn> {
         }
 
         let config = Config::get();
-        if pressed == config.shortcuts.notification_close {
+        if pressed == config.shortcuts.notification_interact {
+            self.find_window_mut(window_id).unwrap().process_mouse_click();
+        } else if pressed == config.shortcuts.notification_close {
             self.drop_window(window_id);
         } else if pressed == config.shortcuts.notification_closeall {
             self.drop_windows();
-        } else if pressed == config.shortcuts.notification_url {
-            let window = self.find_window(window_id).unwrap();
-            let body = window.notification.body.clone();
-            find_and_open_url(body);
-        } else if pressed == config.shortcuts.notification_pause {
+        }  else if pressed == config.shortcuts.notification_pause {
             if let Some((monitor, idx)) = self.find_window_idx(window_id) {
                 let window = self.monitor_windows
                     .get_mut(&monitor).unwrap()
@@ -261,7 +270,7 @@ impl<'conn> NotifyWindowManager<'conn> {
                     action_key: k.to_owned(), id: notification.id
                 };
                 let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
-                let _result = self.dbus_connection.send(message.to_emit_message(&path));
+                let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
             } else {
                 println!("Received action shortcut but could not find a matching action to trigger.");
             }
@@ -292,6 +301,16 @@ impl<'conn> NotifyWindowManager<'conn> {
         None
     }
 
+    pub fn find_window_mut(&mut self, window_id: WindowId) -> Option<&mut NotifyWindow> {
+        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
+            if let Some(windows) = self.monitor_windows.get_mut(&monitor) {
+                return windows.get_mut(idx);
+            }
+        }
+
+        None
+    }
+
     pub fn drop_window(&mut self, window_id: WindowId) {
         if let Some((monitor, idx)) = self.find_window_idx(window_id) {
             let window = self.monitor_windows
@@ -314,22 +333,13 @@ impl<'conn> NotifyWindowManager<'conn> {
     }
 
     // Draw an individual window (mostly for expose events).
-    pub fn draw_window(&self, window_id: WindowId) {
+    pub fn request_redraw(&mut self, window_id: WindowId) {
         if let Some((monitor, idx)) = self.find_window_idx(window_id) {
             let window = self.monitor_windows
-                .get(&monitor).unwrap()
-                .get(idx).unwrap();
+                .get_mut(&monitor).unwrap()
+                .get_mut(idx).unwrap();
 
-            window.draw();
-        }
-    }
-
-    // Draw all windows.
-    pub fn _draw_windows(&self) {
-        for (_monitor, windows) in &self.monitor_windows {
-            for window in windows.iter() {
-                window.draw();
-            }
+            window.dirty = true;
         }
     }
 
@@ -338,46 +348,6 @@ impl<'conn> NotifyWindowManager<'conn> {
         let maybe_window = self.monitor_windows.values_mut().flatten().find(|w| w.notification.id == id);
         if let Some(window) = maybe_window {
             window.marked_for_destroy = true;
-        }
-    }
-}
-
-fn find_and_open_url(string: String) {
-    // This would be cleaner with regex, but we want to avoid the dependency.
-    // Find the first instance of either "http://" or "https://" and then split the
-    // string at the end of the word.
-    let idx = string.find("http://").or_else(|| string.find("https://"));
-    let maybe_url = if let Some(i) = idx {
-        let (_, end) = string.split_at(i);
-        end.split_whitespace().next()
-    } else {
-        println!("Was requested to open a url but couldn't find one in the specified string");
-        None
-    };
-
-    if let Some(url) = maybe_url {
-        // `xdg-open` can be blocking, so opening like this can block our whole program because
-        // we're grabbing the command's status at the end (which will cause it to wait).
-        // I think it's important that we report at least some status back in case of error, so
-        // we use `spawn()` instead.
-        /*
-        let status = Command::new("xdg-open").arg(url).status();
-        if status.is_err() {
-            eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", status);
-        }
-        */
-
-        // For some reason, Ctrl-C closes child processes, even when they're detached
-        // (`thread::spawn`), but `SIGINT`, `SIGTERM`, `SIGKILL`, and more (?) don't.
-        // Maybe it's this: https://unix.stackexchange.com/questions/149741/why-is-sigint-not-propagated-to-child-process-when-sent-to-its-parent-process
-        let child = Command::new("xdg-open")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .arg(url)
-            .spawn();
-
-        if child.is_err() {
-            eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", child);
         }
     }
 }

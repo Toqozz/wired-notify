@@ -16,7 +16,7 @@ use serde::{
 use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
 use crate::{
-    maths_utility::{Vec2, Rect},
+    maths_utility::{self, Vec2, Rect},
     rendering::layout::{LayoutBlock, LayoutElement},
 };
 
@@ -74,7 +74,10 @@ pub struct Config {
     pub max_notifications: usize,
 
     pub timeout: i32,           // Default timeout.
-    pub poll_interval: u64,
+    pub poll_interval: u64,     // "Frame rate" / check for updates and new notifications.
+    // Enable/disable `replaces_id` functionality.  I don't like how some apps do it.
+    #[serde(default = "maths_utility::val_true")]
+    pub replacing_enabled: bool,
 
     pub layout_blocks: Vec<LayoutBlock>,
 
@@ -119,49 +122,51 @@ impl Config {
     // - If config was loaded successfully, then sets up a watcher on the config file to watch for changes,
     // and returns the watcher or None.
     pub fn init() -> Option<ConfigWatcher> {
-        unsafe {
-            assert!(CONFIG.is_none());
-            let cfg_file = Config::installed_config();
-            match cfg_file {
-                Some(f) => {
-                    let cfg = Config::load_file(f.clone());
-                    match cfg {
-                        Ok(c) => CONFIG = Some(c),
-                        Err(e) => {
-                            println!("Found a config file: {}, but couldn't load it, so will \
-                                      use default one for now.\n\
-                                      If you fix the error the config will be reloaded automatically.\n\
-                                      \tError: {}\n", f.to_str().unwrap(), e);
+        fn assign_config(cfg: Config) {
+            unsafe { CONFIG = Some(cfg); }
+        }
 
-                            CONFIG = Some(Config::default());
-                        }
-                    }
+        unsafe { assert!(CONFIG.is_none()); }
+        let cfg_file = Config::installed_config();
+        match cfg_file {
+            Some(f) => {
+                let cfg = Config::load_file(f.clone());
+                match cfg {
+                    Ok(c) => assign_config(c),
+                    Err(e) => {
+                        println!("Found a config file: {}, but couldn't load it, so will \
+                                    use default one for now.\n\
+                                    If you fix the error the config will be reloaded automatically.\n\
+                                    \tError: {}\n", f.to_str().unwrap(), e);
 
-                    // Watch the config file directory for changes, even if it didn't load correctly; we
-                    // assume that the config we found is the one we're using.
-                    // It would be nice to be able to watch the config directories for when a user
-                    // creates a config, but it doesn't seem worthwhile to watch that many directories.
-                    //
-                    // NOTE: watching the directory can actually cause us to try and read all file
-                    // changes in this directory, so we need to remember to check the filename
-                    // before reloading.
-                    let watch = Config::watch(f);
-                    match watch {
-                        Ok(w) => return Some(w),
-                        Err(e) => {
-                            println!("There was a problem watching the config for changes; so won't watch:\n\t{}", e);
-                            return None;
-                        },
+                        assign_config(Config::default());
                     }
                 }
 
-                None => {
-                    println!("Couldn't load a config because we couldn't find one, so will use default.");
-                    CONFIG = Some(Config::default());
-                    return None;
-                },
-            };
-        }
+                // Watch the config file directory for changes, even if it didn't load correctly; we
+                // assume that the config we found is the one we're using.
+                // It would be nice to be able to watch the config directories for when a user
+                // creates a config, but it doesn't seem worthwhile to watch that many directories.
+                //
+                // NOTE: watching the directory can actually cause us to try and read all file
+                // changes in this directory, so we need to remember to check the filename
+                // before reloading.
+                let watch = Config::watch(f);
+                match watch {
+                    Ok(w) => return Some(w),
+                    Err(e) => {
+                        println!("There was a problem watching the config for changes; so won't watch:\n\t{}", e);
+                        return None;
+                    },
+                }
+            }
+
+            None => {
+                println!("Couldn't load a config because we couldn't find one, so will use default.");
+                assign_config(Config::default());
+                return None;
+            },
+        };
     }
 
     // Get immutable reference to global config variable.
@@ -384,6 +389,7 @@ impl ActionKey {
 
 #[derive(Debug, Deserialize)]
 pub struct ShortcutsConfig {
+    pub notification_interact: Option<u8>,
     pub notification_close: Option<u8>,
     pub notification_closeall: Option<u8>,
     pub notification_pause: Option<u8>,
@@ -398,12 +404,13 @@ pub struct ShortcutsConfig {
 impl Default for ShortcutsConfig {
     fn default() -> Self {
         Self {
-            notification_close: Some(1),
-            notification_closeall: Some(3),
+            notification_interact: Some(1),
+            notification_close: Some(2),
+            notification_closeall: Some(7),
             notification_pause: None,
             notification_url: Some(8),
 
-            notification_action1: Some(2),
+            notification_action1: Some(3),
             notification_action2: None,
             notification_action3: None,
             notification_action4: None,

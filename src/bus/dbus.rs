@@ -29,6 +29,8 @@ impl DataType for TData {
 }
 
 pub const PATH: &str = "/org/freedesktop/Notifications";
+// Global access to dbus connection is necessary to avoid spaghetti.
+static mut DBUS_CONN: Option<Connection> = None;
 
 fn create_iface(sender: mpsc::Sender<Message>) -> Interface<tree::MTFn<TData>, TData> {
     let f = Factory::new_fn();
@@ -73,10 +75,20 @@ pub fn init_bus(sender: mpsc::Sender<Message>) -> Connection {
     c
 }
 
-pub fn get_connection() -> (Connection, Receiver<Message>) {
+pub fn get_connection() -> &'static Connection {
+    unsafe {
+        assert!(DBUS_CONN.is_some());
+        DBUS_CONN.as_ref().unwrap()
+    }
+}
+
+pub fn init_connection() -> Receiver<Message> {
     let (sender, receiver) = mpsc::channel();
     let c = init_bus(sender);
-    (c, receiver)
+
+    unsafe { DBUS_CONN = Some(c); }
+
+    receiver
 }
 
 #[derive(Debug)]

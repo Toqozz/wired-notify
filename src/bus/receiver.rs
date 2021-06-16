@@ -64,6 +64,8 @@ impl OrgFreedesktopNotifications for BusNotification {
         // using the same id.
         // With our implementation, we send a "new" notification anyway, and let management deal
         // with replacing data.
+        // When `Config::replacing_enabled` is `false`, we still obey this, those notifications
+        // will just have the same `id`, which I think is fine.
         let id = if replaces_id == 0 {
             // Grab an ID atomically.  This is moreso to allow global access to `ID_COUNT`, but I'm
             // also not sure if `notify` is called in a single-threaded way, so it's best to be safe.

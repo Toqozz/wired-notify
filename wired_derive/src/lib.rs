@@ -42,6 +42,21 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
         }
     });
 
+    let traverse_clicked = variants.iter().map(|f| {
+        let variant_name = &f.ident;
+        quote! {
+            #name::#variant_name(ref mut __self_0) => __self_0.clicked(window)
+        }
+    });
+
+    let traverse_hovered = variants.iter().map(|f| {
+        let variant_name = &f.ident;
+        quote! {
+            #name::#variant_name(ref mut __self_0) => __self_0.hovered(entered, window)
+        }
+    });
+
+
     let gen = quote! {
         impl DrawableLayoutElement for #name {
             fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
@@ -67,6 +82,18 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
             fn update(&mut self, delta_time: Duration, window: &NotifyWindow) -> bool { 
                 match self {
                     #(#traverse_update),*
+                }
+            }
+
+            fn clicked(&mut self, window: &NotifyWindow) -> bool { 
+                match self {
+                    #(#traverse_clicked),*
+                }
+            }
+
+            fn hovered(&mut self, entered: bool, window: &NotifyWindow) -> bool { 
+                match self {
+                    #(#traverse_hovered),*
                 }
             }
         }
