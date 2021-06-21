@@ -29,7 +29,6 @@ fn main() {
     // Allows us to receive messages from dbus.
     let receiver = bus::dbus::init_connection();
     let dbus_connection = bus::dbus::get_connection();
-    //let (dbus_connection, receiver) = bus::dbus::get_connection();
 
     let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
     let mut manager = NotifyWindowManager::new(&event_loop);
@@ -38,7 +37,6 @@ fn main() {
     let mut prev_instant = Instant::now();
     event_loop.run_return(|event, event_loop, control_flow| {
         match event {
-            // @NOTE: maybe we should separate receiving dbus signals and drawing windows.
             Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + poll_interval),
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
                 let now = Instant::now();
@@ -65,7 +63,7 @@ fn main() {
                     match msg {
                         Message::Close(id) => { manager.drop_notification(id); },
                         Message::Notify(n) => {
-                            if Config::get().replacing_enabled && n.replaces_id != 0 {
+                            if Config::get().replacing_enabled && manager.notification_exists(n.id) {
                                 manager.replace_notification(n);
                             } else {
                                 manager.new_notification(n, event_loop);

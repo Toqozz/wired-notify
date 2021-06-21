@@ -72,14 +72,14 @@ impl NotifyWindowManager {
         }
     }
 
+    // This function assumes that there is a notification to replace, otherwise it does nothing.
     pub fn replace_notification(&mut self, new_notification: Notification) {
         if Config::get().debug { dbg!(&new_notification); }
-        if new_notification.replaces_id == 0 { panic!("Cannot replace notification with a `replaces_id` of 0."); }
         let maybe_window =
             self.monitor_windows
                 .values_mut()
                 .flatten()
-                .find(|w| w.notification.id == new_notification.replaces_id);
+                .find(|w| w.notification.id == new_notification.id);
 
         // It may be that the notification has already expired, in which case we just ignore the
         // update request.
@@ -309,6 +309,18 @@ impl NotifyWindowManager {
         }
 
         None
+    }
+
+    pub fn notification_exists(&self, id: u32) -> bool {
+        for m in self.monitor_windows.values() {
+            for w in m {
+                if w.notification.id == id {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     pub fn drop_window(&mut self, window_id: WindowId) {

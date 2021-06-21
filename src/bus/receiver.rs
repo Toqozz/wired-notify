@@ -66,6 +66,14 @@ impl OrgFreedesktopNotifications for BusNotification {
         // with replacing data.
         // When `Config::replacing_enabled` is `false`, we still obey this, those notifications
         // will just have the same `id`, which I think is fine.
+        //
+        // @NOTE: Some programs don't seem to obey these rules.  Discord will set replaces_id to `id` no
+        // matter what.  To workaround this, we just check if a notification with the same ID
+        // exists before sending it (see: `main`), rather than relying on `replaces_id` being set
+        // correctly.
+        // Also note that there is still a bug here, where since Discord sends the `replaces_id` it
+        // is effectively assigning its own id, which may interfere with ours.  Not sure how mmuch I can
+        // do about this.
         let id = if replaces_id == 0 {
             // Grab an ID atomically.  This is moreso to allow global access to `ID_COUNT`, but I'm
             // also not sure if `notify` is called in a single-threaded way, so it's best to be safe.
@@ -75,7 +83,7 @@ impl OrgFreedesktopNotifications for BusNotification {
         };
 
         let notification = Notification::from_dbus(
-            id, app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout,
+            id, app_name, app_icon, summary, body, actions, hints, expire_timeout,
         );
 
         sender.send(Message::Notify(notification)).unwrap();

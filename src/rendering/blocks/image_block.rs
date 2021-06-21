@@ -76,7 +76,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
 
             let (x, y) = (pos.x + self.padding.left, pos.y + self.padding.top);
             window.context.set_source_surface(&img_sfc, x, y);
-            maths_utility::cairo_rounded_rectangle(
+            maths_utility::cairo_path_rounded_rectangle(
                 &window.context, x, y, self.scale_width as f64, self.scale_height as f64, self.rounding
             );
             //window.context.rectangle(x, y, self.scale_width as f64, self.scale_height as f64);

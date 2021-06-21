@@ -2,6 +2,7 @@
 use std::process::{Command, Stdio};
 
 use serde::Deserialize;
+use crate::config::Color;
 
 #[derive(Default, Debug, Deserialize, Clone)]
 pub struct MinMax {
@@ -189,7 +190,7 @@ pub fn distance(x: f64, y: f64) -> f64 {
 }
 
 // http://cairographics.org/samples/rounded_rectangle/
-pub fn cairo_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) {
+pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) {
     ctx.save();
 
     // Aspect ratio.
@@ -204,6 +205,29 @@ pub fn cairo_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64,
     ctx.arc(x + radius        , y + height - radius, radius         , 90.0 * degrees , 180.0 * degrees);
     ctx.arc(x + radius        , y + radius         , radius         , 180.0 * degrees, 270.0 * degrees);
     ctx.close_path();
+
+    ctx.restore();
+}
+
+// Creates a rounded rectangle with a border that acts as a user would expect.
+// Obeys background opacity and such -- border color is not present on the background like it would
+// be with the naive approach.
+pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color) {
+    ctx.save();
+
+    // To my understanding, push group basically lets us write to another texture, which we can
+    // then paint on top of stuff later.
+    ctx.push_group();
+    ctx.set_operator(cairo::Operator::Source);
+    cairo_path_rounded_rectangle(ctx, x, y, width, height, corner_radius);
+    ctx.set_source_rgba(fg_color.r, fg_color.g, fg_color.b, fg_color.a);
+    ctx.fill();
+
+    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, corner_radius);
+    ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
+    ctx.fill();
+    ctx.pop_group_to_source();
+    ctx.paint();
 
     ctx.restore();
 }
@@ -312,6 +336,7 @@ pub fn format_notification_string(format_string: &str, notification: &Notificati
                     }
                     "%s" => { formatted.extend_from_slice(notification.summary.as_bytes()); i += 2; continue },
                     "%b" => { formatted.extend_from_slice(notification.body.as_bytes()); i += 2; continue },
+                    "%a" => { formatted.extend_from_slice(notification.app_name.as_bytes()); i += 2; continue },
                     _ => (),
                 }
 

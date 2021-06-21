@@ -60,7 +60,7 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         let bg_color = &self.background_color;
         let bw = &self.border_width;
         window.context.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
-        maths_utility::cairo_rounded_rectangle(
+        maths_utility::cairo_path_rounded_rectangle(
             &window.context,
             *bw, *bw,   // x, y
             parent_rect.width() - bw * 2.0, parent_rect.height() - bw * 2.0,

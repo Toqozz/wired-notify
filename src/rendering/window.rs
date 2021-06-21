@@ -178,7 +178,7 @@ impl NotifyWindow {
         self.dirty = true;
     }
 
-    pub fn layout(&self) -> &LayoutBlock {
+    pub fn _layout(&self) -> &LayoutBlock {
         self.layout.as_ref().unwrap()
     }
 
@@ -230,7 +230,6 @@ impl NotifyWindow {
     // This should only ever be called by the windows own `update()`.
     // To trigger a redraw, `window.dirty` should be set to `true`.
     fn draw(&mut self) {
-        dbg!("Drawing a window.");
         if !self.dirty { eprintln!("A draw was triggered for a window that wasn't dirty!"); }
 
         let mut inner_rect = self.get_inner_rect();

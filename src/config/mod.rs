@@ -260,29 +260,40 @@ impl Config {
             return Err(Error::Validate("Config did not contain any layout blocks!"))
         }
 
-        let mut master_layout = config.layout_blocks.swap_remove(0);
+        // Look for children of current root.
+        // If child found, insert it and then look for children of that node.
+        let mut blocks = config.layout_blocks;
+        let mut root = blocks.swap_remove(0);
+        config.layout_blocks = vec![];  // "Take" vec from config.
 
-        // Find children in the vec, and recursively add them to the master layout (and its
-        // children) to make a tree.
-        fn find_and_add_children(layout: &mut LayoutBlock, blocks: &mut Vec<LayoutBlock>) {
+        fn find_and_add_children(cur_root: &mut LayoutBlock, mut remaining: Vec<LayoutBlock>) -> Vec<LayoutBlock> {
             let mut i = 0;
-            while i < blocks.len() {
-                if blocks[i].parent == layout.name {
-                    layout.children.push(blocks.swap_remove(i));
-                    for child in &mut layout.children {
-                        find_and_add_children(child, blocks);
-                    }
+            while i < remaining.len() {
+                if remaining[i].parent == cur_root.name {
+                    let mut block = remaining.swap_remove(i);
+                    remaining = find_and_add_children(&mut block, remaining);
+                    cur_root.children.push(block);
+
+                    // Back to beginning, as remaining has certainly changed and our information is
+                    // outdated.
+                    // There's surely a better way of doing this, but it works fine for now.
+                    i = 0;
                 } else {
                     i += 1;
                 }
             }
+
+            remaining
         }
 
-        find_and_add_children(&mut master_layout, &mut config.layout_blocks);
+        let remaining =find_and_add_children(&mut root, blocks);
+        if remaining.len() > 0 && config.debug {
+            eprintln!("There {} blocks remaining after creating the layout tree.  Something must be wrong here.", remaining.len());
+        }
 
-        match master_layout.params {
+        match root.params {
             LayoutElement::NotificationBlock(_) => {
-                config.layout = Some(master_layout);
+                config.layout = Some(root);
                 Ok(config)
             }
             _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),

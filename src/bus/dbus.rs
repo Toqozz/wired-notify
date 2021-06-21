@@ -111,7 +111,6 @@ pub struct Notification {
     pub id: u32,
 
     pub app_name: String,
-    pub replaces_id: u32,
 
     pub summary: String,
     pub body: String,
@@ -129,8 +128,8 @@ impl std::fmt::Debug for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\treplaces_id: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\ttimeout: {}\n}}",
-            self.id, self.app_name, self.replaces_id, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.timeout,
+            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\ttimeout: {}\n}}",
+            self.id, self.app_name, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.timeout,
         )
     }
 }
@@ -139,7 +138,6 @@ impl Notification {
     pub fn from_dbus(
         id: u32,
         app_name: &str,
-        replaces_id: u32,
         app_icon: &str,
         summary: &str,
         body: &str,
@@ -251,7 +249,6 @@ impl Notification {
         Self {
             id,
             app_name: app_name.to_owned(),
-            replaces_id,
             summary,
             body,
             actions: actions_map,

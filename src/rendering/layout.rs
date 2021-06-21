@@ -3,13 +3,7 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use crate::{
-    rendering::blocks::{
-        notification_block::NotificationBlockParameters,
-        text_block::TextBlockParameters,
-        scrolling_text_block::ScrollingTextBlockParameters,
-        image_block::ImageBlockParameters,
-        button_block::ButtonBlockParameters,
-    },
+    rendering::blocks::*,
     maths_utility::{Vec2, Rect},
     config::{Config, AnchorPosition},
     rendering::window::NotifyWindow,
