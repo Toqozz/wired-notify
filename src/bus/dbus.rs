@@ -10,12 +10,13 @@ use dbus::{
     ffidisp::{Connection, BusType, NameFlag, RequestNameReply},
 };
 
-use chrono::{ DateTime, Utc };
+use chrono::{ offset::Local, DateTime };
 
 use crate::Config;
 use crate::bus::receiver::BusNotification;
 use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, Value, DBusImage};
 use crate::maths_utility;
+use crate::bus::receiver;
 
 #[derive(Copy, Clone, Default, Debug)]
 struct TData;
@@ -120,7 +121,7 @@ pub struct Notification {
 
     pub urgency: Urgency,
 
-    pub time: DateTime<Utc>,
+    pub time: DateTime<Local>,
     pub timeout: i32,
 }
 
@@ -135,6 +136,24 @@ impl std::fmt::Debug for Notification {
 }
 
 impl Notification {
+    pub fn from_self(summary: &str, body: &str, timeout: i32) -> Self {
+        let id = receiver::fetch_id();
+        Self {
+            id,
+            app_name: "Wired".to_owned(),
+            summary: summary.to_owned(),
+            body: body.to_owned(),
+            actions: HashMap::new(),
+            app_image: None,
+            hint_image: None,
+
+            urgency: Urgency::Low,
+
+            time: Local::now(),
+            timeout,
+        }
+    }
+
     pub fn from_dbus(
         id: u32,
         app_name: &str,
@@ -148,7 +167,7 @@ impl Notification {
         // The time this notification arrived.  The spec actually doesn't include this for some reason, but
         // we do it for convenience.
         // Put it at the top so it's more accurate to the actual arrival time.
-        let time = Utc::now();
+        let time = Local::now();
 
         // Pango is a bitch about ampersands, and also doesn't decode html entities for us, which
         // applications /love/ to send -- we need to escape ampersands and decode html entities.

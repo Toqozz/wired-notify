@@ -18,11 +18,11 @@ pub struct Dimensions {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct TextBlockParameters {
+    pub padding: Padding,
     //https://developer.gnome.org/pango/stable/pango-Markup.html
     pub text: String,
     pub font: String,
     pub color: Color,
-    pub padding: Padding,
     pub dimensions: Dimensions,
 
     // -- Optional fields.

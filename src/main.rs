@@ -17,7 +17,7 @@ use winit::{
 };
 use notify::DebouncedEvent;
 use dbus::message::MessageType;
-use bus::dbus::Message;
+use bus::dbus::{ Message, Notification };
 
 use config::Config;
 use management::NotifyWindowManager;
@@ -61,7 +61,9 @@ fn main() {
                 // Receives `Notification`s from dbus.
                 if let Ok(msg) = receiver.try_recv() {
                     match msg {
-                        Message::Close(id) => { manager.drop_notification(id); },
+                        Message::Close(id) => {
+                            if Config::get().closing_enabled { manager.drop_notification(id); }
+                        },
                         Message::Notify(n) => {
                             if Config::get().replacing_enabled && manager.notification_exists(n.id) {
                                 manager.replace_notification(n);
@@ -83,8 +85,14 @@ fn main() {
                                 if let Some(file_name) = p.file_name() {
                                     // Make sure the file that was changed is our file.
                                     if file_name == "wired.ron" {
-                                        Config::try_reload(p);
-                                        poll_interval = Duration::from_millis(Config::get().poll_interval);
+                                        if Config::try_reload(p) {
+                                            // Success.
+                                            poll_interval = Duration::from_millis(Config::get().poll_interval);
+                                            manager.new_notification(
+                                                Notification::from_self("Wired", "Config was reloaded.", 5000),
+                                                event_loop,
+                                            );
+                                        }
                                     }
                                 }
                             },

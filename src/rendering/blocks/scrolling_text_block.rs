@@ -11,6 +11,7 @@ use std::time::Duration;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ScrollingTextBlockParameters {
+    pub padding: Padding,
     pub text: String,
     pub font: String,
     pub color: Color,
@@ -21,7 +22,6 @@ pub struct ScrollingTextBlockParameters {
     pub lhs_dist: f64,
     pub rhs_dist: f64,
     pub scroll_t: f64,
-    pub padding: Padding,
 
     // -- Optional fields
     pub color_hovered: Option<Color>,

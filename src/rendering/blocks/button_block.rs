@@ -21,27 +21,29 @@ pub struct Dimensions {
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum Action {
-    Primary,
-    Other(usize),
+    DefaultAction,
+    OtherAction(usize),
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ButtonBlockParameters {
+    pub padding: Padding,
     pub action: Action,
+    pub text: String,
     pub font: String,
     pub border_width: f64,
     pub border_rounding: f64,
     pub text_color: Color,
     pub border_color: Color,
     pub background_color: Color,
-    pub ellipsize: EllipsizeMode,
-    pub padding: Padding,
     pub dimensions: Dimensions,
 
     // -- Optional fields
     pub text_color_hovered: Option<Color>,
     pub border_color_hovered: Option<Color>,
     pub background_color_hovered: Option<Color>,
+    #[serde(default)]
+    pub ellipsize: EllipsizeMode,
     #[serde(default)]
     pub render_when_empty: bool,
 
@@ -134,11 +136,11 @@ impl DrawableLayoutElement for ButtonBlockParameters {
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         let maybe_text = match self.action {
-            Action::Primary => {
+            Action::DefaultAction => {
                 self.key = "default".to_owned();
                 window.notification.actions.get("default").cloned()
             },
-            Action::Other(i) => {
+            Action::OtherAction(i) => {
                 // Creates an iterator without the "default" key, which is preserved for action1.
                 let mut keys = window.notification.actions.keys().filter(|s| *s != "default");
                 let maybe_key = keys.nth(i);
@@ -151,7 +153,8 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             }
         };
 
-        let text = maybe_text.unwrap_or("".to_owned());
+        let key_text = maybe_text.unwrap_or("".to_owned());
+        let text = maths_utility::format_action_notification_string(&self.text, &key_text, &window.notification);
 
         if text.is_empty() && !self.render_when_empty {
             self.real_text = text;

@@ -75,9 +75,12 @@ pub struct Config {
 
     pub timeout: i32,           // Default timeout.
     pub poll_interval: u64,     // "Frame rate" / check for updates and new notifications.
-    // Enable/disable `replaces_id` functionality.  I don't like how some apps do it.
+    // Enable/disable notification replace functionality.  I don't like how some apps do it.
     #[serde(default = "maths_utility::val_true")]
     pub replacing_enabled: bool,
+    // Enable/disable notification closing functionality.  I don't like how some apps do it.
+    #[serde(default = "maths_utility::val_true")]
+    pub closing_enabled: bool,
 
     pub layout_blocks: Vec<LayoutBlock>,
 
@@ -190,10 +193,17 @@ impl Config {
     // Attempt to load the config again.
     // If we can, then replace the existing config.
     // If we can't, then do nothing.
-    pub fn try_reload(path: PathBuf) {
+    pub fn try_reload(path: PathBuf) -> bool {
         match Config::load_file(path) {
-            Ok(cfg) => unsafe { CONFIG = Some(cfg) },
-            Err(e) => println!("Tried to reload the config but couldn't: {}", e),
+            Ok(cfg) => {
+                unsafe { CONFIG = Some(cfg); }
+                println!("Config reloaded.");
+                return true;
+            }
+            Err(e) => {
+                println!("Tried to reload the config but couldn't: {}", e);
+                return false;
+            }
         }
     }
 

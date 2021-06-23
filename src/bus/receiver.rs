@@ -10,6 +10,10 @@ use super::dbus_codegen::{ OrgFreedesktopNotifications, Value };
 
 static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 
+pub fn fetch_id() -> u32 {
+    ID_COUNT.fetch_add(1, Ordering::Relaxed)
+}
+
 #[derive(Copy, Clone, Default, Debug)]
 pub struct BusNotification;
 impl OrgFreedesktopNotifications for BusNotification {
@@ -77,7 +81,7 @@ impl OrgFreedesktopNotifications for BusNotification {
         let id = if replaces_id == 0 {
             // Grab an ID atomically.  This is moreso to allow global access to `ID_COUNT`, but I'm
             // also not sure if `notify` is called in a single-threaded way, so it's best to be safe.
-            ID_COUNT.fetch_add(1, Ordering::Relaxed)
+            fetch_id()
         } else {
             replaces_id
         };

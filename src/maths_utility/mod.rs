@@ -3,6 +3,7 @@ use std::process::{Command, Stdio};
 
 use serde::Deserialize;
 use crate::config::Color;
+use crate::bus::dbus::Notification;
 
 #[derive(Default, Debug, Deserialize, Clone)]
 pub struct MinMax {
@@ -298,13 +299,11 @@ pub fn escape_decode(to_escape: &str) -> String {
     String::from_utf8(escaped).expect("Error when escaping ampersand.")
 }
 
-use crate::bus::dbus::Notification;
-
 // str.replace() won't work for this because we'd have to do it twice: once for the summary and
 // once for the body.  The first insertion could insert format strings which would mess up the
 // second insertion.
 // This solution is pretty fast (microseconds in release).
-pub fn format_notification_string(format_string: &str, notification: &Notification) -> String {
+pub fn format_action_notification_string(format_string: &str, action_name: &str, notification: &Notification) -> String {
     let mut formatted: Vec<u8> = vec![];
     let bytes = format_string.as_bytes();
     let mut i = 0;
@@ -336,7 +335,8 @@ pub fn format_notification_string(format_string: &str, notification: &Notificati
                     }
                     "%s" => { formatted.extend_from_slice(notification.summary.as_bytes()); i += 2; continue },
                     "%b" => { formatted.extend_from_slice(notification.body.as_bytes()); i += 2; continue },
-                    "%a" => { formatted.extend_from_slice(notification.app_name.as_bytes()); i += 2; continue },
+                    "%n" => { formatted.extend_from_slice(notification.app_name.as_bytes()); i += 2; continue },
+                    "%a" => { formatted.extend_from_slice(action_name.as_bytes()); i += 2; continue },
                     _ => (),
                 }
 
@@ -351,6 +351,10 @@ pub fn format_notification_string(format_string: &str, notification: &Notificati
 
     // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
     String::from_utf8(formatted).expect("Error when formatting notification string.")
+}
+
+pub fn format_notification_string(format_string: &str, notification: &Notification) -> String {
+    format_action_notification_string(format_string, "", notification)
 }
 
 // This function expects a string that has an open bracket to start, and a closing bracket
