@@ -129,8 +129,8 @@ impl std::fmt::Debug for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\ttimeout: {}\n}}",
-            self.id, self.app_name, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.timeout,
+            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\turgency: {:?},\n\ttime: {},\n\ttimeout: {}\n}}",
+            self.id, self.app_name, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.urgency, self.time, self.timeout,
         )
     }
 }
@@ -248,6 +248,7 @@ impl Notification {
             hint_image = None;
         }
 
+        dbg!(hints.get("urgency"));
         let urgency: Urgency;
         if let Some(Value::U8(level)) = hints.get("urgency") {
             match level {
