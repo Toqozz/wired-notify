@@ -146,7 +146,6 @@ impl LayoutBlock {
         let rect = if self.should_draw(window) {
             self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
         } else {
-            dbg!("Not drawing a block {}.", &self.name);
             let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
             Rect::new(pos.x, pos.y, 0.0, 0.0)
         };
