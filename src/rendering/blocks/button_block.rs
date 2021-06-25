@@ -44,8 +44,6 @@ pub struct ButtonBlockParameters {
     pub background_color_hovered: Option<Color>,
     #[serde(default)]
     pub ellipsize: EllipsizeMode,
-    #[serde(default)]
-    pub render_when_empty: bool,
 
     // -- Runtime fields
     #[serde(skip)]
@@ -85,11 +83,6 @@ impl ButtonBlockParameters {
 // Much of this is the same as TextBlock, see there for documentation.
 impl DrawableLayoutElement for ButtonBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        if self.real_text.is_empty() && !self.render_when_empty {
-            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
-            return Rect::new(pos.x, pos.y, 0.0, 0.0);
-        }
-
         let text_col = self.text_color();
         let border_col = self.border_color();
         let background_col = self.background_color();
@@ -135,32 +128,14 @@ impl DrawableLayoutElement for ButtonBlockParameters {
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        let maybe_text = match self.action {
-            Action::DefaultAction => {
-                self.key = "default".to_owned();
-                window.notification.actions.get("default").cloned()
-            },
-            Action::OtherAction(i) => {
-                // Creates an iterator without the "default" key, which is preserved for action1.
-                let mut keys = window.notification.actions.keys().filter(|s| *s != "default");
-                let maybe_key = keys.nth(i);
-                if let Some(key) = maybe_key {
-                    self.key = key.to_owned();
-                    window.notification.actions.get(key).cloned()
-                } else {
-                    None
-                }
-            }
+        let maybe_action = match self.action {
+            Action::DefaultAction => window.notification.get_default_action(),
+            Action::OtherAction(i) => window.notification.get_other_action(i),
         };
 
-        let key_text = maybe_text.unwrap_or("".to_owned());
-        let text = maths_utility::format_action_notification_string(&self.text, &key_text, &window.notification);
-
-        if text.is_empty() && !self.render_when_empty {
-            self.real_text = text;
-            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
-            return Rect::new(pos.x, pos.y, 0.0, 0.0);
-        }
+        let (key, text) = maybe_action.unwrap_or(("".to_owned(), "".to_owned()));
+        let text = maths_utility::format_action_notification_string(&self.text, &text, &window.notification);
+        self.key = key;
 
         window.text.set_text(
             &text,

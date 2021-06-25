@@ -414,7 +414,6 @@ pub struct ShortcutsConfig {
     pub notification_close: Option<u8>,
     pub notification_closeall: Option<u8>,
     pub notification_pause: Option<u8>,
-    pub notification_url: Option<u8>,
 
     pub notification_action1: Option<u8>,
     pub notification_action2: Option<u8>,
@@ -429,7 +428,6 @@ impl Default for ShortcutsConfig {
             notification_close: Some(2),
             notification_closeall: Some(7),
             notification_pause: None,
-            notification_url: Some(8),
 
             notification_action1: Some(3),
             notification_action2: None,

@@ -28,8 +28,6 @@ pub struct ScrollingTextBlockParameters {
     pub width_image_hint: Option<MinMax>,
     pub width_image_app: Option<MinMax>,
     pub width_image_both: Option<MinMax>,
-    #[serde(default)]
-    pub render_when_empty: bool,
 
     // -- Runtime fields
     #[serde(skip)]
@@ -64,13 +62,6 @@ impl ScrollingTextBlockParameters {
 
 impl DrawableLayoutElement for ScrollingTextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
-        // optionally allow it.
-        if self.real_text.is_empty() && !self.render_when_empty {
-            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
-            return Rect::new(pos.x, pos.y, 0.0, 0.0);
-        }
-
         let width = &self.real_width;
 
         // First, generate bounding rect with padding and stuff -- the space the text will
@@ -129,13 +120,6 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         let text = maths_utility::format_notification_string(&self.text, &window.notification);
-
-        if text.is_empty() && !self.render_when_empty {
-            self.update_enabled = false;
-            self.real_text = text;
-            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
-            return Rect::new(pos.x, pos.y, 0.0, 0.0);
-        }
 
         // We cache real_width because we need to access it in `update()` later, which doesn't have
         // access to the notification.

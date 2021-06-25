@@ -32,8 +32,6 @@ pub struct TextBlockParameters {
     pub dimensions_image_both: Option<Dimensions>,
     #[serde(default)]
     pub ellipsize: EllipsizeMode,
-    #[serde(default)]
-    pub render_when_empty: bool,
 
     // -- Runtime fields
     #[serde(skip)]
@@ -55,13 +53,6 @@ impl TextBlockParameters {
 
 impl DrawableLayoutElement for TextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
-        // optionally allow it.
-        if self.real_text.is_empty() && !self.render_when_empty {
-            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
-            return Rect::new(pos.x, pos.y, 0.0, 0.0);
-        }
-
         window.context.set_operator(cairo::Operator::Over);
 
         let dimensions = self.get_dimensions(&window.notification);
@@ -88,16 +79,6 @@ impl DrawableLayoutElement for TextBlockParameters {
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         let text = maths_utility::format_notification_string(&self.text, &window.notification);
-
-        // If text is empty and we shouldn't render it, then we should be safe to just return an
-        // empty rect.
-        // We still need to set the position correctly, because other layout elements may be
-        // depending on its position (e.g. in the center), even if it may not be being rendered.
-        if text.is_empty() && !self.render_when_empty {
-            self.real_text = text;
-            let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &Rect::EMPTY);
-            return Rect::new(pos.x, pos.y, 0.0, 0.0);
-        }
 
         let dimensions = self.get_dimensions(&window.notification);
         window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max, &self.ellipsize);

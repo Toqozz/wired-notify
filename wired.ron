@@ -36,6 +36,7 @@
             parent: "",
             hook: Hook(parent_anchor: TL, self_anchor: TL),
             offset: Vec2(x: 7.0, y: 7.0),
+            // https://github.com/Toqozz/wired-notify/wiki/NotificationBlock
             params: NotificationBlock((
                 monitor: 0,
                 border_width: 3.0,
@@ -57,6 +58,8 @@
             parent: "root",
             hook: Hook(parent_anchor: TL, self_anchor: TL),
             offset: Vec2(x: 0.0, y: 0.0),
+            render_criteria: [HintImage],
+            // https://github.com/Toqozz/wired-notify/wiki/ImageBlock
             params: ImageBlock((
                 image_type: Hint,
                 // We actually want 4px padding, but the border is 3px.
@@ -64,8 +67,6 @@
                 rounding: 3.0,
                 scale_width: 48,
                 scale_height: 48,
-                min_width: 0,
-                min_height: 0,
                 filter_mode: Lanczos3,
             )),
         ),
@@ -75,6 +76,7 @@
             parent: "image",
             hook: Hook(parent_anchor: MR, self_anchor: BL),
             offset: Vec2(x: 0.0, y: 0.0),
+            // https://github.com/Toqozz/wired-notify/wiki/TextBlock
             params: TextBlock((
                 text: "%s",
                 font: "Arial Bold 11",
@@ -90,6 +92,7 @@
             parent: "summary",
             hook: Hook(parent_anchor: BL, self_anchor: TL),
             offset: Vec2(x: 0.0, y: -3.0),
+            // https://github.com/Toqozz/wired-notify/wiki/ScrollingTextBlock
             params: ScrollingTextBlock((
                 text: "%b",
                 font: "Arial 11",
@@ -106,14 +109,14 @@
 
     // https://github.com/Toqozz/wired-notify/wiki/Shortcuts
     shortcuts: ShortcutsConfig (
-        notification_close: 1,
-        notification_closeall: 8,
-        //notification_pause: 2,
-        notification_url: 3,
+        notification_interact: 1,
+        notification_close: 2,
+        // notification_closeall: 99,
+        // notification_pause: 99,
 
-        notification_action1: 2,
-        notification_action2: 99,
-        notification_action3: 99,
-        notification_action4: 99,
+        notification_action1: 3,
+        // notification_action2: 99,
+        // notification_action3: 99,
+        // notification_action4: 99,
     ),
 )

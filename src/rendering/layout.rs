@@ -17,6 +17,11 @@ pub struct LayoutBlock {
     pub hook: Hook,
     pub offset: Vec2,
     pub params: LayoutElement,
+    // Used for deciding when a block should or shouldn't be rendered.
+    // Lets users have the freedom of deciding when blocks should / shouldn't be rendered.
+    // Defaults to always none (always rendered).
+    #[serde(default)]
+    pub render_criteria: Vec<RenderCriteria>,
     #[serde(skip)]
     pub children: Vec<LayoutBlock>,
 
@@ -26,6 +31,17 @@ pub struct LayoutBlock {
     pub cache_rect: Rect,
     #[serde(skip)]
     pub hovered: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum RenderCriteria {
+    Summary,
+    Body,
+    HintImage,
+    AppImage,
+    AppName,
+    ActionDefault,
+    ActionOther(usize),
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -50,6 +66,28 @@ pub enum LayoutElement {
 }
 
 impl LayoutBlock {
+    pub fn should_draw(&self, window: &NotifyWindow) -> bool {
+        // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
+        // optionally allow it.
+        // TODO: there should be some way to cache this and not do it every draw operation.
+        // We can't just do it for the whole notification because the notification can be replaced.
+        let mut should_draw = true;
+        let n = &window.notification;
+        for c in &self.render_criteria {
+            match c {
+                RenderCriteria::Summary => if n.summary.is_empty() { should_draw = false },
+                RenderCriteria::Body => if n.body.is_empty() { should_draw = false },
+                RenderCriteria::AppImage => if n.app_image.is_none() { should_draw = false },
+                RenderCriteria::HintImage => if n.hint_image.is_none() { should_draw = false },
+                RenderCriteria::AppName => if n.app_name.is_empty() { should_draw = false },
+                RenderCriteria::ActionDefault => if n.get_default_action().is_none() { should_draw = false },
+                RenderCriteria::ActionOther(i) => if n.get_other_action(*i).is_none() { should_draw = false },
+            }
+        }
+
+        should_draw
+    }
+
     pub fn find_anchor_pos(hook: &Hook, offset: &Vec2, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
         // Get position of anchor in each rectangle (parent and self).
         let mut anchor = hook.parent_anchor.get_pos(parent_rect);
@@ -69,7 +107,16 @@ impl LayoutBlock {
 
     // Call draw on each block in tree.
     pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
-        let rect = self.params.draw(&self.hook, &self.offset, parent_rect, window);
+        let rect = if self.should_draw(window) {
+            self.params.draw(&self.hook, &self.offset, parent_rect, window)
+        } else {
+            // If block shouldn't be rendered, then we should be safe to just return an
+            // empty rect.
+            // We still need to set the position correctly, because other layout elements may be
+            // depending on its position (e.g. in the center), even if it may not be being rendered.
+            let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
+            Rect::new(pos.x, pos.y, 0.0, 0.0)
+        };
         let mut acc_rect = accum_rect.union(&rect);
 
         // Draw debug rect around bounding box.
@@ -96,7 +143,13 @@ impl LayoutBlock {
         // here to save performance.
         // `predict_rect_and_init` finds the bounding box of an individual element -- children are not
         // involved.
-        let rect = self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window);
+        let rect = if self.should_draw(window) {
+            self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
+        } else {
+            dbg!("Not drawing a block {}.", &self.name);
+            let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
+            Rect::new(pos.x, pos.y, 0.0, 0.0)
+        };
         let mut acc_rect = accum_rect.union(&rect);
 
         // Recursively get child rects.

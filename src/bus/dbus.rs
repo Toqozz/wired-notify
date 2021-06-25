@@ -278,4 +278,20 @@ impl Notification {
             timeout,
         }
     }
+
+    pub fn get_default_action(&self) -> Option<(String, String)> {
+        self.actions.get_key_value("default").map(|(k, v)|(k.to_owned(), v.to_owned()))
+    }
+
+    pub fn get_other_action(&self, idx: usize)  -> Option<(String, String)> {
+        // Creates an iterator without the "default" key, which is preserved for action1.
+        let mut keys = self.actions.keys().filter(|s| *s != "default");
+        let maybe_key = keys.nth(idx);
+        if let Some(key) = maybe_key {
+            self.actions.get_key_value(key).map(|(k, v)|(k.to_owned(), v.to_owned()))
+        } else {
+            None
+        }
+
+    }
 }
