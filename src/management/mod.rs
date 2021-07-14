@@ -195,6 +195,25 @@ impl NotifyWindowManager {
     pub fn process_event(&mut self, window_id: WindowId, event: event::WindowEvent) {
         let mut pressed = None;
         match event {
+            WindowEvent::CursorMoved { position, .. } => {
+                // We need to handle the Option here (and below) properly, because events can come in any order
+                // and the move/click/shortcut event is not guaranteed to come before the window is
+                // destroyed.
+                if let Some(window) = self.find_window_mut(window_id) {
+                    window.process_mouse_move(position);
+                }
+            },
+
+            // If we don't notify when the cursor left, then we have issues moving the cursor off
+            // the side of the window and the hover status not being reset.
+            // Since the position given is from the top left of the window, a negative value should
+            // always be outside it.
+            WindowEvent::CursorLeft { .. } => {
+                if let Some(window) = self.find_window_mut(window_id) {
+                    window.process_mouse_move(PhysicalPosition::new(-1.0, -1.0));
+                }
+            },
+
             WindowEvent::MouseInput { state: ElementState::Pressed, button, .. } => {
                 match button {
                     MouseButton::Left => pressed = Some(1),
@@ -204,20 +223,9 @@ impl NotifyWindowManager {
                 };
             },
 
-            WindowEvent::CursorMoved { position, .. } => {
-                self.find_window_mut(window_id).unwrap().process_mouse_move(position);
-            },
-
-            // If we don't notify when the cursor left, then we have issues moving the cursor off
-            // the side of the window and the hover status not being reset.
-            // Since the position given is from the top left of the window, a negative value should
-            // always be outside it.
-            WindowEvent::CursorLeft { .. } => {
-                self.find_window_mut(window_id).unwrap().process_mouse_move(PhysicalPosition::new(-1.0, -1.0));
-            }
-
             _ => (),
         }
+
 
         // If nothing was pressed, then there is no event to process.
         // The code below won't work with None naturally, because the config is allowed to have
@@ -228,7 +236,9 @@ impl NotifyWindowManager {
 
         let config = Config::get();
         if pressed == config.shortcuts.notification_interact {
-            self.find_window_mut(window_id).unwrap().process_mouse_click();
+            if let Some(window) = self.find_window_mut(window_id) {
+                window.process_mouse_click();
+            }
         } else if pressed == config.shortcuts.notification_close {
             self.drop_window(window_id);
         } else if pressed == config.shortcuts.notification_closeall {
@@ -242,7 +252,11 @@ impl NotifyWindowManager {
                 window.update_mode.toggle(UpdateModes::FUSE);
             }
         } else {
-            let notification = &self.find_window(window_id).unwrap().notification;
+            let notification = match self.find_window(window_id) {
+                Some(w) => &w.notification,
+                None => return,
+            };
+
             // Creates an iterator without the "default" key, which is preserved for action1.
             let mut keys = notification.actions.keys().filter(|s| *s != "default");
 
@@ -261,7 +275,8 @@ impl NotifyWindowManager {
             } else if pressed == config.shortcuts.notification_action4 {
                 keys.nth(2).cloned()
             } else {
-                None
+                // `pressed` did not match any action key.
+                return;
             };
 
             // Found an action -> button press combo, great!  Send dbus a signal to invoke it.

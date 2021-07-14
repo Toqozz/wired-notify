@@ -248,7 +248,6 @@ impl Notification {
             hint_image = None;
         }
 
-        dbg!(hints.get("urgency"));
         let urgency: Urgency;
         if let Some(Value::U8(level)) = hints.get("urgency") {
             match level {
