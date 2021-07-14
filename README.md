@@ -16,9 +16,10 @@ tools.
 
 ## Features
 - **Layout** - position every element how you want it, see [wiki](https://github.com/Toqozz/wired-notify/wiki/Blocks) for more info.
-- **Programmable Layout Elements** - code your own or use layout elements from wired and contributors (accepting pull requests!).
+- **Programmable and Interactable Layout Elements** - code your own or use layout elements from wired and contributors (accepting pull requests!).
     - Text blocks which scroll.
     - Backgrounds which reflect state (paused, active, extended, etc).
+    - Layout elements can fire events on click (open url, etc).
     - More soon.
 - **First Class Mouse Actions** - close, pause, and open urls within a notification with a click.
     - Open an issue if you have ideas of more actions.
@@ -46,6 +47,9 @@ Wired is available on the [AUR](https://aur.archlinux.org/packages/wired/)!
 yay -S wired
 ```
 
+## Config
+See the [Config](https://github.com/Toqozz/wired-notify/wiki/Config) wiki page for configuration settings.
+
 ## Wiki
 See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else you need to know about using Wired.
 
@@ -55,7 +59,7 @@ There's a bunch of things that aren't done yet; here's a non-exhaustive version 
 - [x] Allow hex colors in config.
 - [x] `%t` for time, etc, in text blocks.
 - [ ] Lookup application icons via `.desktop` file
-- [ ] Support `replaces_id` functionality.
+- [x] Support `replaces_id` functionality.
 - [ ] More options surrounding notification urgency.
 - [ ] Notification follows active monitor.
 - [ ] Tests...
