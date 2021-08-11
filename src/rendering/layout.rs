@@ -63,6 +63,7 @@ pub enum LayoutElement {
     ScrollingTextBlock(ScrollingTextBlockParameters),
     ImageBlock(ImageBlockParameters),
     ButtonBlock(ButtonBlockParameters),
+    ProgressBlock(ProgressBlockParameters),
 }
 
 impl LayoutBlock {

@@ -210,6 +210,25 @@ pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width:
     ctx.restore();
 }
 
+pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) {
+    ctx.save();
+
+    // Aspect ratio.
+    let aspect = 1.0;
+    let radius = corner_radius / aspect;
+
+    let degrees = std::f64::consts::PI / 180.0;
+
+    ctx.new_sub_path();
+    ctx.arc_negative(x + radius        , y + radius         , radius         , 270.0 * degrees, 180.0 * degrees);
+    ctx.arc_negative(x + radius        , y + height - radius, radius         , 180.0 * degrees , 90.0 * degrees);
+    ctx.arc_negative(x + width - radius, y + height - radius, radius         , 90.0 * degrees  , 0.0 * degrees);
+    ctx.arc_negative(x + width - radius, y + radius         , radius         , 0.0 * degrees, -90.0 * degrees);
+    ctx.close_path();
+
+    ctx.restore();
+}
+
 // Creates a rounded rectangle with a border that acts as a user would expect.
 // Obeys background opacity and such -- border color is not present on the background like it would
 // be with the naive approach.
@@ -227,6 +246,40 @@ pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, wi
     cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, corner_radius);
     ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
     ctx.fill();
+    ctx.pop_group_to_source();
+    ctx.paint();
+
+    ctx.restore();
+}
+
+// Creates a rounded rectangle with a border that acts as a user would expect.
+// Obeys background opacity and such -- border color is not present on the background like it would
+// be with the naive approach.
+pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, fill_percent: f64, corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color, fill_color: &Color) {
+    ctx.save();
+
+    // To my understanding, push group basically lets us write to another texture, which we can
+    // then paint on top of stuff later.
+    ctx.push_group();
+    ctx.set_operator(cairo::Operator::Source);
+    cairo_path_rounded_rectangle(ctx, x, y, width, height, corner_radius);
+    ctx.set_source_rgba(fg_color.r, fg_color.g, fg_color.b, fg_color.a);
+    ctx.fill();
+
+    // Background clipping path (to prevent leaks at small fill %s).
+    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, corner_radius);
+    ctx.clip_preserve();
+
+    // Draw background, which subtracts from the clipping area path.
+    cairo_path_rounded_rectangle_inverse(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, corner_radius);
+    ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
+    ctx.fill();
+
+    // Draw fill area, on top of the background.
+    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, corner_radius);
+    ctx.set_source_rgba(fill_color.r, fill_color.g, fill_color.b, fill_color.a);
+    ctx.fill();
+
     ctx.pop_group_to_source();
     ctx.paint();
 

@@ -118,6 +118,7 @@ pub struct Notification {
     pub actions: HashMap<String, String>,
     pub app_image: Option<DynamicImage>,
     pub hint_image: Option<DynamicImage>,
+    pub percentage: Option<f64>,
 
     pub urgency: Urgency,
 
@@ -129,8 +130,8 @@ impl std::fmt::Debug for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\turgency: {:?},\n\ttime: {},\n\ttimeout: {}\n}}",
-            self.id, self.app_name, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.urgency, self.time, self.timeout,
+            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\turgency: {:?},\n\tpercentage: {:?},\n\ttime: {},\n\ttimeout: {}\n}}",
+            self.id, self.app_name, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.urgency, self.percentage, self.time, self.timeout,
         )
     }
 }
@@ -146,6 +147,7 @@ impl Notification {
             actions: HashMap::new(),
             app_image: None,
             hint_image: None,
+            percentage: None,
 
             urgency: Urgency::Low,
 
@@ -260,6 +262,15 @@ impl Notification {
             urgency = Urgency::Normal;
         }
 
+        let percentage: Option<f64>;
+        if let Some(Value::I32(value)) = hints.get("value") {
+            let v = f64::from(*value);
+            let p = f64::clamp(v / 100.0, 0.0, 1.0);
+            percentage = Some(p)
+        } else {
+            percentage = None;
+        }
+
         let mut timeout = expire_timeout;
         if timeout <= 0 {
             timeout = Config::get().timeout;
@@ -274,6 +285,7 @@ impl Notification {
             app_image,
             hint_image,
             urgency,
+            percentage,
             time,
             timeout,
         }
