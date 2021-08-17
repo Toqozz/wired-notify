@@ -100,18 +100,19 @@ impl NotifyWindow {
 
         let winit = WindowBuilder::new()
             .with_inner_size(PhysicalSize { width, height })
-            .with_x11_window_type(vec![XWindowType::Utility, XWindowType::Notification])
+            .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
             .with_title("wired")
             .with_x11_visual(&mut visual_info)
             .with_transparent(true)
             .with_visible(false)    // Window not visible for first draw, because the position will probably be wrong.
+            .with_override_redirect(true)
             .build(el)
             .expect("Couldn't build winit window.");
 
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
         //let xlib_display = winit.xlib_display().expect("Couldn't get xlib display.");
-        let xlib_window = winit.xlib_window().expect("Couldn't get xlib window.");
+        let xlib_window = winit.xlib_window().expect("Couldn't get xlib window, make sure you're running X11.");
 
         let surface = unsafe {
             /*
