@@ -239,8 +239,6 @@ impl NotifyWindowManager {
             if let Some(window) = self.find_window_mut(window_id) {
                 window.process_mouse_click();
             }
-        } else if pressed == config.shortcuts.notification_close {
-            self.drop_window(window_id);
         } else if pressed == config.shortcuts.notification_closeall {
             self.drop_windows();
         }  else if pressed == config.shortcuts.notification_pause {
@@ -252,6 +250,19 @@ impl NotifyWindowManager {
                 window.update_mode.toggle(UpdateModes::FUSE);
             }
         } else {
+            // close the window if we have one of the close actions
+            if [
+                config.shortcuts.notification_close,
+                config.shortcuts.notification_action1_and_close,
+                config.shortcuts.notification_action2_and_close,
+                config.shortcuts.notification_action3_and_close,
+                config.shortcuts.notification_action4_and_close,
+            ]
+            .contains(&pressed)
+            {
+                self.drop_window(window_id);
+            }
+
             let notification = match self.find_window(window_id) {
                 Some(w) => &w.notification,
                 None => return,
@@ -262,17 +273,25 @@ impl NotifyWindowManager {
 
             // action1 is the default action.  Maybe we should rename it to action_default or
             // something.
-            let key = if pressed == config.shortcuts.notification_action1 {
+            let key = if pressed == config.shortcuts.notification_action1 ||
+                pressed == config.shortcuts.notification_action1_and_close
+            {
                 if notification.actions.contains_key("default") {
                     Some("default".to_owned())
                 } else {
                     None
                 }
-            } else if pressed == config.shortcuts.notification_action2 {
+            } else if pressed == config.shortcuts.notification_action2 ||
+                pressed == config.shortcuts.notification_action2_and_close
+            {
                 keys.nth(0).cloned()
-            } else if pressed == config.shortcuts.notification_action3 {
+            } else if pressed == config.shortcuts.notification_action3 ||
+                pressed == config.shortcuts.notification_action3_and_close
+            {
                 keys.nth(1).cloned()
-            } else if pressed == config.shortcuts.notification_action4 {
+            } else if pressed == config.shortcuts.notification_action4 ||
+                pressed == config.shortcuts.notification_action4_and_close
+            {
                 keys.nth(2).cloned()
             } else {
                 // `pressed` did not match any action key.
