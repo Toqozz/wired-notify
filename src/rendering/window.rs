@@ -7,6 +7,8 @@ use winit::{
     dpi::{PhysicalSize, PhysicalPosition},
 };
 
+use chrono::{DateTime, Local};
+
 use cairo_sys;
 use cairo::{Surface, Context};
 
@@ -57,6 +59,8 @@ pub struct NotifyWindow {
 
     // Dirty state -- will be redrawn if this is true.
     pub dirty: bool,
+
+    pub creation_timestamp: DateTime<Local>,
 
     // Last mouse pos, relative to top left of window.
     last_mouse_pos: Vec2,
@@ -149,6 +153,7 @@ impl NotifyWindow {
             fuse,
             update_mode: UpdateModes::all(),
             dirty: true,    // New windows are dirty -- no drawing has happened yet.
+            creation_timestamp: Local::now(),
             last_mouse_pos: Vec2::new(0.0, 0.0),
         };
 

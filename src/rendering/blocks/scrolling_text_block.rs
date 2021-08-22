@@ -1,12 +1,14 @@
+use std::time::Duration;
+use std::convert::TryFrom;
 use serde::Deserialize;
+use chrono::Local;
 
 use crate::maths_utility::{self, Rect, Vec2, MinMax};
-use crate::config::{Padding, Color};
+use crate::config::{Padding, Color, Config};
 use crate::rendering::window::NotifyWindow;
 use crate::bus::dbus::Notification;
 use crate::rendering::layout::{LayoutBlock, DrawableLayoutElement, Hook};
 use crate::rendering::text::EllipsizeMode;
-use std::time::Duration;
 
 
 #[derive(Debug, Deserialize, Clone)]
@@ -28,6 +30,8 @@ pub struct ScrollingTextBlockParameters {
     pub width_image_hint: Option<MinMax>,
     pub width_image_app: Option<MinMax>,
     pub width_image_both: Option<MinMax>,
+    #[serde(default)]
+    pub backtrack_scroll_pos: bool,
 
     // -- Runtime fields
     #[serde(skip)]
@@ -153,6 +157,21 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         self.text_rect = text_rect;
         self.clip_rect = clip_rect;
         self.scroll_distance = maths_utility::distance(bounce_left, bounce_right);
+
+        // This calculation is not perfect.  It will likely be off by a frame or two due to
+        // not accounting for deltas in rendering and stuff, but it should be close enough to
+        // not really be able to tell.
+        if self.backtrack_scroll_pos {
+            let now = Local::now();
+            let delta = (now - window.creation_timestamp).num_milliseconds();
+            let mut delta = u64::try_from(delta).unwrap_or(0);
+
+            let cfg = Config::get();
+            while delta >= cfg.poll_interval {
+                self.update(Duration::from_millis(cfg.poll_interval), window);
+                delta -= cfg.poll_interval;
+            }
+        }
 
         rect.set_xy(pos.x, pos.y);
         rect
