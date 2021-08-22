@@ -13,10 +13,12 @@ pub struct ProgressBlockParameters {
     pub padding: Padding,
     pub border_width: f64,
     pub border_rounding: f64,
+    pub fill_rounding: f64,
     pub border_color: Color,
     pub background_color: Color,
     pub fill_color: Color,
-    pub size: Vec2,
+    pub width: f64,
+    pub height: f64,
 
     // -- Optional fields
     pub border_color_hovered: Option<Color>,
@@ -63,8 +65,8 @@ impl DrawableLayoutElement for ProgressBlockParameters {
         let background_col = self.background_color();
         let fill_col = self.fill_color();
 
-        let width = if self.size.x < 0.0 { parent_rect.width() } else { self.size.x + self.padding.width() };
-        let height = if self.size.y < 0.0 { parent_rect.height() } else { self.size.y + self.padding.height() };
+        let width = if self.width < 0.0 { parent_rect.width() } else { self.width + self.padding.width() };
+        let height = if self.height < 0.0 { parent_rect.height() } else { self.height + self.padding.height() };
         let mut rect = Rect::new(
             0.0, 0.0,
             width, height,
@@ -78,6 +80,7 @@ impl DrawableLayoutElement for ProgressBlockParameters {
             width - self.padding.width(), height - self.padding.height(),
             self.percentage,
             self.border_rounding,
+            self.fill_rounding,
             self.border_width,
             border_col,
             background_col,
@@ -101,8 +104,8 @@ impl DrawableLayoutElement for ProgressBlockParameters {
             eprintln!("Warning: padding width/height exceeds parent rect width/height.");
         }
 
-        let width = if self.size.x < 0.0 { parent_rect.width() } else { self.size.x + self.padding.width() };
-        let height = if self.size.y < 0.0 { parent_rect.height() } else { self.size.y + self.padding.height() };
+        let width = if self.width < 0.0 { parent_rect.width() } else { self.width + self.padding.width() };
+        let height = if self.height < 0.0 { parent_rect.height() } else { self.height + self.padding.height() };
         let mut rect = Rect::new(
             0.0, 0.0,
             width, height,

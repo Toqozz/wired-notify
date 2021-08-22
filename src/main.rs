@@ -7,7 +7,10 @@ mod bus;
 mod config;
 mod maths_utility;
 
+use std::env;
 use std::time::{Instant, Duration};
+use std::os::unix::net::{ UnixStream, UnixListener };
+use std::io::{BufRead, BufReader};
 
 use winit::{
     event::{StartCause, Event, WindowEvent},
@@ -23,8 +26,26 @@ use config::Config;
 use management::NotifyWindowManager;
 use wired_derive;
 
+/*
+fn run_daemon() {
+
+}
+*/
+
 fn main() {
     let maybe_watcher = Config::init();
+
+    // Socket, for listening to CLI calls to ourselves.
+    /*
+    std::fs::remove_file("/tmp/wired.sock").unwrap();
+    let socket_listener = match UnixListener::bind("/tmp/wired.sock") {
+        Ok(sock) => sock,
+        Err(e) => {
+            eprintln!("Couldn't bind socket /tmp/wired.sock, is another wired instance running?\n{:?}", e);
+            return;
+        }
+    };
+    */
 
     // Allows us to receive messages from dbus.
     let receiver = bus::dbus::init_connection();
@@ -45,6 +66,25 @@ fn main() {
                 let time_passed = now - prev_instant;
                 prev_instant = now;
                 manager.update(time_passed);
+
+                // Read wired socket signals.
+                /*
+                for stream in socket_listener.incoming() {
+                    match stream {
+                        Ok(stream) => {
+                            let stream = BufReader::new(stream);
+                            for line in stream.lines() {
+                                println!("{}", line.unwrap());
+                            }
+                        },
+
+                        Err(e) => {
+                            dbg!("Error reading stream.");
+                            break;
+                        }
+                    }
+                }
+                */
 
                 // Check dbus signals.
                 // If we don't do get incoming signals, notify sender will block when sending.
