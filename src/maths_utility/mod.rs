@@ -390,6 +390,7 @@ pub fn format_action_notification_string(format_string: &str, action_name: &str,
                     "%b" => { formatted.extend_from_slice(notification.body.as_bytes()); i += 2; continue },
                     "%n" => { formatted.extend_from_slice(notification.app_name.as_bytes()); i += 2; continue },
                     "%a" => { formatted.extend_from_slice(action_name.as_bytes()); i += 2; continue },
+                    "%i" => { formatted.extend_from_slice(notification.id.to_string().as_bytes()); i += 2; continue },
                     _ => (),
                 }
 

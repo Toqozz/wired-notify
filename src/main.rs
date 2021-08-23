@@ -1,16 +1,20 @@
 #[macro_use]
 extern crate bitflags;
 
+mod cli;
 mod rendering;
 mod management;
 mod bus;
 mod config;
 mod maths_utility;
 
-use std::env;
-use std::time::{Instant, Duration};
-use std::os::unix::net::{ UnixStream, UnixListener };
-use std::io::{BufRead, BufReader};
+use std::{
+    env,
+    path::Path,
+    os::unix::net::{UnixListener, UnixStream},
+    io::{ErrorKind, BufRead, BufReader},
+    time::{Instant, Duration},
+};
 
 use winit::{
     event::{StartCause, Event, WindowEvent},
@@ -18,34 +22,90 @@ use winit::{
     platform::desktop::EventLoopExtDesktop,
     platform::unix::EventLoopExtUnix,
 };
+
 use notify::DebouncedEvent;
 use dbus::message::MessageType;
 use bus::dbus::{ Message, Notification };
-
 use config::Config;
 use management::NotifyWindowManager;
+use cli::ShouldRun;
 use wired_derive;
 
-/*
-fn run_daemon() {
+const SOCKET_PATH: &'static str = "/tmp/wired.sock";
 
+fn to_notification_id(input: &str) -> Option<u32> {
+    // TODO: support this.
+    if input == "latest" {
+        return None;
+    }
+
+    return match input.parse::<u32>() {
+        Ok(u) => Some(u),
+        Err(_) => None,
+    };
 }
-*/
+
+fn handle_socket_message(manager: &mut NotifyWindowManager, stream: UnixStream) {
+    let stream = BufReader::new(stream);
+    for line in stream.lines() {
+        let line = match line {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        println!("Recived socket message: {}", line);
+        if let Some((command, args)) = line.split_once(":") {
+            match command {
+                "close" => {
+                    if let Some(id) = to_notification_id(args) {
+                        manager.drop_notification(id);
+                    }
+                },
+                "action" => (),
+                "show" => (),
+                _ => (),
+            }
+        }
+    }
+}
 
 fn main() {
-    let maybe_watcher = Config::init();
-
-    // Socket, for listening to CLI calls to ourselves.
-    /*
-    std::fs::remove_file("/tmp/wired.sock").unwrap();
-    let socket_listener = match UnixListener::bind("/tmp/wired.sock") {
-        Ok(sock) => sock,
+    let args: Vec<String> = env::args().collect();
+    match cli::process_cli(args) {
+        Ok(should_run) => match should_run {
+            ShouldRun::Yes => (),
+            ShouldRun::No => return,
+        },
         Err(e) => {
-            eprintln!("Couldn't bind socket /tmp/wired.sock, is another wired instance running?\n{:?}", e);
+            eprintln!("{}",e);
             return;
         }
     };
-    */
+
+    let maybe_watcher = Config::init();
+
+    // Socket, for listening to CLI calls to ourselves.
+    // We leave the socket up in pretty much all cases when closing, and just unbind it always.
+    // This could cause confusing behavior for users where they have 2 wired instances running, and
+    // neither will work properly (one will have the notification bus name, and one will have the
+    // socket).
+    // "Fixing" this would require making sure the socket is unbound in almost all cases -- likely
+    // having to import a few crates like Ctrl-C and others -- yuck.
+    // Let's just leave it as it is and try to communicate to users that it's not an issue.
+    // https://stackoverflow.com/questions/40218416/how-do-i-close-a-unix-socket-in-rust
+    let socket_path = Path::new(SOCKET_PATH);
+    if socket_path.exists() {
+        println!("A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls.");
+        std::fs::remove_file(SOCKET_PATH).unwrap();
+    }
+    let listener = match UnixListener::bind(socket_path) {
+        Ok(sock) => sock,
+        Err(e) => {
+            eprintln!("Couldn't bind socket {}\n{:?}", SOCKET_PATH, e);
+            return;
+        }
+    };
+    listener.set_nonblocking(true).unwrap();
 
     // Allows us to receive messages from dbus.
     let receiver = bus::dbus::init_connection();
@@ -68,23 +128,17 @@ fn main() {
                 manager.update(time_passed);
 
                 // Read wired socket signals.
-                /*
-                for stream in socket_listener.incoming() {
-                    match stream {
-                        Ok(stream) => {
-                            let stream = BufReader::new(stream);
-                            for line in stream.lines() {
-                                println!("{}", line.unwrap());
-                            }
-                        },
-
-                        Err(e) => {
-                            dbg!("Error reading stream.");
-                            break;
+                // Since we're non-blocking, mostly this is just std::io::ErrorKind::WouldBlock.
+                // For other errors, we should probably inform users to aide debugging.
+                // I don't love the idea of spamming stderr here, however.
+                match listener.accept() {
+                    Ok((socket, _addr)) => handle_socket_message(&mut manager, socket),
+                    Err(e) => {
+                        if e.kind() != ErrorKind::WouldBlock {
+                            eprintln!("{}", e);
                         }
                     }
-                }
-                */
+                };
 
                 // Check dbus signals.
                 // If we don't do get incoming signals, notify sender will block when sending.
@@ -145,7 +199,6 @@ fn main() {
                 *control_flow = ControlFlow::WaitUntil(now + poll_interval);
             },
 
-            // Window becomes visible and then position is set.  Need fix.
             Event::RedrawRequested(window_id) => manager.request_redraw(window_id),
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
