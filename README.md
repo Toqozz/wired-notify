@@ -34,7 +34,7 @@ See [the wiki](https://github.com/Toqozz/wired-notify/wiki/Making-Your-Own-Block
 ### Dependencies
 `rust, dbus, cairo, pango`
 ### Build and Run
-```
+```sh
 $ git clone https://github.com/Toqozz/wired-notify.git
 $ cd wired-notify
 $ cargo build --release
@@ -43,8 +43,31 @@ $ ./target/release/wired
 
 ## AUR
 Wired is available on the [AUR](https://aur.archlinux.org/packages/wired/)!
-```
+```sh
 yay -S wired
+```
+
+## Nix (Flakes)
+Wired can be either run directly from the cloned repository:
+```sh
+$ git clone https://github.com/Toqozz/wired-notify.git
+$ cd wired-notify
+$ nix run
+```
+Or be installed as a package.  
+Simply add it to the inputs of your system flake
+```nix
+{
+  inputs = {
+    wired-notify.url = "github:toqozz/wired-notify/master";
+  };
+}
+```
+And install it as a system-wide package
+```nix
+# Add this Line i.e. to your environment.systemPackages
+wired-notify.packages.x86_64-linux.wired
+# Do not forget to pass the wired-notify input to where your environment.systemPackages lies
 ```
 
 ## Config
