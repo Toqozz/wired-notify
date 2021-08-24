@@ -310,6 +310,8 @@ pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, h
 }
 
 pub fn escape_decode(to_escape: &str) -> String {
+    let before = std::time::Instant::now();
+
     // Escape ampersand and decode some html stuff manually, for fun.
     // can escape about 6 ampersands without allocating (each is 4 chars, minus the existing char).
     let mut escaped: Vec<u8> = Vec::with_capacity(to_escape.len() + 18);
@@ -318,8 +320,18 @@ pub fn escape_decode(to_escape: &str) -> String {
     while i < bytes.len() {
         let byte = bytes[i];
         match byte {
+            b'<' => escaped.extend_from_slice(b"&lt;"),
             b'&' => {
                 // TODO: not really happy with this, should clean it up.
+                if i + 4 <= to_escape.len() {
+                    match &to_escape[i..i+4] {
+                        // If we're trying to write these, leave them be.
+                        "&gt;" => { escaped.push(byte); i += 1; continue },
+                        "&lt;" => { escaped.push(byte); i += 1; continue },
+                        _ => (),
+                    }
+                }
+
                 if i + 5 <= to_escape.len() {
                     // The end of the slice range is exclusive, so we need to go one higher.
                     match &to_escape[i..i+5] {
@@ -348,8 +360,10 @@ pub fn escape_decode(to_escape: &str) -> String {
         i += 1;
     }
 
+    println!("String: {}, Elapsed time: {:.2?}", to_escape, before.elapsed());
+
     // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
-    String::from_utf8(escaped).expect("Error when escaping ampersand.")
+    String::from_utf8(escaped).expect("Invalid unicode after escape_decode.")
 }
 
 // str.replace() won't work for this because we'd have to do it twice: once for the summary and
