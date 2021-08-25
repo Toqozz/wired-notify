@@ -1,21 +1,23 @@
-use pango::{
-    self,
-    prelude::*,
-    Layout,
-    FontDescription,
-};
+use pango::{self, prelude::*, FontDescription, Layout};
 
 use serde::Deserialize;
 
 use crate::{
+    config::{Color, Padding},
     maths_utility::{Rect, Vec2},
-    config::{Padding, Color},
 };
 
 #[derive(Debug, Deserialize, Clone)]
-pub enum EllipsizeMode { NoEllipsize, Start, Middle, End }
+pub enum EllipsizeMode {
+    NoEllipsize,
+    Start,
+    Middle,
+    End,
+}
 impl Default for EllipsizeMode {
-    fn default() -> Self { EllipsizeMode::Middle }
+    fn default() -> Self {
+        EllipsizeMode::Middle
+    }
 }
 
 impl EllipsizeMode {
@@ -38,27 +40,39 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     pub fn new(ctx: &cairo::Context) -> Self {
-        let pctx = pangocairo::functions::create_context(ctx)
-            .expect("Failed to create pango context.");
+        let pctx =
+            pangocairo::functions::create_context(ctx).expect("Failed to create pango context.");
 
         let layout = Layout::new(&pctx);
 
-        Self {
-            pctx,
-            layout,
-        }
+        Self { pctx, layout }
     }
 
     // Sets the current text of the renderer, applying markup and ellipsizing according to
     // ellipsize mode and `max_width` / `max_height`.
-    pub fn set_text(&self, text: &str, font: &str, max_width: i32, max_height: i32, ellipsize: &EllipsizeMode) {
+    pub fn set_text(
+        &self,
+        text: &str,
+        font: &str,
+        max_width: i32,
+        max_height: i32,
+        ellipsize: &EllipsizeMode,
+    ) {
         let font_dsc = FontDescription::from_string(font);
         self.pctx.set_font_description(&font_dsc);
 
         // Applying scale when `max_width`/`max_height` is < 0 seems to work, but let's not take
         // chances.
-        let width = if max_width < 0 { -1 } else { pango::SCALE * max_width };
-        let height = if max_height < 0 { -1 } else { pango::SCALE * max_height };
+        let width = if max_width < 0 {
+            -1
+        } else {
+            pango::SCALE * max_width
+        };
+        let height = if max_height < 0 {
+            -1
+        } else {
+            pango::SCALE * max_height
+        };
 
         self.layout.set_ellipsize(ellipsize.to_pango_mode());
         self.layout.set_markup(text);
@@ -86,7 +100,12 @@ impl TextRenderer {
     }
 
     // Gets the sized rect, and then applies padding as well.
-    pub fn get_sized_padded_rect(&self, padding: &Padding, min_width: i32, min_height: i32) -> Rect {
+    pub fn get_sized_padded_rect(
+        &self,
+        padding: &Padding,
+        min_width: i32,
+        min_height: i32,
+    ) -> Rect {
         let mut rect = self.get_sized_rect(min_width, min_height);
 
         rect.set_width(rect.width() as f64 + padding.width());

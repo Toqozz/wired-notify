@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc::Sender;
 
-use dbus::tree;
 use crate::bus::dbus::{Message, Notification};
+use dbus::tree;
 
-use super::dbus_codegen::{ OrgFreedesktopNotifications, Value };
+use super::dbus_codegen::{OrgFreedesktopNotifications, Value};
 
 static ID_COUNT: AtomicU32 = AtomicU32::new(1);
 
@@ -19,9 +19,9 @@ pub struct BusNotification;
 impl OrgFreedesktopNotifications for BusNotification {
     fn close_notification(&self, sender: Sender<Message>, id: u32) -> Result<(), tree::MethodErr> {
         match sender.send(Message::Close(id)) {
-            Ok(_) => return Ok(()),
-            Err(e) => return Err(tree::MethodErr::failed(&e)),
-        };
+            Ok(_) => Ok(()),
+            Err(e) => Err(tree::MethodErr::failed(&e)),
+        }
     }
 
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr> {
@@ -60,8 +60,7 @@ impl OrgFreedesktopNotifications for BusNotification {
         actions: Vec<&str>,
         hints: HashMap<String, Value>,
         expire_timeout: i32,
-        ) -> Result<u32, tree::MethodErr> {
-
+    ) -> Result<u32, tree::MethodErr> {
         // The spec says that:
         // If `replaces_id` is 0, we should create a fresh id and notification.
         // If `replaces_id` is not 0, we should create a replace the notification with that id,
@@ -87,10 +86,19 @@ impl OrgFreedesktopNotifications for BusNotification {
         };
 
         let notification = Notification::from_dbus(
-            id, app_name, app_icon, summary, body, actions, hints, expire_timeout,
+            id,
+            app_name,
+            app_icon,
+            summary,
+            body,
+            actions,
+            hints,
+            expire_timeout,
         );
 
-        sender.send(Message::Notify(notification)).unwrap();
+        sender
+            .send(Message::Notify(Box::new(notification)))
+            .unwrap();
 
         Ok(id)
     }

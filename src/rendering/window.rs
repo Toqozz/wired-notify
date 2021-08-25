@@ -1,24 +1,24 @@
 use std::time::Duration;
 
 use winit::{
-    window::{WindowBuilder, Window},
+    dpi::{PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
-    platform::unix::{WindowBuilderExtUnix, XWindowType, WindowExtUnix},
-    dpi::{PhysicalSize, PhysicalPosition},
+    platform::unix::{WindowBuilderExtUnix, WindowExtUnix, XWindowType},
+    window::{Window, WindowBuilder},
 };
 
 use chrono::{DateTime, Local};
 
+use cairo::{Context, Surface};
 use cairo_sys;
-use cairo::{Surface, Context};
 
 use crate::{
+    bus::dbus::Notification,
     config::Config,
     management::NotifyWindowManager,
-    rendering::layout::LayoutBlock,
     maths_utility::{Rect, Vec2},
+    rendering::layout::LayoutBlock,
     rendering::text::TextRenderer,
-    bus::dbus::Notification,
 };
 
 // FuseOnly probably won't be used, but it's here for completion's sake.
@@ -40,7 +40,7 @@ pub struct NotifyWindow {
     pub text: TextRenderer,
 
     pub winit: Window,
-    pub notification: Notification,
+    pub notification: Box<Notification>,
 
     // Layout is cloned from config so each notification can have its own mutable copy.
     // This is pretty much just so we can change some params on LayoutBlocks, which is a bit
@@ -67,11 +67,17 @@ pub struct NotifyWindow {
 }
 
 impl NotifyWindow {
-    pub fn new(el: &EventLoopWindowTarget<()>, notification: Notification, manager: &NotifyWindowManager) -> Self {
+    pub fn new(
+        el: &EventLoopWindowTarget<()>,
+        notification: Box<Notification>,
+        manager: &NotifyWindowManager,
+    ) -> Self {
         let cfg = Config::get();
         // The minimum window width and height is 1.0.  We need this size to generate an initial window.
-        let (width, height)
-            = ((cfg.min_window_width as f64).max(1.0), (cfg.min_window_height as f64).max(1.0));
+        let (width, height) = (
+            (cfg.min_window_width as f64).max(1.0),
+            (cfg.min_window_height as f64).max(1.0),
+        );
 
         // @NOTE: this is pretty messed up... It's annoying that winit only exposes a handle to the
         // xlib display through an existing window, which means we have to use a dummy (hidden)
@@ -80,9 +86,12 @@ impl NotifyWindow {
         // window.
         // We might consider moving away from winit and just using xlib directly.  The only part
         // we're really using at the moment is the event loop.
-        let xlib_display = manager.base_window.xlib_display().expect("Couldn't get xlib_display.");
+        let xlib_display = manager
+            .base_window
+            .xlib_display()
+            .expect("Couldn't get xlib_display.");
 
-        let mut visual_info = unsafe {
+        let visual_info = unsafe {
             let mut vinfo = std::mem::MaybeUninit::<x11::xlib::XVisualInfo>::uninit();
 
             let status = (x11::xlib::XMatchVisualInfo)(
@@ -106,9 +115,9 @@ impl NotifyWindow {
             .with_inner_size(PhysicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
             .with_title("wired")
-            .with_x11_visual(&mut visual_info)
+            .with_x11_visual(&visual_info)
             .with_transparent(true)
-            .with_visible(false)    // Window not visible for first draw, because the position will probably be wrong.
+            .with_visible(false) // Window not visible for first draw, because the position will probably be wrong.
             .with_override_redirect(true)
             .build(el)
             .expect("Couldn't build winit window.");
@@ -116,7 +125,9 @@ impl NotifyWindow {
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
         //let xlib_display = winit.xlib_display().expect("Couldn't get xlib display.");
-        let xlib_window = winit.xlib_window().expect("Couldn't get xlib window, make sure you're running X11.");
+        let xlib_window = winit
+            .xlib_window()
+            .expect("Couldn't get xlib window, make sure you're running X11.");
 
         let surface = unsafe {
             /*
@@ -152,7 +163,7 @@ impl NotifyWindow {
             master_offset: Vec2::default(),
             fuse,
             update_mode: UpdateModes::all(),
-            dirty: true,    // New windows are dirty -- no drawing has happened yet.
+            dirty: true, // New windows are dirty -- no drawing has happened yet.
             creation_timestamp: Local::now(),
             last_mouse_pos: Vec2::new(0.0, 0.0),
         };
@@ -160,7 +171,8 @@ impl NotifyWindow {
         // When we spawn a window, we get a `RedrawRequested` event which we draw from, so we don't
         // manually draw here.
         let mut layout = cfg.layout.as_ref().unwrap().clone();
-        let rect = layout.predict_rect_tree_and_init(&window, &window.get_inner_rect(), Rect::empty());
+        let rect =
+            layout.predict_rect_tree_and_init(&window, &window.get_inner_rect(), Rect::empty());
         let delta = Vec2::new(-rect.x(), -rect.y());
 
         window.layout = Some(layout);
@@ -169,7 +181,7 @@ impl NotifyWindow {
         window
     }
 
-    pub fn replace_notification(&mut self, new_notification: Notification) {
+    pub fn replace_notification(&mut self, new_notification: Box<Notification>) {
         self.notification = new_notification;
 
         // Refresh timeout if configured
@@ -208,16 +220,28 @@ impl NotifyWindow {
     pub fn set_size(&self, width: f64, height: f64) {
         self.winit.set_inner_size(PhysicalSize { width, height });
         unsafe {
-            cairo_sys::cairo_xlib_surface_set_size(self.surface.to_raw_none(), width as i32, height as i32);
+            cairo_sys::cairo_xlib_surface_set_size(
+                self.surface.to_raw_none(),
+                width as i32,
+                height as i32,
+            );
         }
     }
 
     // Positioned rect on the desktop.
     pub fn _get_rect(&self) -> Rect {
         let size = self.winit.inner_size();
-        let pos = self.winit.outer_position().expect("Window no longer exists.");
+        let pos = self
+            .winit
+            .outer_position()
+            .expect("Window no longer exists.");
 
-        Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into())
+        Rect::new(
+            pos.x.into(),
+            pos.y.into(),
+            size.width.into(),
+            size.height.into(),
+        )
     }
 
     // Pure rectangle, ignoring the window's position.
@@ -241,7 +265,9 @@ impl NotifyWindow {
     // This should only ever be called by the windows own `update()`.
     // To trigger a redraw, `window.dirty` should be set to `true`.
     fn draw(&mut self) {
-        if !self.dirty { eprintln!("A draw was triggered for a window that wasn't dirty!"); }
+        if !self.dirty {
+            eprintln!("A draw was triggered for a window that wasn't dirty!");
+        }
 
         let mut inner_rect = self.get_inner_rect();
         // If the master offset is anything other than `(0.0, 0.0)` it means that one of the
@@ -262,7 +288,7 @@ impl NotifyWindow {
                 // Window will be destroyed after others have been repositioned to replace it.
                 // We can return early because drawing will be discarded anyway.
                 self.marked_for_destroy = true;
-                return true
+                return true;
             }
         }
 

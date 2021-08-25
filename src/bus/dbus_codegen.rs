@@ -2,12 +2,12 @@
 // The top half of this code is hand written.
 
 #![allow(dead_code)]
+use crate::bus::dbus::Message;
 use dbus;
 use dbus::arg;
 use dbus::tree;
-use crate::bus::dbus::Message;
-use std::sync::mpsc::Sender;
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
 
 // TODO: maybe move this stuff somewhere else.
 // This enum covers all hint values defined in the desktop notifications specification:
@@ -61,15 +61,14 @@ impl<'a> arg::Get<'a> for DBusImage {
         let channels = i.read::<i32>().ok()?;
         let data = i.read::<Vec<u8>>().ok()?;
 
-        Some(
-            DBusImage {
-                width,
-                height,
-                rowstride,
-                one_point_two_bit_alpha,
-                bits_per_sample,
-                channels,
-                data,
+        Some(DBusImage {
+            width,
+            height,
+            rowstride,
+            one_point_two_bit_alpha,
+            bits_per_sample,
+            channels,
+            data,
         })
     }
 }
@@ -93,8 +92,10 @@ impl<'a> arg::Get<'a> for Value {
 
         match arg_type {
             // This seems ugly, but is definitely the image data struct.
-            ArgType::Struct if *signature == *"(iiibiiay)" =>
-                i.recurse(ArgType::Struct).and_then(|mut iter| iter.get::<DBusImage>()).map(Value::Struct),
+            ArgType::Struct if *signature == *"(iiibiiay)" => i
+                .recurse(ArgType::Struct)
+                .and_then(|mut iter| iter.get::<DBusImage>())
+                .map(Value::Struct),
             ArgType::Boolean => i.get::<bool>().map(Value::Bool),
             ArgType::Byte => i.get::<u8>().map(Value::U8),
             ArgType::Int32 => i.get::<i32>().map(Value::I32),
@@ -109,18 +110,34 @@ impl<'a> arg::Get<'a> for Value {
 
 pub trait OrgFreedesktopNotifications {
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr>;
-    fn notify(&self, sender: Sender<Message>, app_name: &str, replaces_id: u32, app_icon: &str, summary: &str, body: &str, actions: Vec<&str>, hints: HashMap<String, Value> /*::std::collections::HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>*/, expire_timeout: i32) -> Result<u32, tree::MethodErr>;
+    fn notify(
+        &self,
+        sender: Sender<Message>,
+        app_name: &str,
+        replaces_id: u32,
+        app_icon: &str,
+        summary: &str,
+        body: &str,
+        actions: Vec<&str>,
+        hints: HashMap<String, Value>, /*::std::collections::HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>>*/
+        expire_timeout: i32,
+    ) -> Result<u32, tree::MethodErr>;
     fn close_notification(&self, sender: Sender<Message>, id: u32) -> Result<(), tree::MethodErr>;
     fn get_server_information(&self) -> Result<(String, String, String, String), tree::MethodErr>;
 }
 
-pub fn org_freedesktop_notifications_server<F, T, D>(sender: Sender<Message>, factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F) -> tree::Interface<tree::MTFn<D>, D>
+pub fn org_freedesktop_notifications_server<F, T, D>(
+    sender: Sender<Message>,
+    factory: &tree::Factory<tree::MTFn<D>, D>,
+    data: D::Interface,
+    f: F,
+) -> tree::Interface<tree::MTFn<D>, D>
 where
     D: tree::DataType,
     D::Method: Default,
     D::Signal: Default,
     T: OrgFreedesktopNotifications,
-    F: 'static + for <'z> Fn(& 'z tree::MethodInfo<tree::MTFn<D>, D>) -> & 'z T,
+    F: 'static + for<'z> Fn(&'z tree::MethodInfo<tree::MTFn<D>, D>) -> &'z T,
 {
     let i = factory.interface("org.freedesktop.Notifications", data);
     let f = ::std::sync::Arc::new(f);
@@ -130,7 +147,7 @@ where
         let capabilities = d.get_capabilities()?;
         let rm = minfo.msg.method_return();
         let rm = rm.append1(capabilities);
-        Ok(vec!(rm))
+        Ok(vec![rm])
     };
     let m = factory.method("GetCapabilities", Default::default(), h);
     let m = m.out_arg(("capabilities", "as"));
@@ -150,10 +167,20 @@ where
         //let hints: ::std::collections::HashMap<&str, arg::Variant<Box<dyn arg::RefArg>>> = i.read()?;
         let expire_timeout: i32 = i.read()?;
         let d = fclone(minfo);
-        let id = d.notify(sclone.clone(), app_name, replaces_id, app_icon, summary, body, actions, hints, expire_timeout)?;
+        let id = d.notify(
+            sclone.clone(),
+            app_name,
+            replaces_id,
+            app_icon,
+            summary,
+            body,
+            actions,
+            hints,
+            expire_timeout,
+        )?;
         let rm = minfo.msg.method_return();
         let rm = rm.append1(id);
-        Ok(vec!(rm))
+        Ok(vec![rm])
     };
     let m = factory.method("Notify", Default::default(), h);
     let m = m.in_arg(("app_name", "s"));
@@ -168,29 +195,27 @@ where
     let i = i.add_m(m);
 
     let fclone = f.clone();
-    let sclone = sender.clone();
     let h = move |minfo: &tree::MethodInfo<tree::MTFn<D>, D>| {
         let mut i = minfo.msg.iter_init();
         let id: u32 = i.read()?;
         let d = fclone(minfo);
-        d.close_notification(sclone.clone(), id)?;
+        d.close_notification(sender.clone(), id)?;
         let rm = minfo.msg.method_return();
-        Ok(vec!(rm))
+        Ok(vec![rm])
     };
     let m = factory.method("CloseNotification", Default::default(), h);
     let m = m.in_arg(("id", "u"));
     let i = i.add_m(m);
 
-    let fclone = f.clone();
     let h = move |minfo: &tree::MethodInfo<tree::MTFn<D>, D>| {
-        let d = fclone(minfo);
+        let d = f(minfo);
         let (name, vendor, version, spec_version) = d.get_server_information()?;
         let rm = minfo.msg.method_return();
         let rm = rm.append1(name);
         let rm = rm.append1(vendor);
         let rm = rm.append1(version);
         let rm = rm.append1(spec_version);
-        Ok(vec!(rm))
+        Ok(vec![rm])
     };
     let m = factory.method("GetServerInformation", Default::default(), h);
     let m = m.out_arg(("name", "s"));
@@ -205,8 +230,7 @@ where
     let s = factory.signal("ActionInvoked", Default::default());
     let s = s.arg(("id", "u"));
     let s = s.arg(("action_key", "s"));
-    let i = i.add_s(s);
-    i
+    i.add_s(s)
 }
 
 #[derive(Debug)]

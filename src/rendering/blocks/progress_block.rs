@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
-use crate::maths_utility::{Vec2, Rect};
-use crate::config::{Config, Padding, Color};
-use crate::rendering::{
-    window::NotifyWindow,
-    layout::{DrawableLayoutElement, LayoutBlock, Hook},
-};
+use crate::config::{Color, Config, Padding};
 use crate::maths_utility;
+use crate::maths_utility::{Rect, Vec2};
+use crate::rendering::{
+    layout::{DrawableLayoutElement, Hook, LayoutBlock},
+    window::NotifyWindow,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProgressBlockParameters {
@@ -65,19 +65,26 @@ impl DrawableLayoutElement for ProgressBlockParameters {
         let background_col = self.background_color();
         let fill_col = self.fill_color();
 
-        let width = if self.width < 0.0 { parent_rect.width() } else { self.width + self.padding.width() };
-        let height = if self.height < 0.0 { parent_rect.height() } else { self.height + self.padding.height() };
-        let mut rect = Rect::new(
-            0.0, 0.0,
-            width, height,
-        );
+        let width = if self.width < 0.0 {
+            parent_rect.width()
+        } else {
+            self.width + self.padding.width()
+        };
+        let height = if self.height < 0.0 {
+            parent_rect.height()
+        } else {
+            self.height + self.padding.height()
+        };
+        let mut rect = Rect::new(0.0, 0.0, width, height);
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
         // Progress background.
         maths_utility::cairo_rounded_bordered_filled_rectangle(
             &window.context,
-            pos.x + self.padding.left, pos.y + self.padding.top,   // x, y
-            width - self.padding.width(), height - self.padding.height(),
+            pos.x + self.padding.left,
+            pos.y + self.padding.top, // x, y
+            width - self.padding.width(),
+            height - self.padding.height(),
             self.percentage,
             self.border_rounding,
             self.fill_rounding,
@@ -91,7 +98,14 @@ impl DrawableLayoutElement for ProgressBlockParameters {
 
         // Debug, unpadded drawing, to help users.
         if Config::get().debug {
-            maths_utility::debug_rect(&window.context, true, pos.x + self.padding.left, pos.y + self.padding.top, rect.width() - self.padding.width(), rect.height() - self.padding.height());
+            maths_utility::debug_rect(
+                &window.context,
+                true,
+                pos.x + self.padding.left,
+                pos.y + self.padding.top,
+                rect.width() - self.padding.width(),
+                rect.height() - self.padding.height(),
+            );
         }
 
         //rect.set_xy(pos.x, pos.y);
@@ -99,17 +113,30 @@ impl DrawableLayoutElement for ProgressBlockParameters {
         rect
     }
 
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-        if self.padding.width() > parent_rect.width() || self.padding.height() > parent_rect.height() {
+    fn predict_rect_and_init(
+        &mut self,
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        window: &NotifyWindow,
+    ) -> Rect {
+        if self.padding.width() > parent_rect.width()
+            || self.padding.height() > parent_rect.height()
+        {
             eprintln!("Warning: padding width/height exceeds parent rect width/height.");
         }
 
-        let width = if self.width < 0.0 { parent_rect.width() } else { self.width + self.padding.width() };
-        let height = if self.height < 0.0 { parent_rect.height() } else { self.height + self.padding.height() };
-        let mut rect = Rect::new(
-            0.0, 0.0,
-            width, height,
-        );
+        let width = if self.width < 0.0 {
+            parent_rect.width()
+        } else {
+            self.width + self.padding.width()
+        };
+        let height = if self.height < 0.0 {
+            parent_rect.height()
+        } else {
+            self.height + self.padding.height()
+        };
+        let mut rect = Rect::new(0.0, 0.0, width, height);
 
         self.percentage = window.notification.percentage.unwrap_or(0.0);
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);

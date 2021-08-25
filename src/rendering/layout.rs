@@ -3,9 +3,9 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use crate::{
+    config::{AnchorPosition, Config},
+    maths_utility::{Rect, Vec2},
     rendering::blocks::*,
-    maths_utility::{Vec2, Rect},
-    config::{Config, AnchorPosition},
     rendering::window::NotifyWindow,
     wired_derive::DrawableLayoutElement,
 };
@@ -50,7 +50,6 @@ pub struct Hook {
     pub self_anchor: AnchorPosition,
 }
 
-
 // DrawableLayoutElement is implemented via a macro -- see /wired_derive/lib.rs.
 // @IMPORTANT: DO NOT CACHE POSITIONS IN `predict_rect_and_init`! Real drawing uses a `master_offset`
 // based on the result of `predict_rect_and_init` to make sure we don't draw off canvas, so
@@ -76,20 +75,53 @@ impl LayoutBlock {
         let n = &window.notification;
         for c in &self.render_criteria {
             match c {
-                RenderCriteria::Summary => if n.summary.is_empty() { should_draw = false },
-                RenderCriteria::Body => if n.body.is_empty() { should_draw = false },
-                RenderCriteria::AppImage => if n.app_image.is_none() { should_draw = false },
-                RenderCriteria::HintImage => if n.hint_image.is_none() { should_draw = false },
-                RenderCriteria::AppName => if n.app_name.is_empty() { should_draw = false },
-                RenderCriteria::ActionDefault => if n.get_default_action().is_none() { should_draw = false },
-                RenderCriteria::ActionOther(i) => if n.get_other_action(*i).is_none() { should_draw = false },
+                RenderCriteria::Summary => {
+                    if n.summary.is_empty() {
+                        should_draw = false
+                    }
+                }
+                RenderCriteria::Body => {
+                    if n.body.is_empty() {
+                        should_draw = false
+                    }
+                }
+                RenderCriteria::AppImage => {
+                    if n.app_image.is_none() {
+                        should_draw = false
+                    }
+                }
+                RenderCriteria::HintImage => {
+                    if n.hint_image.is_none() {
+                        should_draw = false
+                    }
+                }
+                RenderCriteria::AppName => {
+                    if n.app_name.is_empty() {
+                        should_draw = false
+                    }
+                }
+                RenderCriteria::ActionDefault => {
+                    if n.get_default_action().is_none() {
+                        should_draw = false
+                    }
+                }
+                RenderCriteria::ActionOther(i) => {
+                    if n.get_other_action(*i).is_none() {
+                        should_draw = false
+                    }
+                }
             }
         }
 
         should_draw
     }
 
-    pub fn find_anchor_pos(hook: &Hook, offset: &Vec2, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
+    pub fn find_anchor_pos(
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        self_rect: &Rect,
+    ) -> Vec2 {
         // Get position of anchor in each rectangle (parent and self).
         let mut anchor = hook.parent_anchor.get_pos(parent_rect);
         let self_anchor = hook.self_anchor.get_pos(self_rect);
@@ -107,15 +139,22 @@ impl LayoutBlock {
     }
 
     // Call draw on each block in tree.
-    pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
+    pub fn draw_tree(
+        &mut self,
+        window: &NotifyWindow,
+        parent_rect: &Rect,
+        accum_rect: Rect,
+    ) -> Rect {
         let rect = if self.should_draw(window) {
-            self.params.draw(&self.hook, &self.offset, parent_rect, window)
+            self.params
+                .draw(&self.hook, &self.offset, parent_rect, window)
         } else {
             // If block shouldn't be rendered, then we should be safe to just return an
             // empty rect.
             // We still need to set the position correctly, because other layout elements may be
             // depending on its position (e.g. in the center), even if it may not be being rendered.
-            let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
+            let pos =
+                LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
             Rect::new(pos.x, pos.y, 0.0, 0.0)
         };
         let mut acc_rect = accum_rect.union(&rect);
@@ -125,7 +164,9 @@ impl LayoutBlock {
             let c = &Config::get().debug_color;
             window.context.set_source_rgba(c.r, c.g, c.b, c.a);
             window.context.set_line_width(1.0);
-            window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
+            window
+                .context
+                .rectangle(rect.x(), rect.y(), rect.width(), rect.height());
             window.context.stroke();
         }
 
@@ -133,21 +174,28 @@ impl LayoutBlock {
             acc_rect = child.draw_tree(window, &rect, acc_rect);
         }
 
-        self.cache_rect = rect.clone();
+        self.cache_rect = rect;
         acc_rect
     }
 
     // Predict the size of an entire layout, and initialize elements.
-    pub fn predict_rect_tree_and_init(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
+    pub fn predict_rect_tree_and_init(
+        &mut self,
+        window: &NotifyWindow,
+        parent_rect: &Rect,
+        accum_rect: Rect,
+    ) -> Rect {
         // Predict size is supposed to be relatively cheap and lets us predict the size of elements,
         // so we can set window size and other stuff ahead of time.  We also initialize some stuff in
         // here to save performance.
         // `predict_rect_and_init` finds the bounding box of an individual element -- children are not
         // involved.
         let rect = if self.should_draw(window) {
-            self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
+            self.params
+                .predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
         } else {
-            let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
+            let pos =
+                LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
             Rect::new(pos.x, pos.y, 0.0, 0.0)
         };
         let mut acc_rect = accum_rect.union(&rect);
@@ -205,9 +253,20 @@ impl LayoutBlock {
 
 pub trait DrawableLayoutElement {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool { false }
-    fn clicked(&mut self, _window: &NotifyWindow) -> bool { false }
-    fn hovered(&mut self, _entered: bool, _window: &NotifyWindow) -> bool { false }
+    fn predict_rect_and_init(
+        &mut self,
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        window: &NotifyWindow,
+    ) -> Rect;
+    fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool {
+        false
+    }
+    fn clicked(&mut self, _window: &NotifyWindow) -> bool {
+        false
+    }
+    fn hovered(&mut self, _entered: bool, _window: &NotifyWindow) -> bool {
+        false
+    }
 }
-
