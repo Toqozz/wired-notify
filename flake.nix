@@ -12,24 +12,25 @@
       let
         pkgs = nixpkgs.legacyPackages."${system}";
         naersk-lib = naersk.lib."${system}";
+        # Requires dbus cairo and pango
+        # pkgconfig, glib and xorg is required for x11-crate
+        buildInputs = with pkgs; [
+          dbus
+          dlib
+          cairo
+          pango
+          pkgconfig
+          xorg.libX11
+          xorg.libXi
+          xorg.libXrandr
+          xorg.libXcursor
+        ];
       in rec {
         # `nix build`
         packages.wired = naersk-lib.buildPackage {
           pname = "wired";
           root = ./.;
-          # Requires dbus cairo and pango
-          # pkgconfig, glib and xorg is required for x11-crate
-          buildInputs = with pkgs; [
-            dbus
-            dlib
-            cairo
-            pango
-            pkgconfig
-            xorg.libX11
-            xorg.libXi
-            xorg.libXrandr
-            xorg.libXcursor
-          ];
+          inherit buildInputs;
           # Without this wired_derive build would fail
           singleStep = true;
         };
@@ -40,6 +41,9 @@
         defaultApp = apps.wired;
 
         # `nix develop`
-        devShell = pkgs.mkShell { nativeBuildInputs = with pkgs; [ rust ]; };
+        devShell = pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [ rustc cargo gcc clippy rustfmt ];
+          inherit buildInputs;
+        };
       });
 }
