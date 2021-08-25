@@ -78,6 +78,9 @@ pub struct Config {
     // Enable/disable notification replace functionality.  I don't like how some apps do it.
     #[serde(default = "maths_utility::val_true")]
     pub replacing_enabled: bool,
+    // Whether or not to refresh the timeout of a notification on an update
+    #[serde(default)]
+    pub replacing_resets_timeout: bool,
     // Enable/disable notification closing functionality.  I don't like how some apps do it.
     #[serde(default = "maths_utility::val_true")]
     pub closing_enabled: bool,
