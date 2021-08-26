@@ -51,7 +51,7 @@ impl NotifyWindowManager {
     pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
         if Config::get().debug { dbg!(&notification); }
         if let LayoutElement::NotificationBlock(p) = &Config::get().layout.as_ref().unwrap().params {
-            let window = NotifyWindow::new(el, notification, &self);
+            let window = NotifyWindow::new(el, notification, self);
 
             let windows = self.monitor_windows
                 .entry(p.monitor)
@@ -123,7 +123,7 @@ impl NotifyWindowManager {
         if let LayoutElement::NotificationBlock(p) = &cfg.layout.as_ref().unwrap().params {
             for (monitor_id, windows) in &self.monitor_windows {
                 // If there are no windows for this monitor, leave it alone.
-                if windows.len() == 0 {
+                if windows.is_empty() {
                     continue;
                 }
 
@@ -230,7 +230,7 @@ impl NotifyWindowManager {
         // If nothing was pressed, then there is no event to process.
         // The code below won't work with None naturally, because the config is allowed to have
         // None shortcuts.
-        if !pressed.is_some() {
+        if pressed.is_none() {
             return;
         }
 
@@ -301,7 +301,7 @@ impl NotifyWindowManager {
             // Found an action -> button press combo, great!  Send dbus a signal to invoke it.
             if let Some(k) = key {
                 let message = OrgFreedesktopNotificationsActionInvoked {
-                    action_key: k.to_owned(), id: notification.id
+                    action_key: k, id: notification.id
                 };
                 let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
                 let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
@@ -354,7 +354,7 @@ impl NotifyWindowManager {
             }
         }
 
-        return false;
+        false
     }
 
     pub fn drop_window(&mut self, window_id: WindowId) {

@@ -173,7 +173,7 @@ impl Rect {
 
 // Non-clamped lerp.
 pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
-    return (1.0 - t) * a + t * b;
+    (1.0 - t) * a + t * b
 }
 
 pub fn clamp(mut val: f64, min: f64, max: f64) -> f64 {
@@ -434,18 +434,18 @@ fn extract_time_format(string: &str) -> Option<(&str, usize)> {
 
     // We should also consider checking `string.is_char_boundary(0)`, to make sure the string we're
     // provided is correct.
-    if !string.starts_with("(") {
+    if !string.starts_with('(') {
         println!("Warning: tried to parse a time format string, but it didn't start with '('.");
         return None;
     }
 
-    if let Some(close_idx) = string.find(")") {
+    if let Some(close_idx) = string.find(')') {
         // Step forward one to skip past the opening bracket.  We assume it's one byte...
         let time_format = &string[1..close_idx];
-        return Some((time_format, time_format.len() + 2));
+        Some((time_format, time_format.len() + 2))
     } else {
         println!("Warning: tried to parse a time format string, but couldn't find a closing ')'.");
-        return None;
+        None
     }
 }
 

@@ -82,7 +82,7 @@ impl NotifyWindow {
         // we're really using at the moment is the event loop.
         let xlib_display = manager.base_window.xlib_display().expect("Couldn't get xlib_display.");
 
-        let mut visual_info = unsafe {
+        let visual_info = unsafe {
             let mut vinfo = std::mem::MaybeUninit::<x11::xlib::XVisualInfo>::uninit();
 
             let status = (x11::xlib::XMatchVisualInfo)(
@@ -106,7 +106,7 @@ impl NotifyWindow {
             .with_inner_size(PhysicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
             .with_title("wired")
-            .with_x11_visual(&mut visual_info)
+            .with_x11_visual(&visual_info)
             .with_transparent(true)
             .with_visible(false)    // Window not visible for first draw, because the position will probably be wrong.
             .with_override_redirect(true)
@@ -180,7 +180,7 @@ impl NotifyWindow {
         // As above.  May be valuable to put this into a function like `prepare_notification` or
         // something if we keep changing stuff.
         let mut layout = Config::get().layout.as_ref().unwrap().clone();
-        let rect = layout.predict_rect_tree_and_init(&self, &self.get_inner_rect(), Rect::empty());
+        let rect = layout.predict_rect_tree_and_init(self, &self.get_inner_rect(), Rect::empty());
         let delta = Vec2::new(-rect.x(), -rect.y());
 
         self.layout = Some(layout);
@@ -268,7 +268,7 @@ impl NotifyWindow {
 
         if self.update_mode.contains(UpdateModes::DRAW) {
             let mut layout = self.layout_take();
-            self.dirty |= layout.update_tree(delta_time, &self);
+            self.dirty |= layout.update_tree(delta_time, self);
             self.layout = Some(layout);
         }
 
@@ -284,7 +284,7 @@ impl NotifyWindow {
 
     pub fn process_mouse_click(&mut self) {
         let mut layout = self.layout_take();
-        self.dirty |= layout.check_and_send_click(&self.last_mouse_pos, &self);
+        self.dirty |= layout.check_and_send_click(&self.last_mouse_pos, self);
         self.layout = Some(layout);
     }
 
@@ -293,7 +293,7 @@ impl NotifyWindow {
         self.last_mouse_pos.y = position.y;
 
         let mut layout = self.layout_take();
-        self.dirty |= layout.check_and_send_hover(&self.last_mouse_pos, &self);
+        self.dirty |= layout.check_and_send_hover(&self.last_mouse_pos, self);
         self.layout = Some(layout);
     }
 }

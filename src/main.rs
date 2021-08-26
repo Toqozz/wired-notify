@@ -29,9 +29,8 @@ use bus::dbus::{ Message, Notification };
 use config::Config;
 use management::NotifyWindowManager;
 use cli::ShouldRun;
-use wired_derive;
 
-const SOCKET_PATH: &'static str = "/tmp/wired.sock";
+const SOCKET_PATH: &str = "/tmp/wired.sock";
 
 fn to_notification_id(input: &str) -> Option<u32> {
     // TODO: support this.
@@ -39,10 +38,10 @@ fn to_notification_id(input: &str) -> Option<u32> {
         return None;
     }
 
-    return match input.parse::<u32>() {
+    match input.parse::<u32>() {
         Ok(u) => Some(u),
         Err(_) => None,
-    };
+    }
 }
 
 fn handle_socket_message(manager: &mut NotifyWindowManager, stream: UnixStream) {
@@ -178,15 +177,13 @@ fn main() {
                             DebouncedEvent::Chmod(p) => {
                                 if let Some(file_name) = p.file_name() {
                                     // Make sure the file that was changed is our file.
-                                    if file_name == "wired.ron" {
-                                        if Config::try_reload(p) {
-                                            // Success.
-                                            poll_interval = Duration::from_millis(Config::get().poll_interval);
-                                            manager.new_notification(
-                                                Notification::from_self("Wired", "Config was reloaded.", 5000),
-                                                event_loop,
-                                            );
-                                        }
+                                    if file_name == "wired.ron" && Config::try_reload(p) {
+                                        // Success.
+                                        poll_interval = Duration::from_millis(Config::get().poll_interval);
+                                        manager.new_notification(
+                                            Notification::from_self("Wired", "Config was reloaded.", 5000),
+                                            event_loop,
+                                        );
                                     }
                                 }
                             },

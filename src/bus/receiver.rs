@@ -19,9 +19,9 @@ pub struct BusNotification;
 impl OrgFreedesktopNotifications for BusNotification {
     fn close_notification(&self, sender: Sender<Message>, id: u32) -> Result<(), tree::MethodErr> {
         match sender.send(Message::Close(id)) {
-            Ok(_) => return Ok(()),
-            Err(e) => return Err(tree::MethodErr::failed(&e)),
-        };
+            Ok(_) => Ok(()),
+            Err(e) => Err(tree::MethodErr::failed(&e)),
+        }
     }
 
     fn get_capabilities(&self) -> Result<Vec<String>, tree::MethodErr> {

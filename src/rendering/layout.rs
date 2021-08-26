@@ -7,8 +7,9 @@ use crate::{
     maths_utility::{Vec2, Rect},
     config::{Config, AnchorPosition},
     rendering::window::NotifyWindow,
-    wired_derive::DrawableLayoutElement,
 };
+
+use wired_derive::DrawableLayoutElement;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct LayoutBlock {
@@ -133,7 +134,7 @@ impl LayoutBlock {
             acc_rect = child.draw_tree(window, &rect, acc_rect);
         }
 
-        self.cache_rect = rect.clone();
+        self.cache_rect = rect;
         acc_rect
     }
 

@@ -20,17 +20,17 @@ fn validate_notification_identifier(input: &str) -> Result<(), &'static str> {
 
     // We don't actually care about the value here -- this is just client side validation.
     match input.parse::<u32>() {
-        Ok(_) => return Ok(()),
-        Err(_) => return Err("Notification identifier must be either [latest], or a valid \
+        Ok(_) => Ok(()),
+        Err(_) => Err("Notification identifier must be either [latest], or a valid \
                                 notification ID (unsigned integer)"),
     }
 }
 
 fn validate_notification_action(input: &str) -> Result<(), &'static str> {
     if ["default", "1", "2", "3"].contains(&input) {
-        return Ok(());
+        Ok(())
     } else {
-        return Err("Notification action must be one of [default|1|2|3].");
+        Err("Notification action must be one of [default|1|2|3].")
     }
 }
 
@@ -99,5 +99,5 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
 
     }
 
-    return Ok(ShouldRun::No);
+    Ok(ShouldRun::No)
 }

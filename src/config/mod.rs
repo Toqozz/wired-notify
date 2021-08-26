@@ -115,11 +115,11 @@ pub struct Config {
 
 impl Config {
     pub fn default_debug_color() -> Color {
-        return Color::from_rgba(0.0, 1.0, 0.0, 1.0);
+        Color::from_rgba(0.0, 1.0, 0.0, 1.0)
     }
 
     pub fn default_debug_color_alt() -> Color {
-        return Color::from_rgba(1.0, 0.0, 0.0, 1.0);
+        Color::from_rgba(1.0, 0.0, 0.0, 1.0)
     }
 
     // Initialize the config.  This does a two things:
@@ -159,10 +159,10 @@ impl Config {
                 // before reloading.
                 let watch = Config::watch(f);
                 match watch {
-                    Ok(w) => return Some(w),
+                    Ok(w) => Some(w),
                     Err(e) => {
                         println!("There was a problem watching the config for changes; so won't watch:\n\t{}", e);
-                        return None;
+                        None
                     },
                 }
             }
@@ -170,9 +170,9 @@ impl Config {
             None => {
                 println!("Couldn't load a config because we couldn't find one, so will use default.");
                 assign_config(Config::default());
-                return None;
+                None
             },
-        };
+        }
     }
 
     // Get immutable reference to global config variable.
@@ -201,11 +201,11 @@ impl Config {
             Ok(cfg) => {
                 unsafe { CONFIG = Some(cfg); }
                 println!("Config reloaded.");
-                return true;
+                true
             }
             Err(e) => {
                 println!("Tried to reload the config but couldn't: {}", e);
-                return false;
+                false
             }
         }
     }
@@ -262,14 +262,14 @@ impl Config {
         let string = format!("#![enable(implicit_some)]\n{}", cfg_str);
         let config: Result<Self, _> = ron::de::from_str(string.as_str());
         match config {
-            Ok(cfg) => return Config::transform_and_validate(cfg),
-            Err(e) => return Err(Error::Ron(e)),
-        };
+            Ok(cfg) => Config::transform_and_validate(cfg),
+            Err(e) => Err(Error::Ron(e)),
+        }
     }
 
     pub fn transform_and_validate(mut config: Config) -> Result<Self, Error> {
         // NOTE: we might actually want to search for the "root" text.
-        if config.layout_blocks.len() == 0 {
+        if config.layout_blocks.is_empty() {
             return Err(Error::Validate("Config did not contain any layout blocks!"))
         }
 
@@ -300,8 +300,8 @@ impl Config {
         }
 
         let remaining =find_and_add_children(&mut root, blocks);
-        if remaining.len() > 0 && config.debug {
-            eprintln!("There {} blocks remaining after creating the layout tree.  Something must be wrong here.", remaining.len());
+        if !remaining.is_empty() && config.debug {
+            eprintln!("There were {} blocks remaining after creating the layout tree.  Something must be wrong here.", remaining.len());
         }
 
         match root.params {
@@ -327,9 +327,9 @@ impl Config {
         let path = std::fs::canonicalize(path).expect("Couldn't canonicalize path, wtf.");
         let result = watcher.watch(path, RecursiveMode::NonRecursive);
         match result {
-            Ok(_) => return Ok(ConfigWatcher { watcher, receiver }),
-            Err(e) => return Err(Error::Watch(e)),
-        };
+            Ok(_) => Ok(ConfigWatcher { watcher, receiver }),
+            Err(e) => Err(Error::Watch(e)),
+        }
     }
 
     // Verify that the config is constructed correctly.
@@ -493,7 +493,7 @@ impl Color {
         // Sanitize string a little.
         // Works for strings in format: "#ff000000", "#0xff000000", "0xff000000".
         // We also support hex strings that don't specify alpha: "#000000"
-        let sanitized = hex.trim_start_matches("#").trim_start_matches("0x");
+        let sanitized = hex.trim_start_matches('#').trim_start_matches("0x");
 
         // Convert string to base-16 u32.
         let dec = u32::from_str_radix(sanitized, 16);
@@ -510,15 +510,15 @@ impl Color {
             let r = ((dec >> 16) & 0xff) as f64 / 255.0;
             let g = ((dec >> 8) & 0xff) as f64 / 255.0;
             let b = (dec & 0xff) as f64 / 255.0;
-            return Ok(Color::from_rgba(r, g, b, a));
+            Ok(Color::from_rgba(r, g, b, a))
         } else if len == 6 {
             let a = 1.0;
             let r = ((dec >> 16) & 0xff) as f64 / 255.0;
             let g = ((dec >> 8) & 0xff) as f64 / 255.0;
             let b = (dec & 0xff) as f64 / 255.0;
-            return Ok(Color::from_rgba(r, g, b, a));
+            Ok(Color::from_rgba(r, g, b, a))
         } else {
-            return Err(Error::Hexidecimal("Incorrect hexidecimal string length."));
+            Err(Error::Hexidecimal("Incorrect hexidecimal string length."))
         }
     }
 }
@@ -554,9 +554,9 @@ impl<'de> Deserialize<'de> for Color {
             return Color::from_hex(&hex)
                 .or(Err(de::Error::invalid_value(Unexpected::Str(&hex), &"a valid hexidecimal string")));
         } else if let (Some(r), Some(g), Some(b), Some(a)) = (col.r, col.g, col.b, col.a) {
-            return Ok(Color::from_rgba(r, g, b, a));
+            Ok(Color::from_rgba(r, g, b, a))
         } else {
-            return Err(de::Error::missing_field("`r`, `g`, `b`, `a` or `hex`"));
+            Err(de::Error::missing_field("`r`, `g`, `b`, `a` or `hex`"))
         }
     }
 }

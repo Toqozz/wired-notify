@@ -37,7 +37,7 @@ fn create_iface(sender: mpsc::Sender<Message>) -> Interface<tree::MTFn<TData>, T
     let f = Factory::new_fn();
     org_freedesktop_notifications_server(sender, &f, (), |m| {
         let a: &Arc<BusNotification> = m.path.get_data();
-        let b: &BusNotification = &a;
+        let b: &BusNotification = a;
         b
     })
 }
@@ -196,7 +196,7 @@ impl Notification {
             let _end = std::time::Instant::now();
             //dbg!(end - start);
 
-            return x;
+            x
         }
 
         fn image_from_data(dbus_image: DBusImage) -> Option<DynamicImage> {
@@ -231,10 +231,10 @@ impl Notification {
             //let end = std::time::Instant::now();
             //dbg!(end - start);
 
-            return x;
+            x
         }
 
-        let app_image = image_from_path(&app_icon);
+        let app_image = image_from_path(app_icon);
 
         let hint_image: Option<DynamicImage>;
         // We want to pass the `dbus_image.data` vec rather than cloning it, so we have to remove it
@@ -243,7 +243,7 @@ impl Notification {
         if let Some(Value::Struct(dbus_image)) = hints.remove("image-data").or(hints.remove("image_data")) {
             hint_image = image_from_data(dbus_image);
         } else if let Some(Value::String(path)) = hints.get("image-path").or(hints.get("image_path")) {
-            hint_image = image_from_path(&path);
+            hint_image = image_from_path(path);
         } else if let Some(Value::Struct(dbus_image)) = hints.remove("icon_data") {
             hint_image = image_from_data(dbus_image);
         } else {
