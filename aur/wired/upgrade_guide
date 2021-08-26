@@ -1,0 +1,6 @@
+- Edit PKGBUILD version.
+- Download version using link in PKGBUILD and get the sha256 hash.
+- Update hash in PKGBUILD.
+- `makepkg --printsrcinfo > .SRCINFO`
+- Optionally test to see if it builds.
+- Commit and push.
