@@ -16,6 +16,10 @@
     // E.g., with replacing_enabled: true, Pidgin will only show the latest message from each contact, instead of sending a new one for each message.
     replacing_enabled: true,
 
+    // Whether a notification should reset its timeout when it is replaced.
+    // No effect if replacing_enabled is set to false.
+    replacing_resets_timeout: false,
+
     // Enable/disable debug rendering.
     debug: false,
     debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0), // Primary color for debug rectangles.

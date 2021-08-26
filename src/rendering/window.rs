@@ -172,6 +172,11 @@ impl NotifyWindow {
     pub fn replace_notification(&mut self, new_notification: Notification) {
         self.notification = new_notification;
 
+        // Refresh timeout if configured
+        if Config::get().replacing_resets_timeout {
+            self.fuse = self.notification.timeout;
+        }
+
         // As above.  May be valuable to put this into a function like `prepare_notification` or
         // something if we keep changing stuff.
         let mut layout = Config::get().layout.as_ref().unwrap().clone();
