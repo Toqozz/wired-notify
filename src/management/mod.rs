@@ -250,6 +250,19 @@ impl NotifyWindowManager {
                 window.update_mode.toggle(UpdateModes::FUSE);
             }
         } else {
+            // Request the window to be dropped if we got a close action.
+            if [
+                config.shortcuts.notification_close,
+                config.shortcuts.notification_action1_and_close,
+                config.shortcuts.notification_action2_and_close,
+                config.shortcuts.notification_action3_and_close,
+                config.shortcuts.notification_action4_and_close,
+            ]
+            .contains(&pressed)
+            {
+                self.drop_window(window_id);
+            }
+
             let notification = match self.find_window(window_id) {
                 Some(w) => &w.notification,
                 None => return,
@@ -294,19 +307,6 @@ impl NotifyWindowManager {
                 let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
             } else {
                 println!("Received action shortcut but could not find a matching action to trigger.");
-            }
-
-            // close the window if we have one of the close actions
-            if [
-                config.shortcuts.notification_close,
-                config.shortcuts.notification_action1_and_close,
-                config.shortcuts.notification_action2_and_close,
-                config.shortcuts.notification_action3_and_close,
-                config.shortcuts.notification_action4_and_close,
-            ]
-            .contains(&pressed)
-            {
-                self.drop_window(window_id);
             }
         }
     }
