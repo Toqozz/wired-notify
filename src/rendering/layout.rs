@@ -41,6 +41,7 @@ pub enum RenderCriteria {
     HintImage,
     AppImage,
     AppName,
+    Progress,
     ActionDefault,
     ActionOther(usize),
 }
@@ -82,6 +83,7 @@ impl LayoutBlock {
                 RenderCriteria::AppImage => if n.app_image.is_none() { should_draw = false },
                 RenderCriteria::HintImage => if n.hint_image.is_none() { should_draw = false },
                 RenderCriteria::AppName => if n.app_name.is_empty() { should_draw = false },
+                RenderCriteria::Progress => if n.percentage.is_none() { should_draw = false },
                 RenderCriteria::ActionDefault => if n.get_default_action().is_none() { should_draw = false },
                 RenderCriteria::ActionOther(i) => if n.get_other_action(*i).is_none() { should_draw = false },
             }
