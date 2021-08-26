@@ -6,7 +6,7 @@ use getopts::Options;
 
 pub enum ShouldRun {
     Yes,
-    No
+    No,
 }
 
 fn print_usage(opts: Options) {
@@ -44,7 +44,12 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
     opts.optopt("d", "drop", "drop/close a notification", "[latest|ID]");
-    opts.optopt("a", "action", "execute a notification's action", "[latest|ID]:[default|1|2|3]");
+    opts.optopt(
+        "a",
+        "action",
+        "execute a notification's action",
+        "[latest|ID]:[default|1|2|3]",
+    );
     opts.optopt("s", "show", "show the last N notifications", "N");
     opts.optflag("r", "run", "run the wired daemon");
     let matches = match opts.parse(&args[1..]) {
@@ -66,15 +71,19 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     if matches.opt_present("d") || matches.opt_present("a") || matches.opt_present("s") {
         let mut sock = match UnixStream::connect(crate::SOCKET_PATH) {
             Ok(s) => s,
-            Err(e) => return Err(
-                format!("Tried to send a command to the wired socket but couldn't connect; \
-                         is the wired daemon running?\n{}", e)
-            ),
+            Err(e) => {
+                return Err(format!(
+                    "Tried to send a command to the wired socket but couldn't connect; \
+                         is the wired daemon running?\n{}",
+                    e
+                ))
+            }
         };
 
         if let Some(to_close) = matches.opt_str("d") {
             validate_notification_identifier(to_close.as_str())?;
-            sock.write(format!("close:{}", to_close).as_bytes()).map_err(|e| e.to_string())?;
+            sock.write(format!("close:{}", to_close).as_bytes())
+                .map_err(|e| e.to_string())?;
         }
 
         if let Some(to_action) = matches.opt_str("a") {
@@ -83,20 +92,22 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
                 None => {
                     return Err("Missing ':' in action argument.\n\
                             Notification and action arguments must be in the format of \
-                            [latest|ID]:[default|1|2|3]".to_owned());
+                            [latest|ID]:[default|1|2|3]"
+                        .to_owned());
                 }
             };
 
             validate_notification_identifier(notification)?;
             validate_notification_action(action)?;
-            sock.write(format!("action:{},{}", notification, action).as_bytes()).map_err(|e| e.to_string())?;
+            sock.write(format!("action:{},{}", notification, action).as_bytes())
+                .map_err(|e| e.to_string())?;
         }
 
         if let Some(to_show) = matches.opt_str("s") {
             validate_notification_identifier(to_show.as_str())?;
-            sock.write(format!("show:{}", to_show).as_bytes()).map_err(|e| e.to_string())?;
+            sock.write(format!("show:{}", to_show).as_bytes())
+                .map_err(|e| e.to_string())?;
         }
-
     }
 
     Ok(ShouldRun::No)

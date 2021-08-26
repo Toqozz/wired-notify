@@ -1,22 +1,22 @@
 #![allow(dead_code)]
 
 use std::{
-    sync::mpsc::{self, Receiver},
-    time::Duration,
     env,
+    fmt::{self, Display, Formatter},
     io,
     path::PathBuf,
-    fmt::{self, Display, Formatter},
+    sync::mpsc::{self, Receiver},
+    time::Duration,
 };
 
+use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{
-    Deserialize,
     de::{self, Deserializer, Unexpected},
+    Deserialize,
 };
-use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 
 use crate::{
-    maths_utility::{self, Vec2, Rect},
+    maths_utility::{self, Rect, Vec2},
     rendering::layout::{LayoutBlock, LayoutElement},
 };
 
@@ -55,11 +55,13 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Error::NotFound => write!(f, "No config found"),
-            Error::Validate(problem) => write!(f, "Error validating config file: {}", problem), 
-            Error::Hexidecimal(problem) => write!(f, "Error parsing hexidecimal string: {}", problem), 
-            Error::Io(err) => write!(f, "Error reading config file: {}", err), 
-            Error::Ron(err) => write!(f, "Problem with config file: {}", err), 
-            Error::Watch(err) => write!(f, "Error watching config directory: {}", err), 
+            Error::Validate(problem) => write!(f, "Error validating config file: {}", problem),
+            Error::Hexidecimal(problem) => {
+                write!(f, "Error parsing hexidecimal string: {}", problem)
+            }
+            Error::Io(err) => write!(f, "Error reading config file: {}", err),
+            Error::Ron(err) => write!(f, "Problem with config file: {}", err),
+            Error::Watch(err) => write!(f, "Error watching config directory: {}", err),
         }
     }
 }
@@ -73,8 +75,8 @@ pub struct ConfigWatcher {
 pub struct Config {
     pub max_notifications: usize,
 
-    pub timeout: i32,           // Default timeout.
-    pub poll_interval: u64,     // "Frame rate" / check for updates and new notifications.
+    pub timeout: i32,       // Default timeout.
+    pub poll_interval: u64, // "Frame rate" / check for updates and new notifications.
     // Enable/disable notification replace functionality.  I don't like how some apps do it.
     #[serde(default = "maths_utility::val_true")]
     pub replacing_enabled: bool,
@@ -129,10 +131,14 @@ impl Config {
     // and returns the watcher or None.
     pub fn init() -> Option<ConfigWatcher> {
         fn assign_config(cfg: Config) {
-            unsafe { CONFIG = Some(cfg); }
+            unsafe {
+                CONFIG = Some(cfg);
+            }
         }
 
-        unsafe { assert!(CONFIG.is_none()); }
+        unsafe {
+            assert!(CONFIG.is_none());
+        }
         let cfg_file = Config::installed_config();
         match cfg_file {
             Some(f) => {
@@ -140,10 +146,14 @@ impl Config {
                 match cfg {
                     Ok(c) => assign_config(c),
                     Err(e) => {
-                        println!("Found a config file: {}, but couldn't load it, so will \
+                        println!(
+                            "Found a config file: {}, but couldn't load it, so will \
                                     use default one for now.\n\
                                     If you fix the error the config will be reloaded automatically.\n\
-                                    \tError: {}\n", f.to_str().unwrap(), e);
+                                    \tError: {}\n",
+                            f.to_str().unwrap(),
+                            e
+                        );
 
                         assign_config(Config::default());
                     }
@@ -161,9 +171,12 @@ impl Config {
                 match watch {
                     Ok(w) => Some(w),
                     Err(e) => {
-                        println!("There was a problem watching the config for changes; so won't watch:\n\t{}", e);
+                        println!(
+                            "There was a problem watching the config for changes; so won't watch:\n\t{}",
+                            e
+                        );
                         None
-                    },
+                    }
                 }
             }
 
@@ -171,7 +184,7 @@ impl Config {
                 println!("Couldn't load a config because we couldn't find one, so will use default.");
                 assign_config(Config::default());
                 None
-            },
+            }
         }
     }
 
@@ -199,7 +212,9 @@ impl Config {
     pub fn try_reload(path: PathBuf) -> bool {
         match Config::load_file(path) {
             Ok(cfg) => {
-                unsafe { CONFIG = Some(cfg); }
+                unsafe {
+                    CONFIG = Some(cfg);
+                }
                 println!("Config reloaded.");
                 true
             }
@@ -270,16 +285,19 @@ impl Config {
     pub fn transform_and_validate(mut config: Config) -> Result<Self, Error> {
         // NOTE: we might actually want to search for the "root" text.
         if config.layout_blocks.is_empty() {
-            return Err(Error::Validate("Config did not contain any layout blocks!"))
+            return Err(Error::Validate("Config did not contain any layout blocks!"));
         }
 
         // Look for children of current root.
         // If child found, insert it and then look for children of that node.
         let mut blocks = config.layout_blocks;
         let mut root = blocks.swap_remove(0);
-        config.layout_blocks = vec![];  // "Take" vec from config.
+        config.layout_blocks = vec![]; // "Take" vec from config.
 
-        fn find_and_add_children(cur_root: &mut LayoutBlock, mut remaining: Vec<LayoutBlock>) -> Vec<LayoutBlock> {
+        fn find_and_add_children(
+            cur_root: &mut LayoutBlock,
+            mut remaining: Vec<LayoutBlock>,
+        ) -> Vec<LayoutBlock> {
             let mut i = 0;
             while i < remaining.len() {
                 if remaining[i].parent == cur_root.name {
@@ -299,7 +317,7 @@ impl Config {
             remaining
         }
 
-        let remaining =find_and_add_children(&mut root, blocks);
+        let remaining = find_and_add_children(&mut root, blocks);
         if !remaining.is_empty() && config.debug {
             eprintln!("There were {} blocks remaining after creating the layout tree.  Something must be wrong here.", remaining.len());
         }
@@ -309,7 +327,9 @@ impl Config {
                 config.layout = Some(root);
                 Ok(config)
             }
-            _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),
+            _ => Err(Error::Validate(
+                "The first LayoutBlock params must be of type NotificationBlock!",
+            )),
         }
     }
 
@@ -319,8 +339,8 @@ impl Config {
         let (sender, receiver) = mpsc::channel();
 
         // Duration is a debouncing period.
-        let mut watcher = notify::watcher(sender, Duration::from_millis(10))
-            .expect("Unable to spawn file watcher.");
+        let mut watcher =
+            notify::watcher(sender, Duration::from_millis(10)).expect("Unable to spawn file watcher.");
 
         // Watch dir.
         path.pop();
@@ -499,7 +519,7 @@ impl Color {
         let dec = u32::from_str_radix(sanitized, 16);
         let dec = match dec {
             Ok(d) => d,
-            Err(_) => return Err(Error::Hexidecimal("Invalid hexidecimal string."))
+            Err(_) => return Err(Error::Hexidecimal("Invalid hexidecimal string.")),
         };
 
         // If we have 8 chars, then this is hex string includes alpha, if we have 6, then it
@@ -522,7 +542,6 @@ impl Color {
         }
     }
 }
-
 
 // We manually implement deserialize so we can nicely support letting users use hex or rgba codes.
 // Ron says the position is col: 0, line: 0 when we error during this, because we're directly
@@ -547,12 +566,16 @@ impl<'de> Deserialize<'de> for Color {
         let col = Col::deserialize(deserializer)?;
         // Check that user hasn't defined both rgba and hex.
         if col.hex.is_some() && (col.r.is_some() || col.g.is_some() || col.b.is_some() || col.a.is_some()) {
-            return Err(de::Error::custom("`hex` and `rgba` fields cannot both be present in the same `Color`"))
+            return Err(de::Error::custom(
+                "`hex` and `rgba` fields cannot both be present in the same `Color`",
+            ));
         }
 
         if let Some(hex) = col.hex {
-            return Color::from_hex(&hex)
-                .or(Err(de::Error::invalid_value(Unexpected::Str(&hex), &"a valid hexidecimal string")));
+            return Color::from_hex(&hex).or(Err(de::Error::invalid_value(
+                Unexpected::Str(&hex),
+                &"a valid hexidecimal string",
+            )));
         } else if let (Some(r), Some(g), Some(b), Some(a)) = (col.r, col.g, col.b, col.a) {
             Ok(Color::from_rgba(r, g, b, a))
         } else {
@@ -563,7 +586,12 @@ impl<'de> Deserialize<'de> for Color {
 
 impl Padding {
     pub fn new(left: f64, right: f64, top: f64, bottom: f64) -> Self {
-        Padding { left, right, top, bottom }
+        Padding {
+            left,
+            right,
+            top,
+            bottom,
+        }
     }
 
     pub fn width(&self) -> f64 {

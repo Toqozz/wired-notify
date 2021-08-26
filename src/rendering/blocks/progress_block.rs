@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
-use crate::maths_utility::{Vec2, Rect};
-use crate::config::{Config, Padding, Color};
-use crate::rendering::{
-    window::NotifyWindow,
-    layout::{DrawableLayoutElement, LayoutBlock, Hook},
-};
+use crate::config::{Color, Config, Padding};
 use crate::maths_utility;
+use crate::maths_utility::{Rect, Vec2};
+use crate::rendering::{
+    layout::{DrawableLayoutElement, Hook, LayoutBlock},
+    window::NotifyWindow,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProgressBlockParameters {
@@ -91,7 +91,14 @@ impl DrawableLayoutElement for ProgressBlockParameters {
 
         // Debug, unpadded drawing, to help users.
         if Config::get().debug {
-            maths_utility::debug_rect(&window.context, true, pos.x + self.padding.left, pos.y + self.padding.top, rect.width() - self.padding.width(), rect.height() - self.padding.height());
+            maths_utility::debug_rect(
+                &window.context,
+                true,
+                pos.x + self.padding.left,
+                pos.y + self.padding.top,
+                rect.width() - self.padding.width(),
+                rect.height() - self.padding.height(),
+            );
         }
 
         //rect.set_xy(pos.x, pos.y);

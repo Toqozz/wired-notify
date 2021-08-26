@@ -1,17 +1,17 @@
-use serde::Deserialize;
-use dbus::strings::Path;
 use dbus::message::SignalArgs;
+use dbus::strings::Path;
+use serde::Deserialize;
 
-use crate::maths_utility::{Vec2, Rect, MinMax};
-use crate::config::{Config, Padding, Color};
 use crate::bus;
-use crate::bus::dbus_codegen::{ OrgFreedesktopNotificationsActionInvoked };
-use crate::rendering::{
-    window::NotifyWindow,
-    layout::{DrawableLayoutElement, LayoutBlock, Hook},
-    text::EllipsizeMode,
-};
+use crate::bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked;
+use crate::config::{Color, Config, Padding};
 use crate::maths_utility;
+use crate::maths_utility::{MinMax, Rect, Vec2};
+use crate::rendering::{
+    layout::{DrawableLayoutElement, Hook, LayoutBlock},
+    text::EllipsizeMode,
+    window::NotifyWindow,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Dimensions {
@@ -93,20 +93,22 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             &self.font,
             self.dimensions.width.max,
             self.dimensions.height.max,
-            &self.ellipsize
+            &self.ellipsize,
         );
         let mut rect = window.text.get_sized_padded_rect(
             &self.padding,
             self.dimensions.width.min,
-            self.dimensions.height.min
+            self.dimensions.height.min,
         );
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
 
         // Button background.
         maths_utility::cairo_rounded_bordered_rectangle(
             &window.context,
-            pos.x, pos.y,   // x, y
-            rect.width(), rect.height(),
+            pos.x,
+            pos.y, // x, y
+            rect.width(),
+            rect.height(),
             self.border_rounding,
             self.border_width,
             border_col,
@@ -115,19 +117,36 @@ impl DrawableLayoutElement for ButtonBlockParameters {
 
         window.context.set_operator(cairo::Operator::Over);
         // Move block to text position (ignoring padding) for draw operation.
-        window.text.paint_padded(&window.context, &pos, text_col, &self.padding);
+        window
+            .text
+            .paint_padded(&window.context, &pos, text_col, &self.padding);
 
         // Debug, unpadded drawing, to help users.
         if Config::get().debug {
-            let r = window.text.get_sized_rect(self.dimensions.width.min, self.dimensions.height.min);
-            maths_utility::debug_rect(&window.context, true, pos.x + self.padding.left, pos.y + self.padding.top, r.width(), r.height());
+            let r = window
+                .text
+                .get_sized_rect(self.dimensions.width.min, self.dimensions.height.min);
+            maths_utility::debug_rect(
+                &window.context,
+                true,
+                pos.x + self.padding.left,
+                pos.y + self.padding.top,
+                r.width(),
+                r.height(),
+            );
         }
 
         rect.set_xy(pos.x, pos.y);
         rect
     }
 
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn predict_rect_and_init(
+        &mut self,
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        window: &NotifyWindow,
+    ) -> Rect {
         let maybe_action = match self.action {
             Action::DefaultAction => window.notification.get_default_action(),
             Action::OtherAction(i) => window.notification.get_other_action(i),
@@ -142,12 +161,12 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             &self.font,
             self.dimensions.width.max,
             self.dimensions.height.max,
-            &self.ellipsize
+            &self.ellipsize,
         );
         let mut rect = window.text.get_sized_padded_rect(
             &self.padding,
             self.dimensions.width.min,
-            self.dimensions.height.min
+            self.dimensions.height.min,
         );
 
         self.real_text = text;
@@ -159,7 +178,8 @@ impl DrawableLayoutElement for ButtonBlockParameters {
 
     fn clicked(&mut self, window: &NotifyWindow) -> bool {
         let message = OrgFreedesktopNotificationsActionInvoked {
-            action_key: self.key.clone(), id: window.notification.id
+            action_key: self.key.clone(),
+            id: window.notification.id,
         };
         let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
         let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));

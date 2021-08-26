@@ -1,21 +1,23 @@
-use pango::{
-    self,
-    prelude::*,
-    Layout,
-    FontDescription,
-};
+use pango::{self, prelude::*, FontDescription, Layout};
 
 use serde::Deserialize;
 
 use crate::{
+    config::{Color, Padding},
     maths_utility::{Rect, Vec2},
-    config::{Padding, Color},
 };
 
 #[derive(Debug, Deserialize, Clone)]
-pub enum EllipsizeMode { NoEllipsize, Start, Middle, End }
+pub enum EllipsizeMode {
+    NoEllipsize,
+    Start,
+    Middle,
+    End,
+}
 impl Default for EllipsizeMode {
-    fn default() -> Self { EllipsizeMode::Middle }
+    fn default() -> Self {
+        EllipsizeMode::Middle
+    }
 }
 
 impl EllipsizeMode {
@@ -38,15 +40,11 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     pub fn new(ctx: &cairo::Context) -> Self {
-        let pctx = pangocairo::functions::create_context(ctx)
-            .expect("Failed to create pango context.");
+        let pctx = pangocairo::functions::create_context(ctx).expect("Failed to create pango context.");
 
         let layout = Layout::new(&pctx);
 
-        Self {
-            pctx,
-            layout,
-        }
+        Self { pctx, layout }
     }
 
     // Sets the current text of the renderer, applying markup and ellipsizing according to

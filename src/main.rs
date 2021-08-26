@@ -1,34 +1,35 @@
 #[macro_use]
 extern crate bitflags;
 
-mod cli;
-mod rendering;
-mod management;
 mod bus;
+mod cli;
 mod config;
+mod management;
+#[rustfmt::skip]
 mod maths_utility;
+mod rendering;
 
 use std::{
     env,
-    path::Path,
+    io::{BufRead, BufReader, ErrorKind},
     os::unix::net::{UnixListener, UnixStream},
-    io::{ErrorKind, BufRead, BufReader},
-    time::{Instant, Duration},
+    path::Path,
+    time::{Duration, Instant},
 };
 
 use winit::{
-    event::{StartCause, Event, WindowEvent},
+    event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     platform::desktop::EventLoopExtDesktop,
     platform::unix::EventLoopExtUnix,
 };
 
-use notify::DebouncedEvent;
-use dbus::message::MessageType;
-use bus::dbus::{ Message, Notification };
-use config::Config;
-use management::NotifyWindowManager;
+use bus::dbus::{Message, Notification};
 use cli::ShouldRun;
+use config::Config;
+use dbus::message::MessageType;
+use management::NotifyWindowManager;
+use notify::DebouncedEvent;
 
 const SOCKET_PATH: &str = "/tmp/wired.sock";
 
@@ -59,7 +60,7 @@ fn handle_socket_message(manager: &mut NotifyWindowManager, stream: UnixStream) 
                     if let Some(id) = to_notification_id(args) {
                         manager.drop_notification(id);
                     }
-                },
+                }
                 "action" => (),
                 "show" => (),
                 _ => (),
@@ -76,7 +77,7 @@ fn main() {
             ShouldRun::No => return,
         },
         Err(e) => {
-            eprintln!("{}",e);
+            eprintln!("{}", e);
             return;
         }
     };
@@ -94,7 +95,9 @@ fn main() {
     // https://stackoverflow.com/questions/40218416/how-do-i-close-a-unix-socket-in-rust
     let socket_path = Path::new(SOCKET_PATH);
     if socket_path.exists() {
-        println!("A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls.");
+        println!(
+            "A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls."
+        );
         std::fs::remove_file(SOCKET_PATH).unwrap();
     }
     let listener = match UnixListener::bind(socket_path) {
@@ -117,7 +120,9 @@ fn main() {
     let mut prev_instant = Instant::now();
     event_loop.run_return(|event, event_loop, control_flow| {
         match event {
-            Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now() + poll_interval),
+            Event::NewEvents(StartCause::Init) => {
+                *control_flow = ControlFlow::WaitUntil(Instant::now() + poll_interval)
+            }
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
                 let now = Instant::now();
 
@@ -143,10 +148,11 @@ fn main() {
                 // If we don't do get incoming signals, notify sender will block when sending.
                 let signal = dbus_connection.incoming(0).next();
                 if let Some(message) = signal {
-                    if message.msg_type() == MessageType::Signal &&
-                       &*message.interface().unwrap() == "org.freedesktop.DBus" &&
-                       &*message.member().unwrap() == "NameAcquired" &&
-                       &*message.get1::<&str>().unwrap() == "org.freedesktop.Notifications" {
+                    if message.msg_type() == MessageType::Signal
+                        && &*message.interface().unwrap() == "org.freedesktop.DBus"
+                        && &*message.member().unwrap() == "NameAcquired"
+                        && &*message.get1::<&str>().unwrap() == "org.freedesktop.Notifications"
+                    {
                         println!("DBus Init Success.");
                     }
                 }
@@ -155,8 +161,10 @@ fn main() {
                 if let Ok(msg) = receiver.try_recv() {
                     match msg {
                         Message::Close(id) => {
-                            if Config::get().closing_enabled { manager.drop_notification(id); }
-                        },
+                            if Config::get().closing_enabled {
+                                manager.drop_notification(id);
+                            }
+                        }
                         Message::Notify(n) => {
                             if Config::get().replacing_enabled && manager.notification_exists(n.id) {
                                 manager.replace_notification(n);
@@ -172,9 +180,9 @@ fn main() {
                     if let Ok(ev) = cw.receiver.try_recv() {
                         // @TODO: print a notification when config reloaded?
                         match ev {
-                            DebouncedEvent::Write(p) |
-                            DebouncedEvent::Create(p) |
-                            DebouncedEvent::Chmod(p) => {
+                            DebouncedEvent::Write(p)
+                            | DebouncedEvent::Create(p)
+                            | DebouncedEvent::Chmod(p) => {
                                 if let Some(file_name) = p.file_name() {
                                     // Make sure the file that was changed is our file.
                                     if file_name == "wired.ron" && Config::try_reload(p) {
@@ -186,24 +194,26 @@ fn main() {
                                         );
                                     }
                                 }
-                            },
-                            _ => {},
+                            }
+                            _ => {}
                         }
                     }
                 }
 
                 // Restart timer for next loop.
                 *control_flow = ControlFlow::WaitUntil(now + poll_interval);
-            },
+            }
 
             Event::RedrawRequested(window_id) => manager.request_redraw(window_id),
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => *control_flow = ControlFlow::Exit,
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
             Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
 
             // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
             // This is ideal for games and similar applications.
-            _ => ()
-            //_ => *control_flow = ControlFlow::Poll,
+            _ => (), //_ => *control_flow = ControlFlow::Poll,
         }
     });
 }

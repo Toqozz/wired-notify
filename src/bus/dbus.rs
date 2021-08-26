@@ -1,22 +1,22 @@
-use std::sync::Arc;
-use std::sync::mpsc::{self, Receiver};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::mpsc::{self, Receiver};
+use std::sync::Arc;
 
-use image::{self, DynamicImage, ImageBuffer};
 use dbus::{
     self,
-    tree::{self, DataType, Interface, Factory, Tree},
-    ffidisp::{Connection, BusType, NameFlag, RequestNameReply},
+    ffidisp::{BusType, Connection, NameFlag, RequestNameReply},
+    tree::{self, DataType, Factory, Interface, Tree},
 };
+use image::{self, DynamicImage, ImageBuffer};
 
-use chrono::{ offset::Local, DateTime };
+use chrono::{offset::Local, DateTime};
 
-use crate::Config;
-use crate::bus::receiver::BusNotification;
-use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, Value, DBusImage};
-use crate::maths_utility;
+use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, DBusImage, Value};
 use crate::bus::receiver;
+use crate::bus::receiver::BusNotification;
+use crate::maths_utility;
+use crate::Config;
 
 #[derive(Copy, Clone, Default, Debug)]
 struct TData;
@@ -47,9 +47,7 @@ fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TD
 
     let f = Factory::new_fn();
     let mut tree = f.tree(());
-    tree = tree.add(f.object_path(PATH, n)
-        .introspectable()
-        .add(iface));
+    tree = tree.add(f.object_path(PATH, n).introspectable().add(iface));
 
     tree
 }
@@ -59,15 +57,18 @@ pub fn init_bus(sender: mpsc::Sender<Message>) -> Connection {
     let tree = create_tree(iface);
 
     let c = Connection::get_private(BusType::Session).expect("Failed to get a session bus.");
-    let reply = c.register_name("org.freedesktop.Notifications", NameFlag::ReplaceExisting as u32)
+    let reply = c
+        .register_name("org.freedesktop.Notifications", NameFlag::ReplaceExisting as u32)
         .expect("Failed to register name.");
 
     // Be helpful to the user.
     match reply {
         RequestNameReply::PrimaryOwner => println!("Acquired notification bus name."),
-        RequestNameReply::InQueue => println!("In queue for notification bus name -- is another notification daemon running?"),
-        RequestNameReply::Exists => {},
-        RequestNameReply::AlreadyOwner => {},
+        RequestNameReply::InQueue => {
+            println!("In queue for notification bus name -- is another notification daemon running?")
+        }
+        RequestNameReply::Exists => {}
+        RequestNameReply::AlreadyOwner => {}
     };
 
     tree.set_registered(&c, true).unwrap();
@@ -87,7 +88,9 @@ pub fn init_connection() -> Receiver<Message> {
     let (sender, receiver) = mpsc::channel();
     let c = init_bus(sender);
 
-    unsafe { DBUS_CONN = Some(c); }
+    unsafe {
+        DBUS_CONN = Some(c);
+    }
 
     receiver
 }
@@ -100,7 +103,9 @@ pub enum Urgency {
 }
 
 impl Default for Urgency {
-    fn default() -> Self { Self::Normal }
+    fn default() -> Self {
+        Self::Normal
+    }
 }
 
 pub enum Message {
@@ -181,7 +186,7 @@ impl Notification {
         // The length of this should always be even, since actions are sent as a list of pairs, but
         // we safeguard against bad implementations anyway by checking that i+1 is safe.
         while i < actions.len() {
-            actions_map.insert(actions[i].to_owned(), actions[i+1].to_owned());
+            actions_map.insert(actions[i].to_owned(), actions[i + 1].to_owned());
             i += 2;
         }
 
@@ -206,8 +211,9 @@ impl Notification {
             // Sometimes dbus (or the application) can give us junk image data, usually when lots of
             // stuff is sent at the same time the same time, so we should sanity check the image.
             // https://github.com/dunst-project/dunst/blob/3f3082efb3724dcd369de78dc94d41190d089acf/src/icon.c#L316
-            let pixelstride = (dbus_image.channels * dbus_image.bits_per_sample + 7)/8;
-            let len_expected = (dbus_image.height - 1) * dbus_image.rowstride + dbus_image.width * pixelstride;
+            let pixelstride = (dbus_image.channels * dbus_image.bits_per_sample + 7) / 8;
+            let len_expected =
+                (dbus_image.height - 1) * dbus_image.rowstride + dbus_image.width * pixelstride;
             let len_actual = dbus_image.data.len() as i32;
             if len_actual != len_expected {
                 eprintln!(
@@ -218,14 +224,18 @@ impl Notification {
             }
 
             let x = match dbus_image.channels {
-                3 => ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
-                        .map(DynamicImage::ImageRgb8),
-                4 => ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
-                        .map(DynamicImage::ImageRgba8),
+                3 => {
+                    ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
+                        .map(DynamicImage::ImageRgb8)
+                }
+                4 => {
+                    ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
+                        .map(DynamicImage::ImageRgba8)
+                }
                 _ => {
                     eprintln!("Unsupported hint image format!  Couldn't load hint image.");
                     None
-                },
+                }
             };
 
             //let end = std::time::Instant::now();
@@ -292,18 +302,21 @@ impl Notification {
     }
 
     pub fn get_default_action(&self) -> Option<(String, String)> {
-        self.actions.get_key_value("default").map(|(k, v)|(k.to_owned(), v.to_owned()))
+        self.actions
+            .get_key_value("default")
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
     }
 
-    pub fn get_other_action(&self, idx: usize)  -> Option<(String, String)> {
+    pub fn get_other_action(&self, idx: usize) -> Option<(String, String)> {
         // Creates an iterator without the "default" key, which is preserved for action1.
         let mut keys = self.actions.keys().filter(|s| *s != "default");
         let maybe_key = keys.nth(idx);
         if let Some(key) = maybe_key {
-            self.actions.get_key_value(key).map(|(k, v)|(k.to_owned(), v.to_owned()))
+            self.actions
+                .get_key_value(key)
+                .map(|(k, v)| (k.to_owned(), v.to_owned()))
         } else {
             None
         }
-
     }
 }
