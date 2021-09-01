@@ -170,8 +170,16 @@ impl NotifyWindow {
 
         // When we spawn a window, we get a `RedrawRequested` event which we draw from, so we don't
         // manually draw here.
+        // `Rect::new(0.0, 0.0, width, height) is basically the same as `window.get_inner_rect()`,
+        // but we don't trust it to be initialized yet.
         let mut layout = cfg.layout.as_ref().unwrap().clone();
-        let rect = layout.predict_rect_tree_and_init(&window, &window.get_inner_rect(), Rect::empty());
+        let rect = layout.predict_rect_tree_and_init(
+            &window,
+            //&window.get_inner_rect(),
+            &Rect::new(0.0, 0.0, width, height)     // This parameter is only used for positioning
+            &Rect::new(0.0, 0.0, width, height)     // .. so we should also pass the min_size rect here
+                                                    // to ensure we don't get 0.0 width / 0.0 height.
+        );
         let delta = Vec2::new(-rect.x(), -rect.y());
 
         window.layout = Some(layout);
