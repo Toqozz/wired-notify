@@ -15,7 +15,7 @@ use cairo_sys;
 use crate::{
     bus::dbus::Notification,
     config::Config,
-    management::NotifyWindowManager,
+    manager::NotifyWindowManager,
     maths_utility::{Rect, Vec2},
     rendering::layout::LayoutBlock,
     rendering::text::TextRenderer,

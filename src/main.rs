@@ -4,7 +4,7 @@ extern crate bitflags;
 mod bus;
 mod cli;
 mod config;
-mod management;
+mod manager;
 #[rustfmt::skip]
 mod maths_utility;
 mod rendering;
@@ -17,35 +17,46 @@ use std::{
     time::{Duration, Instant},
 };
 
-use winit::{
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    platform::desktop::EventLoopExtDesktop,
-    platform::unix::EventLoopExtUnix,
-};
+use winit::{event::{Event, StartCause, WindowEvent}, event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget}, platform::desktop::EventLoopExtDesktop, platform::unix::EventLoopExtUnix, window::WindowId};
 
 use bus::dbus::{Message, Notification};
 use cli::ShouldRun;
 use config::Config;
 use dbus::message::MessageType;
-use management::NotifyWindowManager;
+use manager::NotifyWindowManager;
 use notify::DebouncedEvent;
 
 const SOCKET_PATH: &str = "/tmp/wired.sock";
 
-fn to_notification_id(input: &str) -> Option<u32> {
-    // TODO: support this.
-    if input == "latest" {
-        return None;
-    }
+#[derive(Debug)]
+enum SocketError {
+    Parse(&'static str),
+    NotificationNotFound,
+    InvalidCommand,
+}
 
-    match input.parse::<u32>() {
-        Ok(u) => Some(u),
-        Err(_) => None,
+fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, SocketError> {
+    let idx = if arg == "latest" {
+        let num_windows = manager.monitor_windows.values().flatten().count();
+        if num_windows > 0 {
+            num_windows - 1
+        } else {
+            return Err(SocketError::NotificationNotFound)
+        }
+    } else if let Ok(idx) = arg.parse::<usize>() {
+        idx
+    } else {
+        return Err(SocketError::Parse("Value is not of type usize."));
+    };
+
+    if let Some(window) = manager.find_window_ordered(idx) {
+        Ok(window)
+    } else {
+        Err(SocketError::NotificationNotFound)
     }
 }
 
-fn handle_socket_message(manager: &mut NotifyWindowManager, stream: UnixStream) {
+fn handle_socket_message(manager: &mut NotifyWindowManager, el: &EventLoopWindowTarget<()>, stream: UnixStream) -> Result<(), SocketError> {
     let stream = BufReader::new(stream);
     for line in stream.lines() {
         let line = match line {
@@ -57,16 +68,38 @@ fn handle_socket_message(manager: &mut NotifyWindowManager, stream: UnixStream) 
         if let Some((command, args)) = line.split_once(":") {
             match command {
                 "close" => {
-                    if let Some(id) = to_notification_id(args) {
-                        manager.drop_notification(id);
+                    let id = get_window_id(args, manager)?;
+                    manager.drop_window_id(id);
+                }
+                "action" => {
+                    let (notif_id, action_id) =
+                        args.split_once(",")
+                            .ok_or(SocketError::Parse("Malformed action request."))?;
+
+                    let id = get_window_id(notif_id, manager)?;
+                    let action = action_id.parse::<usize>()
+                        .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
+                    manager.trigger_action_idx(id, action);
+                },
+                "show" => {
+                    let num = args.parse::<usize>()
+                        .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
+                    for _ in 0..num {
+                        if let Some(n) = manager.history.pop_back() {
+                            manager.new_notification(n, el);
+                        }
                     }
                 }
-                "action" => (),
-                "show" => (),
-                _ => (),
+                _ => {
+                    return Err(SocketError::InvalidCommand)
+                },
             }
+        } else {
+            return Err(SocketError::Parse("Malformed command."));
         }
     }
+
+    Ok(())
 }
 
 fn main() {
@@ -136,7 +169,13 @@ fn main() {
                 // For other errors, we should probably inform users to aide debugging.
                 // I don't love the idea of spamming stderr here, however.
                 match listener.accept() {
-                    Ok((socket, _addr)) => handle_socket_message(&mut manager, socket),
+                    Ok((socket, _addr)) =>
+                        match handle_socket_message(&mut manager, event_loop, socket) {
+                            Ok(_) => {},
+                            Err(e) => {
+                                eprintln!("Error while handling socket message: {:?}", e);
+                            }
+                        },
                     Err(e) => {
                         if e.kind() != ErrorKind::WouldBlock {
                             eprintln!("{}", e);
@@ -204,7 +243,9 @@ fn main() {
                 *control_flow = ControlFlow::WaitUntil(now + poll_interval);
             }
 
-            Event::RedrawRequested(window_id) => manager.request_redraw(window_id),
+            Event::RedrawRequested(window_id) => {
+                manager.request_redraw(window_id);
+            }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..

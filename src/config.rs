@@ -73,19 +73,10 @@ pub struct ConfigWatcher {
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    // Maximum number of notifications to show on screen at once.
     pub max_notifications: usize,
-
     pub timeout: i32,       // Default timeout.
     pub poll_interval: u64, // "Frame rate" / check for updates and new notifications.
-    // Enable/disable notification replace functionality.  I don't like how some apps do it.
-    #[serde(default = "maths_utility::val_true")]
-    pub replacing_enabled: bool,
-    // Whether or not to refresh the timeout of a notification on an update
-    #[serde(default)]
-    pub replacing_resets_timeout: bool,
-    // Enable/disable notification closing functionality.  I don't like how some apps do it.
-    #[serde(default = "maths_utility::val_true")]
-    pub closing_enabled: bool,
 
     pub layout_blocks: Vec<LayoutBlock>,
 
@@ -97,6 +88,20 @@ pub struct Config {
     pub debug_color: Color,
     #[serde(default = "Config::default_debug_color_alt")]
     pub debug_color_alt: Color,
+
+    // Enable/disable notification replace functionality.  I don't like how some apps do it.
+    #[serde(default = "maths_utility::val_true")]
+    pub replacing_enabled: bool,
+    // Whether or not to refresh the timeout of a notification on an update
+    #[serde(default)]
+    pub replacing_resets_timeout: bool,
+    // Enable/disable notification closing functionality.  I don't like how some apps do it.
+    #[serde(default = "maths_utility::val_true")]
+    pub closing_enabled: bool,
+    // How many notifications are kept in history.  Older notifications will be removed first.
+    // Each notification is roughly 256 bytes (excluding buffers), so do the math there.
+    #[serde(default = "maths_utility::val_10")]
+    pub history_length: usize,
 
     // Minimum window width and height.  This is used to create the base rect that the notification
     // grows within.
@@ -351,85 +356,14 @@ impl Config {
             Err(e) => Err(Error::Watch(e)),
         }
     }
-
-    // Verify that the config is constructed correctly.
-    /*
-    fn validate(mut config: Config) -> Result<Self, Error> {
-        let c = Config::transform(config);
-        match c.layout.as_ref() {
-            Some(layout) =>
-                match layout.params {
-                    LayoutElement::NotificationBlock(_) => Ok(c),
-                    _ => Err(Error::Validate("The first LayoutBlock params must be of type NotificationBlock!")),
-                }
-            None => Err(Error::Validate("The layout was not populated!")),
-        }
-    }
-    */
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config::load_str(include_str!("../../wired.ron"))
+        Config::load_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/wired.ron")))
             .expect("Failed to load default config.  Maintainer fucked something up.\n")
     }
 }
-
-/*
-// If we want to transition to "real" hotkeys at some point, this may be valuable.
-#[derive(Debug, Deserialize)]
-pub enum ActionKey {
-    Key(VirtualKeyCode),
-    MouseButton(MouseButton),
-}
-
-impl ActionKey {
-    pub fn compare(&self, event: &WindowEvent) -> bool {
-        match *self {
-            ActionKey::MouseButton(b) => {
-                match *event {
-                    WindowEvent::MouseInput { state: ElementState::Pressed, button, .. } => {
-                        if button == b {
-                            return true;
-                        }
-                    }
-                    _ => return false,
-                }
-            },
-
-            ActionKey::Key(k) => {
-                match *event {
-                    WindowEvent::KeyboardInput { input: KeyboardInput { state: ElementState::Pressed, virtual_keycode, .. }, .. } => {
-                        if let Some(vk) = virtual_keycode {
-                            if vk == k {
-                                return true;
-                            }
-                        }
-                    },
-                    _ => return false,
-                }
-            }
-        }
-
-        false
-    }
-
-    // Simple shortcut comparisons to make things easier when processing events.
-    pub fn compare_mousebutton(&self, button: MouseButton) -> bool {
-        match *self {
-            ActionKey::MouseButton(b) => { if b == button { true } else { false } },
-            _ => false
-        }
-    }
-
-    pub fn compare_key(&self, key: VirtualKeyCode) -> bool {
-        match *self {
-            ActionKey::Key(k) => { if k == key { true } else { false } },
-            _ => false
-        }
-    }
-}
-*/
 
 #[derive(Debug, Deserialize)]
 pub struct ShortcutsConfig {

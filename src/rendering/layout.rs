@@ -58,6 +58,7 @@ pub struct Hook {
 // based on the result of `predict_rect_and_init` to make sure we don't draw off canvas, so
 // the result of `LayoutBlock::find_anchor_pos()` can change between `predict_rect_and_init` and
 // `draw`!
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Deserialize, Clone, DrawableLayoutElement)]
 pub enum LayoutElement {
     NotificationBlock(NotificationBlockParameters),

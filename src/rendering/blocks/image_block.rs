@@ -120,12 +120,12 @@ impl DrawableLayoutElement for ImageBlockParameters {
                 .notification
                 .app_image
                 .as_ref()
-                .or(window.notification.hint_image.as_ref()),
+                .or_else(|| window.notification.hint_image.as_ref()),
             ImageType::HintThenApp => window
                 .notification
                 .hint_image
                 .as_ref()
-                .or(window.notification.app_image.as_ref()),
+                .or_else(|| window.notification.app_image.as_ref()),
         };
 
         if let Some(img) = maybe_image {

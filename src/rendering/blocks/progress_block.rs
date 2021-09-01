@@ -118,7 +118,7 @@ impl DrawableLayoutElement for ProgressBlockParameters {
             width, height,
         );
 
-        self.percentage = window.notification.percentage.unwrap_or(0.0);
+        self.percentage = window.notification.percentage.unwrap_or(0.0) as f64;
         let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
         rect.set_xy(pos.x, pos.y);
         rect

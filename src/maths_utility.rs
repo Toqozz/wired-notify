@@ -232,6 +232,7 @@ pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64
 // Creates a rounded rectangle with a border that acts as a user would expect.
 // Obeys background opacity and such -- border color is not present on the background like it would
 // be with the naive approach.
+#[allow(clippy::too_many_arguments)]
 pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color) {
     ctx.save();
 
@@ -255,6 +256,7 @@ pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, wi
 // Creates a rounded rectangle with a border that acts as a user would expect.
 // Obeys background opacity and such -- border color is not present on the background like it would
 // be with the naive approach.
+#[allow(clippy::too_many_arguments)]
 pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, fill_percent: f64, border_corner_radius: f64, fill_corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color, fill_color: &Color) {
     ctx.save();
 
@@ -493,4 +495,8 @@ pub fn find_and_open_url(string: String) {
 // Issue been open since 2018, so I guess it's never getting fixed.
 pub fn val_true() -> bool {
     true
+}
+
+pub fn val_10() -> usize {
+    10
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
 use dbus::message::SignalArgs;
@@ -25,6 +25,7 @@ pub struct NotifyWindowManager {
     //pub windows: Vec<NotifyWindow<'config>>,
     pub base_window: winit::window::Window,
     pub monitor_windows: HashMap<u32, Vec<NotifyWindow>>,
+    pub history: VecDeque<Notification>,
     pub dirty: bool,
 }
 
@@ -40,6 +41,7 @@ impl NotifyWindowManager {
         Self {
             base_window,
             monitor_windows,
+            history: VecDeque::with_capacity(Config::get().history_length),
             dirty: false,
         }
     }
@@ -49,10 +51,11 @@ impl NotifyWindowManager {
         if Config::get().debug {
             dbg!(&notification);
         }
+
         if let LayoutElement::NotificationBlock(p) = &Config::get().layout.as_ref().unwrap().params {
             let window = NotifyWindow::new(el, notification, self);
 
-            let windows = self.monitor_windows.entry(p.monitor).or_insert(vec![]);
+            let windows = self.monitor_windows.entry(p.monitor).or_insert_with(Vec::new);
 
             // Push a new notification window.
             windows.push(window);
@@ -109,6 +112,17 @@ impl NotifyWindowManager {
                     };
                     let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
                     let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
+
+                    // Window, dying push notification to history.
+                    // NOTE: if window dies in some other way (which we don't support), we won't
+                    // have a history of it.  I think this might cause a bug anyway, since the
+                    // window would still be in the array here.
+                    // A fix may be to write notifications to history as soon as we receive them,
+                    // but then we need to keep track of which notifications are active and stuff.
+                    if self.history.len() + 1 > Config::get().history_length {
+                        self.history.pop_front();
+                    }
+                    self.history.push_back(window.notification.clone());
                 }
                 windows.retain(|w| !w.marked_for_destroy);
             }
@@ -132,7 +146,7 @@ impl NotifyWindowManager {
                 let monitor = winit_utility
                     .available_monitors()
                     .nth(*monitor_id as usize)
-                    .unwrap_or(winit_utility.primary_monitor());
+                    .unwrap_or_else(|| winit_utility.primary_monitor());
 
                 let (pos, size) = (monitor.position(), monitor.size());
                 let monitor_rect =
@@ -140,14 +154,13 @@ impl NotifyWindowManager {
                 let mut prev_rect = monitor_rect;
 
                 let mut real_idx = 0;
-                for i in 0..windows.len() {
+                for window in windows {
                     // Windows which are marked for destroy should be overlapped so that destroying them
                     // will be less noticeable.
-                    if windows[i].marked_for_destroy {
+                    if window.marked_for_destroy {
                         continue;
                     }
 
-                    let window = &windows[i];
                     let mut window_rect = window.get_inner_rect();
 
                     // For the first notification, we attach to the monitor.
@@ -238,7 +251,7 @@ impl NotifyWindowManager {
             }
         } else if pressed == config.shortcuts.notification_closeall {
             self.drop_windows();
-        }  else if pressed == config.shortcuts.notification_pause {
+        } else if pressed == config.shortcuts.notification_pause {
             if let Some((monitor, idx)) = self.find_window_idx(window_id) {
                 let window = self.monitor_windows
                     .get_mut(&monitor).unwrap()
@@ -257,55 +270,56 @@ impl NotifyWindowManager {
             ]
             .contains(&pressed)
             {
-                self.drop_window(window_id);
+                self.drop_window_id(window_id);
             }
 
-            let notification = match self.find_window(window_id) {
-                Some(w) => &w.notification,
-                None => return,
-            };
-
-            // Creates an iterator without the "default" key, which is preserved for action1.
-            let mut keys = notification.actions.keys().filter(|s| *s != "default");
-
-            // action1 is the default action.  Maybe we should rename it to action_default or
-            // something.
-            let key = if pressed == config.shortcuts.notification_action1
-                || pressed == config.shortcuts.notification_action1_and_close
-            {
-                if notification.actions.contains_key("default") {
-                    Some("default".to_owned())
-                } else {
-                    None
-                }
+            let action_id = if pressed == config.shortcuts.notification_action1
+                || pressed == config.shortcuts.notification_action1_and_close {
+                0
             } else if pressed == config.shortcuts.notification_action2
-                || pressed == config.shortcuts.notification_action2_and_close
-            {
-                keys.nth(0).cloned()
+                || pressed == config.shortcuts.notification_action2_and_close {
+                1
             } else if pressed == config.shortcuts.notification_action3
-                || pressed == config.shortcuts.notification_action3_and_close
-            {
-                keys.nth(1).cloned()
+                || pressed == config.shortcuts.notification_action3_and_close {
+                2
             } else if pressed == config.shortcuts.notification_action4
-                || pressed == config.shortcuts.notification_action4_and_close
-            {
-                keys.nth(2).cloned()
+                || pressed == config.shortcuts.notification_action4_and_close {
+                3
             } else {
                 // `pressed` did not match any action key.
                 return;
             };
 
-            // Found an action -> button press combo, great!  Send dbus a signal to invoke it.
-            if let Some(k) = key {
-                let message = OrgFreedesktopNotificationsActionInvoked {
-                    action_key: k,
-                    id: notification.id,
-                };
-                let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
-                let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
+            self.trigger_action_idx(window_id, action_id);
+        }
+    }
+
+    pub fn trigger_action_idx(&mut self, window_id: WindowId, action: usize) {
+        let notification = match self.find_window(window_id) {
+            Some(w) => &w.notification,
+            None => return,
+        };
+
+        let mut keys = notification.actions.keys().filter(|s| *s != "default");
+        let key = if action == 0 {
+            if notification.actions.contains_key("default") {
+                Some("default".to_owned())
             } else {
-                println!("Received action shortcut but could not find a matching action to trigger.");
+                None
             }
+        } else {
+            keys.nth(action - 1).cloned()
+        };
+
+        if let Some(k) = key {
+            let message = OrgFreedesktopNotificationsActionInvoked {
+                action_key: k,
+                id: notification.id,
+            };
+            let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
+            let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
+        } else {
+            eprintln!("Tried to trigger an action with id: {}, but couldn't find any matches.", action);
         }
     }
 
@@ -323,6 +337,8 @@ impl NotifyWindowManager {
 
     // This call should always succeed, unless for some reason the event came from a window that we
     // don't know about -- which should never happen, or the id is wrong.
+    // Potentially, this call is delayed and we've already dropped that window, which is definitely
+    // plausible.
     pub fn find_window(&self, window_id: WindowId) -> Option<&NotifyWindow> {
         if let Some((monitor, idx)) = self.find_window_idx(window_id) {
             if let Some(windows) = self.monitor_windows.get(&monitor) {
@@ -343,6 +359,19 @@ impl NotifyWindowManager {
         None
     }
 
+    pub fn find_window_ordered(&self, num: usize) -> Option<WindowId> {
+        let mut windows: Vec<&NotifyWindow> =
+            self.monitor_windows.values()
+                                .flatten()
+                                .collect();
+
+        // `sort_unstable` is faster, but windows with the exact same creation timestamp may by
+        // shifted in ordering, which is undersireable.  DateTime is probably precise enough to get
+        // away with this, but frankly I just don't want to worry about it.
+        windows.sort_by(|a, b| a.creation_timestamp.partial_cmp(&b.creation_timestamp).unwrap());
+        windows.get(num).map(|w| w.winit.id())
+    }
+
     pub fn notification_exists(&self, id: u32) -> bool {
         for m in self.monitor_windows.values() {
             for w in m {
@@ -355,7 +384,8 @@ impl NotifyWindowManager {
         false
     }
 
-    pub fn drop_window(&mut self, window_id: WindowId) {
+    // Drop a window.  Return true if we found the window and told it to drop, false otherwise.
+    pub fn drop_window_id(&mut self, window_id: WindowId) -> bool {
         if let Some((monitor, idx)) = self.find_window_idx(window_id) {
             let window = self.monitor_windows
                 .get_mut(&monitor).unwrap()
@@ -363,10 +393,14 @@ impl NotifyWindowManager {
 
             window.marked_for_destroy = true;
             self.dirty = true;
+            return true;
         }
+
+        false
     }
 
-    // @TODO: how about a shortcut for dropping all windows on one monitor?
+    // @TODO: how about a shortcut for dropping all windows on one monitor?  Support multi-monitor
+    // better first.
     pub fn drop_windows(&mut self) {
         for (_monitor, windows) in &mut self.monitor_windows {
             for window in windows.iter_mut() {
@@ -377,22 +411,28 @@ impl NotifyWindowManager {
     }
 
     // Draw an individual window (mostly for expose events).
-    pub fn request_redraw(&mut self, window_id: WindowId) {
+    pub fn request_redraw(&mut self, window_id: WindowId) -> bool {
         if let Some((monitor, idx)) = self.find_window_idx(window_id) {
             let window = self.monitor_windows
                 .get_mut(&monitor).unwrap()
                 .get_mut(idx).unwrap();
 
             window.dirty = true;
+            return true;
         }
+
+        false
     }
 
-    pub fn drop_notification(&mut self, id: u32) {
+    pub fn drop_notification(&mut self, id: u32) -> bool {
         // This should be Some, otherwise we were given a bad id.
         let maybe_window = self.monitor_windows.values_mut().flatten().find(|w| w.notification.id == id);
         if let Some(window) = maybe_window {
             window.marked_for_destroy = true;
             self.dirty = true;
+            return true;
         }
+
+        false
     }
 }

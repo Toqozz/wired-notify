@@ -95,7 +95,7 @@ pub fn init_connection() -> Receiver<Message> {
     receiver
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Urgency {
     Low,
     Normal,
@@ -108,11 +108,13 @@ impl Default for Urgency {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum Message {
     Close(u32),
     Notify(Notification),
 }
 
+#[derive(Clone)]
 pub struct Notification {
     pub id: u32,
 
@@ -123,7 +125,7 @@ pub struct Notification {
     pub actions: HashMap<String, String>,
     pub app_image: Option<DynamicImage>,
     pub hint_image: Option<DynamicImage>,
-    pub percentage: Option<f64>,
+    pub percentage: Option<f32>,
 
     pub urgency: Urgency,
 
@@ -161,6 +163,7 @@ impl Notification {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn from_dbus(
         id: u32,
         app_name: &str,
@@ -250,9 +253,9 @@ impl Notification {
         // We want to pass the `dbus_image.data` vec rather than cloning it, so we have to remove it
         // from the array.
         // An alternative might be to put `data` in an option or something like that.
-        if let Some(Value::Struct(dbus_image)) = hints.remove("image-data").or(hints.remove("image_data")) {
+        if let Some(Value::Struct(dbus_image)) = hints.remove("image-data").or_else(|| hints.remove("image_data")) {
             hint_image = image_from_data(dbus_image);
-        } else if let Some(Value::String(path)) = hints.get("image-path").or(hints.get("image_path")) {
+        } else if let Some(Value::String(path)) = hints.get("image-path").or_else(|| hints.get("image_path")) {
             hint_image = image_from_path(path);
         } else if let Some(Value::Struct(dbus_image)) = hints.remove("icon_data") {
             hint_image = image_from_data(dbus_image);
@@ -272,11 +275,12 @@ impl Notification {
             urgency = Urgency::Normal;
         }
 
-        let percentage: Option<f64>;
+        let percentage: Option<f32>;
         if let Some(Value::I32(value)) = hints.get("value") {
             let v = f64::from(*value);
-            let p = f64::clamp(v / 100.0, 0.0, 1.0);
-            percentage = Some(p)
+            let p = f64::clamp(v * 0.01, 0.0, 1.0);
+            // This conversion should not be lossy, since the maximum precision is 0.01 (1%).
+            percentage = Some(p as f32)
         } else {
             percentage = None;
         }
