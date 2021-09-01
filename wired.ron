@@ -11,6 +11,10 @@
     // they redraw (if required).  16ms ~= 60hz / 7ms ~= 144hz.
     poll_interval: 16,
 
+    // How many notifications are kept in history.
+    // Each notification is roughly 256 bytes (excluding buffers!), so do the math here.
+    history_length: 10,
+
     // Enable/disable replacement functionality.
     // If this is disabled, replacement requests will just send a new notification.
     // E.g., with replacing_enabled: true, Pidgin will only show the latest message from each contact, instead of sending a new one for each message.

@@ -276,9 +276,6 @@ impl Config {
     pub fn load_str(cfg_str: &str) -> Result<Self, Error> {
         // Really ugly and annoying hack because ron doesn't allow implicit some by
         // default.
-        // Eventually we probably want to switch to something friendlier like Yaml, so it's
-        // not worth worrying about too much.
-        // @TODO: Yaml.
         let string = format!("#![enable(implicit_some)]\n{}", cfg_str);
         let config: Result<Self, _> = ron::de::from_str(string.as_str());
         match config {
