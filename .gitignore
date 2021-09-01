@@ -3,3 +3,5 @@ target/*
 wired_derive/target/*
 
 **/result*
+
+.SRCINFO
