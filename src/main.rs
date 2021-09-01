@@ -17,7 +17,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use winit::{event::{Event, StartCause, WindowEvent}, event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget}, platform::desktop::EventLoopExtDesktop, platform::unix::EventLoopExtUnix, window::WindowId};
+use winit::{
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    platform::run_return::EventLoopExtRunReturn, platform::unix::EventLoopExtUnix, window::WindowId};
 
 use bus::dbus::{Message, Notification};
 use cli::ShouldRun;

@@ -367,20 +367,20 @@ impl Default for Config {
 
 #[derive(Debug, Deserialize)]
 pub struct ShortcutsConfig {
-    pub notification_interact: Option<u8>,
-    pub notification_close: Option<u8>,
-    pub notification_closeall: Option<u8>,
-    pub notification_pause: Option<u8>,
+    pub notification_interact: Option<u16>,
+    pub notification_close: Option<u16>,
+    pub notification_closeall: Option<u16>,
+    pub notification_pause: Option<u16>,
 
-    pub notification_action1: Option<u8>,
-    pub notification_action2: Option<u8>,
-    pub notification_action3: Option<u8>,
-    pub notification_action4: Option<u8>,
+    pub notification_action1: Option<u16>,
+    pub notification_action2: Option<u16>,
+    pub notification_action3: Option<u16>,
+    pub notification_action4: Option<u16>,
 
-    pub notification_action1_and_close: Option<u8>,
-    pub notification_action2_and_close: Option<u8>,
-    pub notification_action3_and_close: Option<u8>,
-    pub notification_action4_and_close: Option<u8>,
+    pub notification_action1_and_close: Option<u16>,
+    pub notification_action2_and_close: Option<u16>,
+    pub notification_action3_and_close: Option<u16>,
+    pub notification_action4_and_close: Option<u16>,
 }
 
 impl Default for ShortcutsConfig {

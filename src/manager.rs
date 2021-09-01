@@ -143,10 +143,18 @@ impl NotifyWindowManager {
                 // The functions here are just convenience functions to avoid needing a reference
                 // to the event loop -- they don't relate to the individual window.
                 let winit_utility = &windows[0].winit;
-                let monitor = winit_utility
+                let maybe_monitor = winit_utility
                     .available_monitors()
                     .nth(*monitor_id as usize)
-                    .unwrap_or_else(|| winit_utility.primary_monitor());
+                    .or_else(|| winit_utility.primary_monitor());
+
+                // If we can't find a monitor, it's basically over.
+                // But let's not crash.  Maybe we'll find a monitor next time (if it was unplugged
+                // or something).
+                let monitor = match maybe_monitor {
+                    Some(m) => m,
+                    None => continue,
+                };
 
                 let (pos, size) = (monitor.position(), monitor.size());
                 let monitor_rect =
