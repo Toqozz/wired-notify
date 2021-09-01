@@ -10,7 +10,7 @@ pub enum ShouldRun {
 }
 
 fn print_usage(opts: Options) {
-    print!("{}", opts.usage("Usage: wired [options]"));
+    print!("{}", opts.usage("Usage:\twired [options]\n\tIDX refers to the Nth most recent notification."));
 }
 
 fn validate_notification_identifier(input: &str) -> Result<(), &'static str> {
@@ -22,7 +22,7 @@ fn validate_notification_identifier(input: &str) -> Result<(), &'static str> {
     match input.parse::<u32>() {
         Ok(_) => Ok(()),
         Err(_) => Err("Notification identifier must be either [latest], or a valid \
-                                notification ID (unsigned integer)"),
+                                notification IDX (unsigned integer)."),
     }
 }
 
@@ -43,12 +43,12 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     // Initialization
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
-    opts.optopt("d", "drop", "drop/close a notification", "[latest|ID]");
+    opts.optopt("d", "drop", "drop/close a notification", "[latest|IDX]");
     opts.optopt(
         "a",
         "action",
         "execute a notification's action",
-        "[latest|ID]:[default|1|2|3]",
+        "[latest|IDX]:[default|1|2|3]",
     );
     opts.optopt("s", "show", "show the last N notifications", "N");
     opts.optflag("r", "run", "run the wired daemon");
@@ -92,7 +92,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
                 None => {
                     return Err("Missing ':' in action argument.\n\
                             Notification and action arguments must be in the format of \
-                            [latest|ID]:[default|1|2|3]"
+                            [latest|N]:[default|1|2|3]"
                         .to_owned());
                 }
             };
