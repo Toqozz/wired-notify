@@ -71,8 +71,12 @@ fn handle_socket_message(manager: &mut NotifyWindowManager, el: &EventLoopWindow
         if let Some((command, args)) = line.split_once(":") {
             match command {
                 "close" => {
-                    let id = get_window_id(args, manager)?;
-                    manager.drop_window_id(id);
+                    if args == "all" {
+                        manager.drop_windows();
+                    } else {
+                        let id = get_window_id(args, manager)?;
+                        manager.drop_window_id(id);
+                    }
                 }
                 "action" => {
                     let (notif_id, action_id) =

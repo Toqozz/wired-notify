@@ -13,8 +13,8 @@ fn print_usage(opts: Options) {
     print!("{}", opts.usage("Usage:\twired [options]\n\tIDX refers to the Nth most recent notification."));
 }
 
-fn validate_notification_identifier(input: &str) -> Result<(), &'static str> {
-    if input == "latest" {
+fn validate_identifier(input: &str, allow_all: bool) -> Result<(), &'static str> {
+    if input == "latest" || (input == "all" && allow_all) {
         return Ok(());
     }
 
@@ -26,7 +26,7 @@ fn validate_notification_identifier(input: &str) -> Result<(), &'static str> {
     }
 }
 
-fn validate_notification_action(input: &str) -> Result<(), &'static str> {
+fn validate_action(input: &str) -> Result<(), &'static str> {
     if ["default", "1", "2", "3"].contains(&input) {
         Ok(())
     } else {
@@ -43,7 +43,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     // Initialization
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
-    opts.optopt("d", "drop", "drop/close a notification", "[latest|IDX]");
+    opts.optopt("d", "drop", "drop/close a notification", "[latest|all|IDX]");
     opts.optopt(
         "a",
         "action",
@@ -81,7 +81,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
         };
 
         if let Some(to_close) = matches.opt_str("d") {
-            validate_notification_identifier(to_close.as_str())?;
+            validate_identifier(to_close.as_str(), true)?;
             sock.write(format!("close:{}", to_close).as_bytes())
                 .map_err(|e| e.to_string())?;
         }
@@ -97,14 +97,14 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
                 }
             };
 
-            validate_notification_identifier(notification)?;
-            validate_notification_action(action)?;
+            validate_identifier(notification, false)?;
+            validate_action(action)?;
             sock.write(format!("action:{},{}", notification, action).as_bytes())
                 .map_err(|e| e.to_string())?;
         }
 
         if let Some(to_show) = matches.opt_str("s") {
-            validate_notification_identifier(to_show.as_str())?;
+            validate_identifier(to_show.as_str(), false)?;
             sock.write(format!("show:{}", to_show).as_bytes())
                 .map_err(|e| e.to_string())?;
         }

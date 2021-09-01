@@ -176,8 +176,8 @@ impl NotifyWindow {
         let rect = layout.predict_rect_tree_and_init(
             &window,
             //&window.get_inner_rect(),
-            &Rect::new(0.0, 0.0, width, height)     // This parameter is only used for positioning
-            &Rect::new(0.0, 0.0, width, height)     // .. so we should also pass the min_size rect here
+            &Rect::new(0.0, 0.0, width, height),    // This parameter is only used for positioning
+            Rect::new(0.0, 0.0, width, height)      // .. so we should also pass the min_size rect here
                                                     // to ensure we don't get 0.0 width / 0.0 height.
         );
         let delta = Vec2::new(-rect.x(), -rect.y());
