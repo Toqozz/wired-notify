@@ -75,15 +75,3 @@ See the [Config](https://github.com/Toqozz/wired-notify/wiki/Config) wiki page f
 
 ## Wiki
 See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else you need to know about using Wired.
-
-## Wired pretty much finished, but there are a few things I'd like:
-There's a bunch of things that aren't done yet; here's a non-exhaustive version of the TODO list:
-- [x] Make config not as painful.
-- [x] Allow hex colors in config.
-- [x] `%t` for time, etc, in text blocks.
-- [ ] Lookup application icons via `.desktop` file
-- [x] Support `replaces_id` functionality.
-- [ ] More options surrounding notification urgency.
-- [ ] Notification follows active monitor.
-- [ ] Tests...
-- [ ] Random html escape code edge cases.
