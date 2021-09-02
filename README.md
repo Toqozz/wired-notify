@@ -44,7 +44,12 @@ $ ./target/release/wired
 ## AUR
 Wired is available on the [AUR](https://aur.archlinux.org/packages/wired/)!
 ```sh
-yay -S wired
+$ yay -S wired
+```
+
+There's also a `-git` version which tracks master.  Beware!  No guarantees are made about stability on the master branch.  However, I do appreciate any help finding bugs before they make it to a release:
+```sh
+$ yay -S wired-git
 ```
 
 ## Nix (Flakes)
