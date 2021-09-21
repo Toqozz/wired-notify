@@ -11,17 +11,19 @@ mod rendering;
 
 use std::{
     env,
+    fs::File,
+    fs::OpenOptions,
     io::ErrorKind,
     io::Write,
     time::{Duration, Instant},
-    fs::OpenOptions,
-    fs::File,
 };
 
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    platform::run_return::EventLoopExtRunReturn, platform::unix::EventLoopExtUnix};
+    platform::run_return::EventLoopExtRunReturn,
+    platform::unix::EventLoopExtUnix,
+};
 
 use bus::dbus::{Message, Notification};
 use cli::ShouldRun;
@@ -42,14 +44,14 @@ fn print_notification_to_file(notification: &Notification, file: &mut File) {
             notification.percentage,
             notification.time.timestamp(),
             notification.timeout,
-        ).as_bytes()
+        )
+        .as_bytes(),
     );
 
     match res {
         Ok(_) => (),
         Err(e) => eprintln!("Error writing to print file: {}", e),
     }
-
 }
 
 fn main() {
@@ -66,30 +68,25 @@ fn main() {
     };
 
     let maybe_watcher = Config::init();
-    let mut maybe_print_file =
-        Config::get()
-            .print_to_file
-            .as_ref()
-            .map_or(None, |f| {
-                let maybe_file = OpenOptions::new().write(true).create(true).truncate(true).open(f);
-                match maybe_file {
-                    Ok(f) => Some(f),
-                    Err(e) => {
-                        eprintln!("Couldn't open print file: {}", e);
-                        None
-                    }
-                }
-            });
+    let mut maybe_print_file = Config::get().print_to_file.as_ref().map_or(None, |f| {
+        let maybe_file = OpenOptions::new().write(true).create(true).truncate(true).open(f);
+        match maybe_file {
+            Ok(f) => Some(f),
+            Err(e) => {
+                eprintln!("Couldn't open print file: {}", e);
+                None
+            }
+        }
+    });
     dbg!(&maybe_print_file);
 
-    let maybe_listener = cli::init_socket_listener()
-        .map_or_else(
-            |e| {
-                eprintln!("{}", e);
-                None
-            },
-            |v| Some(v)
-        );
+    let maybe_listener = cli::init_socket_listener().map_or_else(
+        |e| {
+            eprintln!("{}", e);
+            None
+        },
+        |v| Some(v),
+    );
 
     // Allows us to receive messages from dbus.
     let receiver = bus::dbus::init_connection();
@@ -119,13 +116,14 @@ fn main() {
                 // I don't love the idea of spamming stderr here, however.
                 if let Some(listener) = &maybe_listener {
                     match listener.accept() {
-                        Ok((socket, _addr)) =>
+                        Ok((socket, _addr)) => {
                             match cli::handle_socket_message(&mut manager, event_loop, socket) {
-                                Ok(_) => {},
+                                Ok(_) => {}
                                 Err(e) => {
                                     eprintln!("Error while handling socket message: {:?}", e);
                                 }
-                            },
+                            }
+                        }
                         Err(e) => {
                             if e.kind() != ErrorKind::WouldBlock {
                                 eprintln!("{}", e);

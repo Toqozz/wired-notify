@@ -75,9 +75,9 @@ pub struct ConfigWatcher {
 pub struct Config {
     // Maximum number of notifications to show on screen at once.
     pub max_notifications: usize,
-    pub timeout: i32,                   // Default timeout.
-    pub poll_interval: u64,             // "Frame rate" / check for updates and new notifications.
-    pub print_to_file: Option<String>,  // A file to print notification info to, for scripting purposes.
+    pub timeout: i32,                  // Default timeout.
+    pub poll_interval: u64,            // "Frame rate" / check for updates and new notifications.
+    pub print_to_file: Option<String>, // A file to print notification info to, for scripting purposes.
 
     pub layout_blocks: Vec<LayoutBlock>,
 

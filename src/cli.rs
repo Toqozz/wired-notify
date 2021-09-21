@@ -1,12 +1,12 @@
 use std::io::Write;
-use std::os::unix::net::{UnixStream, UnixListener};
-use std::panic::panic_any;
 use std::io::{BufRead, BufReader};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::panic::panic_any;
 use std::path::Path;
 
 use getopts::Options;
-use winit::window::WindowId;
 use winit::event_loop::EventLoopWindowTarget;
+use winit::window::WindowId;
 
 use crate::NotifyWindowManager;
 
@@ -58,7 +58,7 @@ fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, S
         if num_windows > 0 {
             num_windows - 1
         } else {
-            return Err(SocketError::NotificationNotFound)
+            return Err(SocketError::NotificationNotFound);
         }
     } else if let Ok(idx) = arg.parse::<usize>() {
         idx
@@ -73,7 +73,11 @@ fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, S
     }
 }
 
-pub fn handle_socket_message(manager: &mut NotifyWindowManager, el: &EventLoopWindowTarget<()>, stream: UnixStream) -> Result<(), SocketError> {
+pub fn handle_socket_message(
+    manager: &mut NotifyWindowManager,
+    el: &EventLoopWindowTarget<()>,
+    stream: UnixStream,
+) -> Result<(), SocketError> {
     let stream = BufReader::new(stream);
     for line in stream.lines() {
         let line = match line {
@@ -93,17 +97,19 @@ pub fn handle_socket_message(manager: &mut NotifyWindowManager, el: &EventLoopWi
                     }
                 }
                 "action" => {
-                    let (notif_id, action_id) =
-                        args.split_once(",")
-                            .ok_or(SocketError::Parse("Malformed action request."))?;
+                    let (notif_id, action_id) = args
+                        .split_once(",")
+                        .ok_or(SocketError::Parse("Malformed action request."))?;
 
                     let id = get_window_id(notif_id, manager)?;
-                    let action = action_id.parse::<usize>()
+                    let action = action_id
+                        .parse::<usize>()
                         .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
                     manager.trigger_action_idx(id, action);
-                },
+                }
                 "show" => {
-                    let num = args.parse::<usize>()
+                    let num = args
+                        .parse::<usize>()
                         .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
                     for _ in 0..num {
                         if let Some(n) = manager.history.pop_back() {
@@ -111,9 +117,7 @@ pub fn handle_socket_message(manager: &mut NotifyWindowManager, el: &EventLoopWi
                         }
                     }
                 }
-                _ => {
-                    return Err(SocketError::InvalidCommand)
-                },
+                _ => return Err(SocketError::InvalidCommand),
             }
         } else {
             return Err(SocketError::Parse("Malformed command."));
@@ -125,7 +129,10 @@ pub fn handle_socket_message(manager: &mut NotifyWindowManager, el: &EventLoopWi
 
 // CLI stuff:
 fn print_usage(opts: Options) {
-    print!("{}", opts.usage("Usage:\twired [options]\n\tIDX refers to the Nth most recent notification."));
+    print!(
+        "{}",
+        opts.usage("Usage:\twired [options]\n\tIDX refers to the Nth most recent notification.")
+    );
 }
 
 fn validate_identifier(input: &str, allow_all: bool) -> Result<(), &'static str> {
