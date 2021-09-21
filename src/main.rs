@@ -11,16 +11,17 @@ mod rendering;
 
 use std::{
     env,
-    io::{BufRead, BufReader, ErrorKind},
-    os::unix::net::{UnixListener, UnixStream},
-    path::Path,
+    io::ErrorKind,
+    io::Write,
     time::{Duration, Instant},
+    fs::OpenOptions,
+    fs::File,
 };
 
 use winit::{
     event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
-    platform::run_return::EventLoopExtRunReturn, platform::unix::EventLoopExtUnix, window::WindowId};
+    event_loop::{ControlFlow, EventLoop},
+    platform::run_return::EventLoopExtRunReturn, platform::unix::EventLoopExtUnix};
 
 use bus::dbus::{Message, Notification};
 use cli::ShouldRun;
@@ -29,84 +30,26 @@ use dbus::message::MessageType;
 use manager::NotifyWindowManager;
 use notify::DebouncedEvent;
 
-const SOCKET_PATH: &str = "/tmp/wired.sock";
+fn print_notification_to_file(notification: &Notification, file: &mut File) {
+    let res = file.write(
+        format!(
+            "id:{}|app_name:{}|summary:{}|body:{}|urgency:{:?}|percentage:{:?}|time:{}|timeout:{}\n",
+            notification.id,
+            notification.app_name,
+            notification.summary,
+            notification.body,
+            notification.urgency,
+            notification.percentage,
+            notification.time.timestamp(),
+            notification.timeout,
+        ).as_bytes()
+    );
 
-#[derive(Debug)]
-enum SocketError {
-    Parse(&'static str),
-    NotificationNotFound,
-    InvalidCommand,
-}
-
-fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, SocketError> {
-    let idx = if arg == "latest" {
-        let num_windows = manager.monitor_windows.values().flatten().count();
-        if num_windows > 0 {
-            num_windows - 1
-        } else {
-            return Err(SocketError::NotificationNotFound)
-        }
-    } else if let Ok(idx) = arg.parse::<usize>() {
-        idx
-    } else {
-        return Err(SocketError::Parse("Value is not of type usize."));
-    };
-
-    if let Some(window) = manager.find_window_ordered(idx) {
-        Ok(window)
-    } else {
-        Err(SocketError::NotificationNotFound)
-    }
-}
-
-fn handle_socket_message(manager: &mut NotifyWindowManager, el: &EventLoopWindowTarget<()>, stream: UnixStream) -> Result<(), SocketError> {
-    let stream = BufReader::new(stream);
-    for line in stream.lines() {
-        let line = match line {
-            Ok(l) => l,
-            Err(_) => continue,
-        };
-
-        println!("Recived socket message: {}", line);
-        if let Some((command, args)) = line.split_once(":") {
-            match command {
-                "close" => {
-                    if args == "all" {
-                        manager.drop_windows();
-                    } else {
-                        let id = get_window_id(args, manager)?;
-                        manager.drop_window_id(id);
-                    }
-                }
-                "action" => {
-                    let (notif_id, action_id) =
-                        args.split_once(",")
-                            .ok_or(SocketError::Parse("Malformed action request."))?;
-
-                    let id = get_window_id(notif_id, manager)?;
-                    let action = action_id.parse::<usize>()
-                        .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
-                    manager.trigger_action_idx(id, action);
-                },
-                "show" => {
-                    let num = args.parse::<usize>()
-                        .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
-                    for _ in 0..num {
-                        if let Some(n) = manager.history.pop_back() {
-                            manager.new_notification(n, el);
-                        }
-                    }
-                }
-                _ => {
-                    return Err(SocketError::InvalidCommand)
-                },
-            }
-        } else {
-            return Err(SocketError::Parse("Malformed command."));
-        }
+    match res {
+        Ok(_) => (),
+        Err(e) => eprintln!("Error writing to print file: {}", e),
     }
 
-    Ok(())
 }
 
 fn main() {
@@ -123,31 +66,30 @@ fn main() {
     };
 
     let maybe_watcher = Config::init();
+    let mut maybe_print_file =
+        Config::get()
+            .print_to_file
+            .as_ref()
+            .map_or(None, |f| {
+                let maybe_file = OpenOptions::new().write(true).create(true).truncate(true).open(f);
+                match maybe_file {
+                    Ok(f) => Some(f),
+                    Err(e) => {
+                        eprintln!("Couldn't open print file: {}", e);
+                        None
+                    }
+                }
+            });
+    dbg!(&maybe_print_file);
 
-    // Socket, for listening to CLI calls to ourselves.
-    // We leave the socket up in pretty much all cases when closing, and just unbind it always.
-    // This could cause confusing behavior for users where they have 2 wired instances running, and
-    // neither will work properly (one will have the notification bus name, and one will have the
-    // socket).
-    // "Fixing" this would require making sure the socket is unbound in almost all cases -- likely
-    // having to import a few crates like Ctrl-C and others -- yuck.
-    // Let's just leave it as it is and try to communicate to users that it's not an issue.
-    // https://stackoverflow.com/questions/40218416/how-do-i-close-a-unix-socket-in-rust
-    let socket_path = Path::new(SOCKET_PATH);
-    if socket_path.exists() {
-        println!(
-            "A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls."
+    let maybe_listener = cli::init_socket_listener()
+        .map_or_else(
+            |e| {
+                eprintln!("{}", e);
+                None
+            },
+            |v| Some(v)
         );
-        std::fs::remove_file(SOCKET_PATH).unwrap();
-    }
-    let listener = match UnixListener::bind(socket_path) {
-        Ok(sock) => sock,
-        Err(e) => {
-            eprintln!("Couldn't bind socket {}\n{:?}", SOCKET_PATH, e);
-            return;
-        }
-    };
-    listener.set_nonblocking(true).unwrap();
 
     // Allows us to receive messages from dbus.
     let receiver = bus::dbus::init_connection();
@@ -175,17 +117,19 @@ fn main() {
                 // Since we're non-blocking, mostly this is just std::io::ErrorKind::WouldBlock.
                 // For other errors, we should probably inform users to aide debugging.
                 // I don't love the idea of spamming stderr here, however.
-                match listener.accept() {
-                    Ok((socket, _addr)) =>
-                        match handle_socket_message(&mut manager, event_loop, socket) {
-                            Ok(_) => {},
-                            Err(e) => {
-                                eprintln!("Error while handling socket message: {:?}", e);
+                if let Some(listener) = &maybe_listener {
+                    match listener.accept() {
+                        Ok((socket, _addr)) =>
+                            match cli::handle_socket_message(&mut manager, event_loop, socket) {
+                                Ok(_) => {},
+                                Err(e) => {
+                                    eprintln!("Error while handling socket message: {:?}", e);
+                                }
+                            },
+                        Err(e) => {
+                            if e.kind() != ErrorKind::WouldBlock {
+                                eprintln!("{}", e);
                             }
-                        },
-                    Err(e) => {
-                        if e.kind() != ErrorKind::WouldBlock {
-                            eprintln!("{}", e);
                         }
                     }
                 };
@@ -212,6 +156,10 @@ fn main() {
                             }
                         }
                         Message::Notify(n) => {
+                            if let Some(print_file) = &mut maybe_print_file {
+                                print_notification_to_file(&n, print_file);
+                            }
+
                             if Config::get().replacing_enabled && manager.notification_exists(n.id) {
                                 manager.replace_notification(n);
                             } else {
