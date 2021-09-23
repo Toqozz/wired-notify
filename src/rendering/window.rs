@@ -106,9 +106,7 @@ impl NotifyWindow {
                 panic!("Couldn't get valid XVisualInfo.");
             }
 
-            vinfo.assume_init();
-
-            vinfo
+            vinfo.assume_init()
         };
 
         let winit = WindowBuilder::new()
@@ -140,7 +138,7 @@ impl NotifyWindow {
             let sfc_raw = cairo_sys::cairo_xlib_surface_create(
                 xlib_display as _,
                 xlib_window,
-                (*visual_info.as_ptr()).visual,
+                visual_info.visual,
                 width as _,
                 height as _,
             );

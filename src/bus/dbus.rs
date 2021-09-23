@@ -11,6 +11,7 @@ use dbus::{
 use image::{self, DynamicImage, ImageBuffer};
 
 use chrono::{offset::Local, DateTime};
+use serde::Serialize;
 
 use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, DBusImage, Value};
 use crate::bus::receiver;
@@ -95,7 +96,7 @@ pub fn init_connection() -> Receiver<Message> {
     receiver
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum Urgency {
     Low,
     Normal,
@@ -114,7 +115,7 @@ pub enum Message {
     Notify(Notification),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Notification {
     pub id: u32,
 
@@ -123,14 +124,24 @@ pub struct Notification {
     pub summary: String,
     pub body: String,
     pub actions: HashMap<String, String>,
+    #[serde(skip)]
     pub app_image: Option<DynamicImage>,
+    #[serde(skip)]
     pub hint_image: Option<DynamicImage>,
     pub percentage: Option<f32>,
 
     pub urgency: Urgency,
 
+    #[serde(serialize_with="serialize_datetime")]
     pub time: DateTime<Local>,
     pub timeout: i32,
+}
+
+use serde::Serializer;
+fn serialize_datetime<S>(datetime: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error>
+where S: Serializer
+{
+    serializer.serialize_i64(datetime.timestamp())
 }
 
 impl std::fmt::Debug for Notification {

@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 use std::process::{Command, Stdio};
 
+use x11::xss::{XScreenSaverQueryInfo, XScreenSaverInfo};
+use winit::window::Window;
 use serde::Deserialize;
 use crate::config::Color;
 use crate::bus::dbus::Notification;
@@ -489,6 +491,26 @@ pub fn find_and_open_url(string: String) {
             eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", child);
         }
     }
+}
+
+pub fn query_screensaver_info(base_window: &Window) -> XScreenSaverInfo {
+    use winit::platform::unix::WindowExtUnix;
+    let xscreeninfo = unsafe {
+        let mut info = std::mem::MaybeUninit::<XScreenSaverInfo>::uninit();
+        let status = XScreenSaverQueryInfo(
+            base_window.xlib_display().unwrap() as _,
+            base_window.xlib_window().unwrap() as _,
+            info.as_mut_ptr(),
+        );
+
+        if status == 0 {
+            panic!("Couldn't get valid XVisualInfo.");
+        }
+
+        info.assume_init()
+    };
+
+    xscreeninfo
 }
 
 // For serde defaults.  So annoying that we need a function for this.

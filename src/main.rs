@@ -32,7 +32,21 @@ use dbus::message::MessageType;
 use manager::NotifyWindowManager;
 use notify::DebouncedEvent;
 
-fn print_notification_to_file(notification: &Notification, file: &mut File) {
+fn try_print_to_file(notification: &Notification, file: &mut File) {
+    let json_string = match serde_json::to_string(&notification) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error serializing notification: {}", e);
+            return;
+        }
+    };
+
+    match writeln!(file, "{}", json_string) {
+        Ok(_) => (),
+        Err(e) => eprintln!("Error writing to print file: {}", e),
+    }
+
+    /*
     let res = file.write(
         format!(
             "id:{}|app_name:{}|summary:{}|body:{}|urgency:{:?}|percentage:{:?}|time:{}|timeout:{}\n",
@@ -52,6 +66,7 @@ fn print_notification_to_file(notification: &Notification, file: &mut File) {
         Ok(_) => (),
         Err(e) => eprintln!("Error writing to print file: {}", e),
     }
+    */
 }
 
 fn main() {
@@ -78,7 +93,6 @@ fn main() {
             }
         }
     });
-    dbg!(&maybe_print_file);
 
     let maybe_listener = cli::init_socket_listener().map_or_else(
         |e| {
@@ -97,6 +111,7 @@ fn main() {
 
     let mut poll_interval = Duration::from_millis(Config::get().poll_interval);
     let mut prev_instant = Instant::now();
+
     event_loop.run_return(|event, event_loop, control_flow| {
         match event {
             Event::NewEvents(StartCause::Init) => {
@@ -104,6 +119,9 @@ fn main() {
             }
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
                 let now = Instant::now();
+
+                // TODO: be smarter about looping when no notifications are present.
+                // TODO: clean this loop up
 
                 // Time passed since last loop.
                 let time_passed = now - prev_instant;
@@ -155,7 +173,7 @@ fn main() {
                         }
                         Message::Notify(n) => {
                             if let Some(print_file) = &mut maybe_print_file {
-                                print_notification_to_file(&n, print_file);
+                                try_print_to_file(&n, print_file);
                             }
 
                             if Config::get().replacing_enabled && manager.notification_exists(n.id) {

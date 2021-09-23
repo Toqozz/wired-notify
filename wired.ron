@@ -17,7 +17,8 @@
 
     // Enable/disable replacement functionality.
     // If this is disabled, replacement requests will just send a new notification.
-    // E.g., with replacing_enabled: true, Pidgin will only show the latest message from each contact, instead of sending a new one for each message.
+    // E.g., with replacing_enabled: true, Pidgin will only show the latest message from each contact,
+    // instead of sending a new one for each message.
     replacing_enabled: true,
 
     // Whether a notification should reset its timeout when it is replaced.
@@ -37,6 +38,18 @@
     // Generally, you shouldn't need to set this.
     //min_window_width: 1,
     //min_window_height: 1,
+
+    // Wired will pause notifications if you are idle (no mouse or keyboard input) for longer than
+    // `idle_threshold` seconds.
+    // Note that notifications will not be automatically unpaused on wake, and will need to be manually
+    // cleared.  Let me know if you think this should be different.
+    // If `idle_threshold` is not specified, the behavior will be disabled entirely.
+    //idle_threshold: 0,
+
+    // Enable printing notification data to a file.
+    // Useful for scripting purposes.
+    // The data is written as JSON.
+    //print_to_file: "/tmp/wired.log",
 
     layout_blocks: [
         (

@@ -8,17 +8,19 @@ edition = "2018"
 wired_derive = { path = "./wired_derive" }
 
 winit = "0.25.0"
-x11 = { version = "2.18.1", features = ["xlib"] }
 dbus = "0.8.2"
-image = "0.22.2"
-ron = "0.6.0"
-serde = { version = "1.0", features = ["derive"] }
+x11 = { version = "2.18.1", features = ["xlib", "xss"] }
 pango = "0.6.0"
 pangocairo = "0.7.0"
 cairo-rs = "0.6.0"
 cairo-sys-rs = { version = "0.8.0", features = ["xlib"] }
 xdg = "2.2.0"
+
+getopts = "0.2"
+chrono = "0.4.19"
+image = "0.22.2"
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.6.0"
+serde_json = "1.0"
 notify = "4.0.15"
 bitflags = "1.2"
-chrono = "0.4.19"
-getopts = "0.2"

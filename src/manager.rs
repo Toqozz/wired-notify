@@ -16,17 +16,18 @@ use crate::{
         OrgFreedesktopNotificationsActionInvoked, OrgFreedesktopNotificationsNotificationClosed,
     },
     config::Config,
-    maths_utility::Rect,
+    maths_utility::{self, Rect},
     rendering::layout::{LayoutBlock, LayoutElement},
     rendering::window::{NotifyWindow, UpdateModes},
 };
 
 pub struct NotifyWindowManager {
-    //pub windows: Vec<NotifyWindow<'config>>,
     pub base_window: winit::window::Window,
     pub monitor_windows: HashMap<u32, Vec<NotifyWindow>>,
     pub history: VecDeque<Notification>,
     pub dirty: bool,
+
+    idle_check_timer: f32,
 }
 
 impl NotifyWindowManager {
@@ -43,6 +44,8 @@ impl NotifyWindowManager {
             monitor_windows,
             history: VecDeque::with_capacity(Config::get().history_length),
             dirty: false,
+
+            idle_check_timer: 0.0,
         }
     }
 
@@ -125,6 +128,25 @@ impl NotifyWindowManager {
                     self.history.push_back(window.notification.clone());
                 }
                 windows.retain(|w| !w.marked_for_destroy);
+            }
+        }
+
+        // TODO: SHOULD_CHECK_IDLE? Somewhere?
+        // TODO: there should probably be a way to make this so we only need to set new windows  
+        // update mode instead of just brute forcing them.  but maybe this is fine anyway?
+        // Definitely less bug prone.
+        self.idle_check_timer += delta_time.as_secs_f32();
+        if self.idle_check_timer > 1.0 {
+            self.idle_check_timer = 0.0;
+
+            if let Some(threshold) = Config::get().idle_threshold {
+                let info = maths_utility::query_screensaver_info(&self.base_window);
+                if info.idle / 1000 > threshold {
+                    self.monitor_windows
+                        .values_mut()
+                        .flatten()
+                        .for_each(|w| w.update_mode = UpdateModes::DRAW);
+                }
             }
         }
     }
