@@ -45,6 +45,20 @@ fn try_print_to_file(notification: &Notification, file: &mut File) {
     }
 }
 
+fn open_print_file() -> Option<File> {
+    if let Some(filename) = Config::get().print_to_file.as_ref() {
+        let maybe_file = OpenOptions::new().write(true).create(true).truncate(true).open(filename);
+        match maybe_file {
+            Ok(f) => return Some(f),
+            Err(e) => {
+                eprintln!("Couldn't open print file: {}", e);
+            }
+        }
+    }
+
+    None
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     match cli::process_cli(args) {
@@ -59,16 +73,7 @@ fn main() {
     };
 
     let maybe_watcher = Config::init();
-    let mut maybe_print_file = Config::get().print_to_file.as_ref().and_then(|f| {
-        let maybe_file = OpenOptions::new().write(true).create(true).truncate(true).open(f);
-        match maybe_file {
-            Ok(f) => Some(f),
-            Err(e) => {
-                eprintln!("Couldn't open print file: {}", e);
-                None
-            }
-        }
-    });
+    let mut maybe_print_file = open_print_file();
 
     let maybe_listener = cli::CLIListener::init().map_or_else(
         |e| {
@@ -146,8 +151,10 @@ fn main() {
 
                 // Watch config file for changes.
                 if let Some(cw) = &maybe_watcher {
+                    // Config was changed, update some internal stuff.
                     if cw.check_and_update_config() {
                         poll_interval = Duration::from_millis(Config::get().poll_interval);
+                        maybe_print_file = open_print_file();
                         manager.new_notification(
                             Notification::from_self("Wired", "Config was reloaded.", 5000),
                             event_loop,

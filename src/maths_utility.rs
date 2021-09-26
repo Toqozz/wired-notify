@@ -493,7 +493,7 @@ pub fn find_and_open_url(string: String) {
     }
 }
 
-pub fn query_screensaver_info(base_window: &Window) -> XScreenSaverInfo {
+pub fn query_screensaver_info(base_window: &Window) -> Result<XScreenSaverInfo, &'static str> {
     use winit::platform::unix::WindowExtUnix;
     unsafe {
         let mut info = std::mem::MaybeUninit::<XScreenSaverInfo>::uninit();
@@ -504,10 +504,10 @@ pub fn query_screensaver_info(base_window: &Window) -> XScreenSaverInfo {
         );
 
         if status == 0 {
-            panic!("Couldn't get valid XVisualInfo.");
+            Err("Couldn't get a valid XScreenSaverInfo")
+        } else {
+            Ok(info.assume_init())
         }
-
-        info.assume_init()
     }
 }
 

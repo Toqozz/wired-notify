@@ -141,12 +141,16 @@ impl NotifyWindowManager {
             self.idle_check_timer = 0.0;
 
             if let Some(threshold) = Config::get().idle_threshold {
-                let info = maths_utility::query_screensaver_info(&self.base_window);
-                if info.idle / 1000 > threshold {
-                    self.monitor_windows
-                        .values_mut()
-                        .flatten()
-                        .for_each(|w| w.update_mode = UpdateModes::DRAW);
+                match maths_utility::query_screensaver_info(&self.base_window) {
+                    Ok(info) => {
+                        if info.idle / 1000 >= threshold {
+                            self.monitor_windows
+                                .values_mut()
+                                .flatten()
+                                .for_each(|w| w.update_mode = UpdateModes::DRAW);
+                        }
+                    },
+                    Err(e) => eprintln!("{}", e),
                 }
             }
         }
