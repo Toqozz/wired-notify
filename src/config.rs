@@ -20,6 +20,10 @@ use crate::{
     rendering::layout::{LayoutBlock, LayoutElement},
 };
 
+// Workaround for rust not allowing contcatenations of str constants yet:
+// https://github.com/rust-lang/rust/issues/31383
+macro_rules! CONFIG_DIR {() => {".config/wired/"}}
+macro_rules! CONFIG_FILENAME {() => {"wired.ron"}}
 static mut CONFIG: Option<Config> = None;
 
 #[derive(Debug)]
@@ -68,7 +72,32 @@ impl Display for Error {
 
 pub struct ConfigWatcher {
     watcher: RecommendedWatcher,
-    pub receiver: Receiver<DebouncedEvent>,
+    receiver: Receiver<DebouncedEvent>,
+}
+
+impl ConfigWatcher {
+    // Returns true if config was updated, false if not.
+    pub fn check_and_update_config(&self) -> bool {
+        if let Ok(ev) = self.receiver.try_recv() {
+            match ev {
+                DebouncedEvent::Write(p)
+                | DebouncedEvent::Create(p)
+                | DebouncedEvent::Chmod(p) => {
+                    if let Some(file_name) = p.file_name() {
+                        // Make sure the file that was changed is our file, since we watch the
+                        // entire directory.
+                        if file_name == CONFIG_FILENAME!() && Config::try_reload(p) {
+                            return true;
+                        }
+                    }
+                }
+
+                _ => (),
+            }
+        }
+
+        false
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -199,6 +228,7 @@ impl Config {
         unsafe {
             assert!(CONFIG.is_some());
             // TODO: can as_ref be removed?
+            // This unwrap is safe according to the above assert.
             CONFIG.as_ref().unwrap()
         }
     }
@@ -208,6 +238,7 @@ impl Config {
         unsafe {
             assert!(CONFIG.is_some());
             // TODO: can as_ref be removed?
+            // This unwrap is safe according to the above assert.
             CONFIG.as_mut().unwrap()
         }
     }
@@ -235,22 +266,22 @@ impl Config {
     fn installed_config() -> Option<PathBuf> {
         xdg::BaseDirectories::with_prefix("wired")
             .ok()
-            .and_then(|xdg| xdg.find_config_file("wired.ron"))
+            .and_then(|xdg| xdg.find_config_file(CONFIG_FILENAME!()))
             .or_else(|| {
                 xdg::BaseDirectories::new()
                     .ok()
-                    .and_then(|fallback| fallback.find_config_file("wired.ron"))
+                    .and_then(|fallback| fallback.find_config_file(CONFIG_FILENAME!()))
             })
             .or_else(|| {
                 if let Ok(home) = env::var("HOME") {
                     // Fallback path: `$HOME/.config/wired/wired.ron`
-                    let fallback = PathBuf::from(&home).join(".config/wired/wired.ron");
+                    let fallback = PathBuf::from(&home).join(concat!(CONFIG_DIR!(), CONFIG_FILENAME!()));
                     if fallback.exists() {
                         return Some(fallback);
                     }
 
                     // Fallback path: `$HOME/.wired.ron`
-                    let fallback = PathBuf::from(&home).join(".wired.ron");
+                    let fallback = PathBuf::from(&home).join(CONFIG_FILENAME!());
                     if fallback.exists() {
                         return Some(fallback);
                     }
@@ -358,7 +389,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Config::load_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/wired.ron")))
+        Config::load_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/", CONFIG_FILENAME!())))
             .expect("Failed to load default config.  Maintainer fucked something up.\n")
     }
 }
@@ -504,6 +535,7 @@ impl<'de> Deserialize<'de> for Color {
         }
 
         if let Some(hex) = col.hex {
+            #[allow(clippy::or_fun_call)]
             return Color::from_hex(&hex).or(Err(de::Error::invalid_value(
                 Unexpected::Str(&hex),
                 &"a valid hexidecimal string",

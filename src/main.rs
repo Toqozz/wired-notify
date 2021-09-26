@@ -13,7 +13,6 @@ use std::{
     env,
     fs::File,
     fs::OpenOptions,
-    io::ErrorKind,
     io::Write,
     time::{Duration, Instant},
 };
@@ -30,7 +29,6 @@ use cli::ShouldRun;
 use config::Config;
 use dbus::message::MessageType;
 use manager::NotifyWindowManager;
-use notify::DebouncedEvent;
 
 fn try_print_to_file(notification: &Notification, file: &mut File) {
     let json_string = match serde_json::to_string(&notification) {
@@ -45,28 +43,6 @@ fn try_print_to_file(notification: &Notification, file: &mut File) {
         Ok(_) => (),
         Err(e) => eprintln!("Error writing to print file: {}", e),
     }
-
-    /*
-    let res = file.write(
-        format!(
-            "id:{}|app_name:{}|summary:{}|body:{}|urgency:{:?}|percentage:{:?}|time:{}|timeout:{}\n",
-            notification.id,
-            notification.app_name,
-            notification.summary,
-            notification.body,
-            notification.urgency,
-            notification.percentage,
-            notification.time.timestamp(),
-            notification.timeout,
-        )
-        .as_bytes(),
-    );
-
-    match res {
-        Ok(_) => (),
-        Err(e) => eprintln!("Error writing to print file: {}", e),
-    }
-    */
 }
 
 fn main() {
@@ -83,7 +59,7 @@ fn main() {
     };
 
     let maybe_watcher = Config::init();
-    let mut maybe_print_file = Config::get().print_to_file.as_ref().map_or(None, |f| {
+    let mut maybe_print_file = Config::get().print_to_file.as_ref().and_then(|f| {
         let maybe_file = OpenOptions::new().write(true).create(true).truncate(true).open(f);
         match maybe_file {
             Ok(f) => Some(f),
@@ -94,12 +70,12 @@ fn main() {
         }
     });
 
-    let maybe_listener = cli::init_socket_listener().map_or_else(
+    let maybe_listener = cli::CLIListener::init().map_or_else(
         |e| {
-            eprintln!("{}", e);
+            eprintln!("Couldn't init CLIListener: {:?}", e);
             None
         },
-        |v| Some(v),
+        Some
     );
 
     // Allows us to receive messages from dbus.
@@ -128,28 +104,6 @@ fn main() {
                 prev_instant = now;
                 manager.update(time_passed);
 
-                // Read wired socket signals.
-                // Since we're non-blocking, mostly this is just std::io::ErrorKind::WouldBlock.
-                // For other errors, we should probably inform users to aide debugging.
-                // I don't love the idea of spamming stderr here, however.
-                if let Some(listener) = &maybe_listener {
-                    match listener.accept() {
-                        Ok((socket, _addr)) => {
-                            match cli::handle_socket_message(&mut manager, event_loop, socket) {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    eprintln!("Error while handling socket message: {:?}", e);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            if e.kind() != ErrorKind::WouldBlock {
-                                eprintln!("{}", e);
-                            }
-                        }
-                    }
-                };
-
                 // Check dbus signals.
                 // If we don't do get incoming signals, notify sender will block when sending.
                 let signal = dbus_connection.incoming(0).next();
@@ -162,6 +116,11 @@ fn main() {
                         println!("DBus Init Success.");
                     }
                 }
+
+                // Read wired socket signals, for cli stuff.
+                if let Some(listener) = &maybe_listener {
+                    listener.process_messages(&mut manager, event_loop);
+                };
 
                 // Receives `Notification`s from dbus.
                 if let Ok(msg) = receiver.try_recv() {
@@ -185,28 +144,14 @@ fn main() {
                     }
                 }
 
-                // If the watcher exists, then we should process watcher events.
+                // Watch config file for changes.
                 if let Some(cw) = &maybe_watcher {
-                    if let Ok(ev) = cw.receiver.try_recv() {
-                        // @TODO: print a notification when config reloaded?
-                        match ev {
-                            DebouncedEvent::Write(p)
-                            | DebouncedEvent::Create(p)
-                            | DebouncedEvent::Chmod(p) => {
-                                if let Some(file_name) = p.file_name() {
-                                    // Make sure the file that was changed is our file.
-                                    if file_name == "wired.ron" && Config::try_reload(p) {
-                                        // Success.
-                                        poll_interval = Duration::from_millis(Config::get().poll_interval);
-                                        manager.new_notification(
-                                            Notification::from_self("Wired", "Config was reloaded.", 5000),
-                                            event_loop,
-                                        );
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
+                    if cw.check_and_update_config() {
+                        poll_interval = Duration::from_millis(Config::get().poll_interval);
+                        manager.new_notification(
+                            Notification::from_self("Wired", "Config was reloaded.", 5000),
+                            event_loop,
+                        );
                     }
                 }
 

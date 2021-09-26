@@ -1,5 +1,4 @@
-use std::io::Write;
-use std::io::{BufRead, BufReader};
+use std::io::{self, Write, BufRead, BufReader, ErrorKind};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::panic::panic_any;
 use std::path::Path;
@@ -13,10 +12,11 @@ use crate::NotifyWindowManager;
 pub const SOCKET_PATH: &str = "/tmp/wired.sock";
 
 #[derive(Debug)]
-pub enum SocketError {
+pub enum CLIError {
     Parse(&'static str),
     NotificationNotFound,
     InvalidCommand,
+    Socket(io::Error),
 }
 
 pub enum ShouldRun {
@@ -24,52 +24,83 @@ pub enum ShouldRun {
     No,
 }
 
-pub fn init_socket_listener() -> Result<UnixListener, String> {
-    // Socket, for listening to CLI calls to ourselves.
-    // We leave the socket up in pretty much all cases when closing, and just unbind it always.
-    // This could cause confusing behavior for users where they have 2 wired instances running, and
-    // neither will work properly (one will have the notification bus name, and one will have the
-    // socket).
-    // "Fixing" this would require making sure the socket is unbound in almost all cases -- likely
-    // having to import a few crates like Ctrl-C and others -- yuck.
-    // Let's just leave it as it is and try to communicate to users that it's not an issue.
-    // https://stackoverflow.com/questions/40218416/how-do-i-close-a-unix-socket-in-rust
-    let socket_path = Path::new(SOCKET_PATH);
-    if socket_path.exists() {
-        println!(
-            "A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls."
-        );
-        std::fs::remove_file(SOCKET_PATH).unwrap();
-    }
-    let listener = match UnixListener::bind(socket_path) {
-        Ok(sock) => sock,
-        Err(e) => {
-            return Err(format!("Couldn't bind socket {}\n{:?}", SOCKET_PATH, e));
+pub struct CLIListener {
+    pub listener: UnixListener,
+}
+
+impl CLIListener {
+    pub fn init() -> Result<Self, CLIError> {
+        // Socket, for listening to CLI calls to ourselves.
+        // We leave the socket up in pretty much all cases when closing, and just unbind it always.
+        // This could cause confusing behavior for users where they have 2 wired instances running, and
+        // neither will work properly (one will have the notification bus name, and one will have the
+        // socket).
+        // "Fixing" this would require making sure the socket is unbound in almost all cases -- likely
+        // having to import a few crates like Ctrl-C and others -- yuck.
+        // Let's just leave it as it is and try to communicate to users that it's not an issue.
+        // https://stackoverflow.com/questions/40218416/how-do-i-close-a-unix-socket-in-rust
+        let socket_path = Path::new(SOCKET_PATH);
+        if socket_path.exists() {
+            println!(
+                "A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls."
+            );
+            std::fs::remove_file(SOCKET_PATH).unwrap();
         }
-    };
-    listener.set_nonblocking(true).unwrap();
-    Ok(listener)
+
+        let listener = UnixListener::bind(socket_path).map_err(CLIError::Socket)?;
+        listener.set_nonblocking(true).map_err(CLIError::Socket)?;
+        Ok(CLIListener { listener })
+    }
+
+    pub fn process_messages(
+        &self,
+        mut manager: &mut NotifyWindowManager,
+        el: &EventLoopWindowTarget<()>
+    ) {
+        // Since we're non-blocking, mostly this is just std::io::ErrorKind::WouldBlock.
+        // For other errors, we should probably inform users to aide debugging.
+        // I don't love the idea of spamming stderr here, however.
+        match self.listener.accept() {
+            Ok((socket, _addr)) => {
+                match handle_socket_message(&mut manager, el, socket) {
+                    Ok(_) => (),
+                    Err(e) => eprintln!("Error while handling socket message: {:?}", e),
+                }
+            }
+            Err(e) => {
+                if e.kind() != ErrorKind::WouldBlock {
+                    eprintln!("{}", e);
+                }
+            }
+        }
+    }
 }
 
 // Socket stuff:
-fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, SocketError> {
-    let idx = if arg == "latest" {
-        let num_windows = manager.monitor_windows.values().flatten().count();
-        if num_windows > 0 {
-            num_windows - 1
+fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, CLIError> {
+    if arg == "latest" {
+        let count = manager.monitor_windows
+            .values()
+            .flatten()
+            .count();
+
+        if count > 0 {
+            manager
+                .find_window_ordered(count - 1)
+                .ok_or(CLIError::NotificationNotFound)
         } else {
-            return Err(SocketError::NotificationNotFound);
+            Err(CLIError::NotificationNotFound)
+        }
+    } else if let Some(stripped) = arg.strip_prefix("id") {
+        if let Ok(id) = stripped.parse::<u32>() {
+            manager.find_window_nid(id).ok_or(CLIError::NotificationNotFound)
+        } else {
+            Err(CLIError::Parse("ID is not of type u32."))
         }
     } else if let Ok(idx) = arg.parse::<usize>() {
-        idx
+        manager.find_window_ordered(idx).ok_or(CLIError::NotificationNotFound)
     } else {
-        return Err(SocketError::Parse("Value is not of type usize."));
-    };
-
-    if let Some(window) = manager.find_window_ordered(idx) {
-        Ok(window)
-    } else {
-        Err(SocketError::NotificationNotFound)
+        Err(CLIError::Parse("Value must be one of latest, id<u32>, or <usize>."))
     }
 }
 
@@ -77,7 +108,7 @@ pub fn handle_socket_message(
     manager: &mut NotifyWindowManager,
     el: &EventLoopWindowTarget<()>,
     stream: UnixStream,
-) -> Result<(), SocketError> {
+) -> Result<(), CLIError> {
     let stream = BufReader::new(stream);
     for line in stream.lines() {
         let line = match line {
@@ -88,7 +119,7 @@ pub fn handle_socket_message(
         println!("Recived socket message: {}", line);
         if let Some((command, args)) = line.split_once(":") {
             match command {
-                "close" => {
+                "drop" => {
                     if args == "all" {
                         manager.drop_windows();
                     } else {
@@ -99,28 +130,28 @@ pub fn handle_socket_message(
                 "action" => {
                     let (notif_id, action_id) = args
                         .split_once(",")
-                        .ok_or(SocketError::Parse("Malformed action request."))?;
+                        .ok_or(CLIError::Parse("Malformed action request."))?;
 
                     let id = get_window_id(notif_id, manager)?;
                     let action = action_id
                         .parse::<usize>()
-                        .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
+                        .map_err(|_| CLIError::Parse("Value is not of type usize."))?;
                     manager.trigger_action_idx(id, action);
                 }
                 "show" => {
                     let num = args
                         .parse::<usize>()
-                        .map_err(|_| SocketError::Parse("Value is not of type usize."))?;
+                        .map_err(|_| CLIError::Parse("Value is not of type usize."))?;
                     for _ in 0..num {
                         if let Some(n) = manager.history.pop_back() {
                             manager.new_notification(n, el);
                         }
                     }
                 }
-                _ => return Err(SocketError::InvalidCommand),
+                _ => return Err(CLIError::InvalidCommand),
             }
         } else {
-            return Err(SocketError::Parse("Malformed command."));
+            return Err(CLIError::Parse("Malformed command."));
         }
     }
 
@@ -131,7 +162,11 @@ pub fn handle_socket_message(
 fn print_usage(opts: Options) {
     print!(
         "{}",
-        opts.usage("Usage:\twired [options]\n\tIDX refers to the Nth most recent notification.")
+        opts.usage("Usage:\twired [options]\n\t\
+                            IDX refers to the Nth most recent notification, \
+                            unless it is prefixed\n\tby 'id', in which case it \
+                            refers to a notification via its ID.\n\t\
+                            E.g.: `wired --drop 0` vs `wired --drop id2589`")
     );
 }
 
@@ -140,11 +175,18 @@ fn validate_identifier(input: &str, allow_all: bool) -> Result<(), &'static str>
         return Ok(());
     }
 
-    // We don't actually care about the value here -- this is just client side validation.
-    match input.parse::<u32>() {
+    // We don't actually care about the values here -- this is just client side validation.
+    if let Some(stripped) = input.strip_prefix("id") {
+        match stripped.parse::<u32>() {
+            Ok(_) => return Ok(()),
+            Err(_) => return Err("Notification ID must be a valid unsigned integer."),
+        }
+    }
+
+    match input.parse::<usize>() {
         Ok(_) => Ok(()),
-        Err(_) => Err("Notification identifier must be either [latest], or a valid \
-                                notification IDX (unsigned integer)."),
+        Err(_) => Err("Notification identifier must be either [latest], a valid \
+                       notification ID (unsigned integer), or a valid notification index (usize)."),
     }
 }
 
@@ -202,9 +244,9 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
             }
         };
 
-        if let Some(to_close) = matches.opt_str("d") {
-            validate_identifier(to_close.as_str(), true)?;
-            sock.write(format!("close:{}", to_close).as_bytes())
+        if let Some(to_drop) = matches.opt_str("d") {
+            validate_identifier(to_drop.as_str(), true)?;
+            sock.write(format!("drop:{}", to_drop).as_bytes())
                 .map_err(|e| e.to_string())?;
         }
 

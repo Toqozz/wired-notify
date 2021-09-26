@@ -495,7 +495,7 @@ pub fn find_and_open_url(string: String) {
 
 pub fn query_screensaver_info(base_window: &Window) -> XScreenSaverInfo {
     use winit::platform::unix::WindowExtUnix;
-    let xscreeninfo = unsafe {
+    unsafe {
         let mut info = std::mem::MaybeUninit::<XScreenSaverInfo>::uninit();
         let status = XScreenSaverQueryInfo(
             base_window.xlib_display().unwrap() as _,
@@ -508,9 +508,7 @@ pub fn query_screensaver_info(base_window: &Window) -> XScreenSaverInfo {
         }
 
         info.assume_init()
-    };
-
-    xscreeninfo
+    }
 }
 
 // For serde defaults.  So annoying that we need a function for this.

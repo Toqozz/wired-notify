@@ -97,15 +97,14 @@ impl NotifyWindowManager {
         // Update windows and then check for dirty state.
         // Returning dirty from a window update means the window has been deleted / needs
         // positioning updated.
-        for (_monitor, windows) in &mut self.monitor_windows {
-            for window in windows {
-                self.dirty |= window.update(delta_time);
-            }
+        for window in &mut self.monitor_windows.values_mut().flatten() {
+            self.dirty |= window.update(delta_time);
         }
 
         if self.dirty {
             self.update_positions();
             // Finally drop windows.
+            #[allow(clippy::for_kv_map)]    // Better that we keep the monitor in mind here for future.
             for (_monitor_id, windows) in &mut self.monitor_windows {
                 // Send signal for notifications that are going to be closed, then drop them.
                 for window in windows.iter().filter(|w| w.marked_for_destroy) {
@@ -135,6 +134,8 @@ impl NotifyWindowManager {
         // TODO: there should probably be a way to make this so we only need to set new windows  
         // update mode instead of just brute forcing them.  but maybe this is fine anyway?
         // Definitely less bug prone.
+        // Our idle threshold granularity is 1s, so we can save time by only checking at that
+        // frequency.
         self.idle_check_timer += delta_time.as_secs_f32();
         if self.idle_check_timer > 1.0 {
             self.idle_check_timer = 0.0;
@@ -402,6 +403,14 @@ impl NotifyWindowManager {
         windows.get(num).map(|w| w.winit.id())
     }
 
+    pub fn find_window_nid(&self, notification_id: u32) -> Option<WindowId> {
+        self.monitor_windows
+            .values()
+            .flatten()
+            .find(|w| w.notification.id == notification_id)
+            .map(|w| w.winit.id())
+    }
+
     pub fn notification_exists(&self, id: u32) -> bool {
         for m in self.monitor_windows.values() {
             for w in m {
@@ -432,6 +441,7 @@ impl NotifyWindowManager {
     // @TODO: how about a shortcut for dropping all windows on one monitor?  Support multi-monitor
     // better first.
     pub fn drop_windows(&mut self) {
+        #[allow(clippy::for_kv_map)]
         for (_monitor, windows) in &mut self.monitor_windows {
             for window in windows.iter_mut() {
                 window.marked_for_destroy = true;
