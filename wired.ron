@@ -44,7 +44,7 @@
     // Note that notifications will not be automatically unpaused on wake, and will need to be manually
     // cleared.  Let me know if you think this should be different.
     // If `idle_threshold` is not specified, the behavior will be disabled entirely.
-    //idle_threshold: 0,
+    //idle_threshold: 3600,
 
     // Enable printing notification data to a file.
     // Useful for scripting purposes.
