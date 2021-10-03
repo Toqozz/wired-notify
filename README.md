@@ -32,7 +32,7 @@ See [the wiki](https://github.com/Toqozz/wired-notify/wiki/Making-Your-Own-Block
 
 ## Building
 ### Dependencies
-`rust, dbus, cairo, pango`
+`rust, dbus, cairo, pango, glib2, x11, xss (for idle support)`
 ### Build and Run
 ```sh
 $ git clone https://github.com/Toqozz/wired-notify.git
