@@ -74,22 +74,33 @@ impl NotifyWindowManager {
         }
     }
 
-    // This function assumes that there is a notification to replace, otherwise it does nothing.
-    pub fn replace_notification(&mut self, new_notification: Notification) {
+    pub fn replace_or_spawn(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
         if Config::get().debug {
-            dbg!(&new_notification);
+            dbg!(&notification);
         }
-        let maybe_window = self
-            .monitor_windows
-            .values_mut()
-            .flatten()
-            .find(|w| w.notification.id == new_notification.id);
 
-        // It may be that the notification has already expired, in which case we just ignore the
-        // update request.
+        if !Config::get().replacing_enabled {
+            self.new_notification(notification, el);
+            return;
+        }
+
+        let mut maybe_window = None;
+        for m in self.monitor_windows.values_mut() {
+            for w in m {
+                if w.notification.id == notification.id ||
+                    (w.notification.app_name == notification.app_name &&
+                     w.notification.tag.is_some() &&
+                     w.notification.tag == notification.tag) {
+
+                    maybe_window = Some(w);
+                }
+            }
+        }
+
         if let Some(window) = maybe_window {
-            // Replacing notification data may mean the notification position has to change.
-            window.replace_notification(new_notification);
+            window.replace_notification(notification);
+        } else {
+            self.new_notification(notification, el);
         }
     }
 
@@ -413,18 +424,6 @@ impl NotifyWindowManager {
             .flatten()
             .find(|w| w.notification.id == notification_id)
             .map(|w| w.winit.id())
-    }
-
-    pub fn notification_exists(&self, id: u32) -> bool {
-        for m in self.monitor_windows.values() {
-            for w in m {
-                if w.notification.id == id {
-                    return true;
-                }
-            }
-        }
-
-        false
     }
 
     // Drop a window.  Return true if we found the window and told it to drop, false otherwise.

@@ -118,6 +118,7 @@ pub enum Message {
 #[derive(Clone, Serialize)]
 pub struct Notification {
     pub id: u32,
+    pub tag: Option<String>,
 
     pub app_name: String,
 
@@ -159,6 +160,7 @@ impl Notification {
         let id = receiver::fetch_id();
         Self {
             id,
+            tag: None,
             app_name: "Wired".to_owned(),
             summary: summary.to_owned(),
             body: body.to_owned(),
@@ -286,9 +288,16 @@ impl Notification {
             urgency = Urgency::Normal;
         }
 
+        let tag: Option<String>;
+        if let Some(Value::String(value)) = hints.remove("wired-tag") {
+            tag = Some(value)
+        } else {
+            tag = None;
+        }
+
         let percentage: Option<f32>;
-        if let Some(Value::I32(value)) = hints.get("value") {
-            let v = f64::from(*value);
+        if let Some(Value::I32(value)) = hints.remove("value") {
+            let v = f64::from(value);
             let p = f64::clamp(v * 0.01, 0.0, 1.0);
             // This conversion should not be lossy, since the maximum precision is 0.01 (1%).
             percentage = Some(p as f32)
@@ -303,6 +312,7 @@ impl Notification {
 
         Self {
             id,
+            tag,
             app_name: app_name.to_owned(),
             summary,
             body,
