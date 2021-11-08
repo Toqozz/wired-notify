@@ -24,6 +24,7 @@
           xorg.libXi
           xorg.libXrandr
           xorg.libXcursor
+          xorg.libXScrnSaver
         ];
       in rec {
         # `nix build`
