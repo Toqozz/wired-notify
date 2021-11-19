@@ -2,7 +2,7 @@
 
 pkgname=wired
 _pkgname=wired-notify
-pkgver=0.9.3
+pkgver=0.9.4
 pkgrel=1
 pkgdesc="Lightweight notification daemon with highly customizable layout blocks, written in Rust."
 arch=('x86_64' 'i686')

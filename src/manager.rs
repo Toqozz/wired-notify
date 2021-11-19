@@ -87,12 +87,12 @@ impl NotifyWindowManager {
         let mut maybe_window = None;
         for m in self.monitor_windows.values_mut() {
             for w in m {
-                if w.notification.id == notification.id ||
-                    (w.notification.app_name == notification.app_name &&
-                     w.notification.tag.is_some() &&
-                     w.notification.tag == notification.tag) {
+                if (w.notification.id == notification.id && Config::get().replacing_enabled) ||
+                   (w.notification.app_name == notification.app_name &&
+                    w.notification.tag.is_some() &&
+                    w.notification.tag == notification.tag) {
 
-                    maybe_window = Some(w);
+                    maybe_window = Some(w)
                 }
             }
         }
