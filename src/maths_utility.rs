@@ -129,13 +129,28 @@ impl Rect {
         Vec2 { x: self.right(), y: self.bottom() }
     }
 
-    pub fn mid_left(&self) -> Vec2 { Vec2 { x: self.left(), y: (self.bottom() + self.top()) / 2.0 } }
+    pub fn mid_left(&self) -> Vec2 {
+        Vec2 { x: self.left(), y: (self.bottom() + self.top()) / 2.0 }
+    }
 
-    pub fn mid_right(&self) -> Vec2 { Vec2 { x: self.right(), y: (self.bottom() + self.top()) / 2.0 } }
+    pub fn mid_right(&self) -> Vec2 {
+        Vec2 { x: self.right(), y: (self.bottom() + self.top()) / 2.0 }
+    }
 
-    pub fn mid_top(&self) -> Vec2 { Vec2 { x: (self.left() + self.right()) / 2.0, y: self.top() } }
+    pub fn mid_top(&self) -> Vec2 {
+        Vec2 { x: (self.left() + self.right()) / 2.0, y: self.top() }
+    }
 
-    pub fn mid_bottom(&self) -> Vec2 { Vec2 { x: (self.left() + self.right()) / 2.0, y: self.bottom() } }
+    pub fn mid_bottom(&self) -> Vec2 {
+        Vec2 { x: (self.left() + self.right()) / 2.0, y: self.bottom() }
+    }
+
+    pub fn mid_mid(&self) -> Vec2 {
+        Vec2 {
+            x: (self.left() + self.right()) / 2.0,
+            y: (self.bottom() + self.top()) / 2.0
+        }
+    }
 
     pub fn set_right(&mut self, right: f64) {
         self.x = right - self.width

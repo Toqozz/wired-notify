@@ -141,13 +141,6 @@ fn main() {
                             }
 
                             manager.replace_or_spawn(n, event_loop);
-                            /*
-                            if Config::get().replacing_enabled && manager.notification_exists(&n) {
-                                manager.replace_notification(n);
-                            } else {
-                                manager.new_notification(n, event_loop);
-                            }
-                            */
                         }
                     }
                 }

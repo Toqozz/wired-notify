@@ -449,14 +449,15 @@ pub struct Offset {
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum AnchorPosition {
-    ML,
-    TL,
-    MT,
-    TR,
-    MR,
-    BR,
-    MB,
-    BL,
+    TL, LT,
+    TM, MT,
+    TR, RT,
+    MR, RM,
+    BR, RB,
+    BM, MB,
+    BL, LB,
+    ML, LM,
+    MM,
 }
 
 #[derive(Debug, Clone)]
@@ -569,14 +570,15 @@ impl Padding {
 impl AnchorPosition {
     pub fn get_pos(&self, rect: &Rect) -> Vec2 {
         match self {
-            AnchorPosition::ML => rect.mid_left(),
-            AnchorPosition::TL => rect.top_left(),
-            AnchorPosition::MT => rect.mid_top(),
-            AnchorPosition::TR => rect.top_right(),
-            AnchorPosition::MR => rect.mid_right(),
-            AnchorPosition::BR => rect.bottom_right(),
-            AnchorPosition::MB => rect.mid_bottom(),
-            AnchorPosition::BL => rect.bottom_left(),
+            AnchorPosition::TL | AnchorPosition::LT => rect.top_left(),
+            AnchorPosition::TM | AnchorPosition::MT => rect.mid_top(),
+            AnchorPosition::TR | AnchorPosition::RT => rect.top_right(),
+            AnchorPosition::MR | AnchorPosition::RM => rect.mid_right(),
+            AnchorPosition::BR | AnchorPosition::RB => rect.bottom_right(),
+            AnchorPosition::BM | AnchorPosition::MB => rect.mid_bottom(),
+            AnchorPosition::BL | AnchorPosition::LB => rect.bottom_left(),
+            AnchorPosition::ML | AnchorPosition::LM => rect.mid_left(),
+            AnchorPosition::MM => rect.mid_mid(),
         }
     }
 }
