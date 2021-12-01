@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 wired_derive = { path = "./wired_derive" }
 
-winit = "0.25.0"
+winit = "0.26.0"
 dbus = "0.8.2"
 x11 = { version = "2.18.1", features = ["xlib", "xss"] }
 pango = "0.6.0"
