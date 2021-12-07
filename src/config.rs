@@ -105,7 +105,7 @@ pub struct Config {
     // Maximum number of notifications to show on screen at once.
     pub max_notifications: usize,
     pub timeout: i32,                  // Default timeout, in milliseconds.
-    pub poll_interval: u64,            // "Frame rate" / check for updates and new notifications.
+    pub poll_interval: u64,            // Time between checking for updates, new notifications, events, drawing, etc.
     pub print_to_file: Option<String>, // A file to print notification info to, for scripting purposes.
     pub idle_threshold: Option<u64>,   // The threshold before pausing notifications due to being idle.  0 = ignore.
     pub layout_blocks: Vec<LayoutBlock>,

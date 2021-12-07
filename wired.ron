@@ -7,8 +7,10 @@
     // 1000ms = 1s.
     timeout: 10000,
 
-    // The update rate, in millisecondss.  This decides how often notifications update, including how often
-    // they redraw (if required).  16ms ~= 60hz / 7ms ~= 144hz.
+    // `poll_interval` decides decides how often (in milliseconds) Wired checks for new notifications, events,
+    // draws notifications (if necessary), etc.
+    // Note that when no notifications are present, Wired always polls at 500ms.
+    // 16ms ~= 60hz / 7ms ~= 144hz.
     poll_interval: 16,
 
     // How many notifications are kept in history.

@@ -328,7 +328,7 @@ pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, h
     ctx.restore();
 }
 
-pub fn escape_decode(to_escape: &str) -> String {
+pub fn escape_decode(to_escape: String) -> String {
     //let before = std::time::Instant::now();
 
     // Escape ampersand and decode some html stuff manually, for fun.

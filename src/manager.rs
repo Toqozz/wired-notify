@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
 
 use dbus::message::SignalArgs;
+use dbus::channel::Sender;
 use dbus::strings::Path;
 use winit::{
     dpi::PhysicalPosition, event, event::ElementState, event::MouseButton, event::WindowEvent,
@@ -51,10 +52,6 @@ impl NotifyWindowManager {
 
     // Summon a new notification.
     pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
-        if Config::get().debug {
-            dbg!(&notification);
-        }
-
         if let LayoutElement::NotificationBlock(p) = &Config::get().layout.as_ref().unwrap().params {
             let window = NotifyWindow::new(el, notification, self);
 
@@ -169,7 +166,6 @@ impl NotifyWindowManager {
 
     fn update_positions(&mut self) {
         let cfg = Config::get();
-        // TODO: gotta do something about this... can't I just cast it?
         if let LayoutElement::NotificationBlock(p) = &cfg.layout.as_ref().unwrap().params {
             for (monitor_id, windows) in &self.monitor_windows {
                 // If there are no windows for this monitor, leave it alone.
@@ -227,8 +223,6 @@ impl NotifyWindowManager {
                     // `get_rect()`s position straight after this call it probably won't be correct,
                     // which is why we `set_xy` manually after.
                     window.set_position(pos.x, pos.y);
-                    window.set_visible(true);
-
                     window_rect.set_xy(pos.x, pos.y);
                     prev_rect = window_rect;
 
@@ -363,7 +357,7 @@ impl NotifyWindowManager {
                 id: notification.id,
             };
             let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
-            let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
+            let _result = bus::dbus::get_connection().channel().send(message.to_emit_message(&path));
         } else {
             eprintln!("Tried to trigger an action with id: {}, but couldn't find any matches.", action);
         }
@@ -477,5 +471,9 @@ impl NotifyWindowManager {
         }
 
         false
+    }
+
+    pub fn has_windows(&self) -> bool {
+        self.monitor_windows.values().any(|m| m.len() > 0)
     }
 }

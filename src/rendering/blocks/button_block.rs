@@ -1,5 +1,6 @@
 use dbus::message::SignalArgs;
 use dbus::strings::Path;
+use dbus::channel::Sender;
 use serde::Deserialize;
 
 use crate::bus;

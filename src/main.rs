@@ -27,7 +27,6 @@ use winit::{
 use bus::dbus::{Message, Notification};
 use cli::ShouldRun;
 use config::Config;
-use dbus::message::MessageType;
 use manager::NotifyWindowManager;
 
 fn try_print_to_file(notification: &Notification, file: &mut File) {
@@ -84,8 +83,7 @@ fn main() {
     );
 
     // Allows us to receive messages from dbus.
-    let receiver = bus::dbus::init_connection();
-    let dbus_connection = bus::dbus::get_connection();
+    let (_dbus_thread_handle, receiver) = bus::dbus::init_dbus_thread();
 
     let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
     let mut manager = NotifyWindowManager::new(&event_loop);
@@ -96,7 +94,7 @@ fn main() {
     event_loop.run_return(|event, event_loop, control_flow| {
         match event {
             Event::NewEvents(StartCause::Init) => {
-                *control_flow = ControlFlow::WaitUntil(Instant::now() + poll_interval)
+                *control_flow = ControlFlow::WaitUntil(Instant::now())
             }
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
                 let now = Instant::now();
@@ -109,19 +107,7 @@ fn main() {
                 prev_instant = now;
                 manager.update(time_passed);
 
-                // Check dbus signals.
-                // If we don't do get incoming signals, notify sender will block when sending.
-                let signal = dbus_connection.incoming(0).next();
-                if let Some(message) = signal {
-                    if message.msg_type() == MessageType::Signal
-                        && &*message.interface().unwrap() == "org.freedesktop.DBus"
-                        && &*message.member().unwrap() == "NameAcquired"
-                        && &*message.get1::<&str>().unwrap() == "org.freedesktop.Notifications"
-                    {
-                        println!("DBus Init Success.");
-                    }
-                }
-
+                // The polling timer for events is separate to drawing, for efficiency reasons.
                 // Read wired socket signals, for cli stuff.
                 if let Some(listener) = &maybe_listener {
                     listener.process_messages(&mut manager, event_loop);
@@ -159,12 +145,20 @@ fn main() {
                 }
 
                 // Restart timer for next loop.
-                *control_flow = ControlFlow::WaitUntil(now + poll_interval);
+                // If windows are being drawn, we refresh at the draw interval (assuming it is
+                // lower) to have the most responsiveness.
+                if manager.has_windows() {
+                    *control_flow = ControlFlow::WaitUntil(now + poll_interval);
+                } else {
+                    *control_flow = ControlFlow::WaitUntil(now + Duration::from_millis(500));
+                }
             }
 
             Event::RedrawRequested(window_id) => {
+                // Sometimes this causes double draws (we draw on spawn organically), but it's better
+                // to listen anyway.
                 manager.request_redraw(window_id);
-            }
+            },
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..

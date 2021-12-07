@@ -1,81 +1,182 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::Path;
-use std::sync::mpsc::{self, Receiver};
-use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use dbus::{
     self,
-    ffidisp::{BusType, Connection, NameFlag, RequestNameReply},
-    tree::{self, DataType, Factory, Interface, Tree},
+    MessageType,
+    arg::{self, PropMap, RefArg},
+    blocking::{Connection, stdintf::org_freedesktop_dbus::RequestNameReply},
+    channel::MatchingReceiver,
+    message::{MatchRule},
 };
+use dbus_crossroads::{Crossroads};
 use image::{self, DynamicImage, ImageBuffer};
 
 use chrono::{offset::Local, DateTime};
 use serde::Serialize;
 
-use crate::bus::dbus_codegen::{org_freedesktop_notifications_server, DBusImage, Value};
-use crate::bus::receiver;
-use crate::bus::receiver::BusNotification;
+use crate::bus::dbus_codegen::{self, OrgFreedesktopNotifications};
 use crate::maths_utility;
 use crate::Config;
 
-#[derive(Copy, Clone, Default, Debug)]
-struct TData;
-impl DataType for TData {
-    type Tree = ();
-    type ObjectPath = Arc<BusNotification>;
-    type Property = ();
-    type Interface = ();
-    type Method = ();
-    type Signal = ();
+static ID_COUNT: AtomicU32 = AtomicU32::new(1);
+
+pub fn fetch_id() -> u32 {
+    ID_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
 pub const PATH: &str = "/org/freedesktop/Notifications";
 // Global access to dbus connection is necessary to avoid spaghetti.
 static mut DBUS_CONN: Option<Connection> = None;
 
-fn create_iface(sender: mpsc::Sender<Message>) -> Interface<tree::MTFn<TData>, TData> {
-    let f = Factory::new_fn();
-    org_freedesktop_notifications_server(sender, &f, (), |m| {
-        let a: &Arc<BusNotification> = m.path.get_data();
-        let b: &BusNotification = a;
-        b
-    })
+pub struct Notify {
+    sender: Sender<Message>,
 }
 
-fn create_tree(iface: Interface<tree::MTFn<TData>, TData>) -> Tree<tree::MTFn<TData>, TData> {
-    let n = Arc::new(BusNotification);
+impl OrgFreedesktopNotifications for Notify {
+    fn get_capabilities(&mut self) -> Result<Vec<String>, dbus::MethodErr> {
+        let capabilities: Vec<String> = vec![
+            //"action-icons".to_string(),
+            "actions".to_string(),
+            "body".to_string(),
+            "body-hyperlinks".to_string(),
+            "body-markup".to_string(),
+            //"icon-multi".to_string(),
+            "icon-static".to_string(),
+            //"persistence".to_string(),
+            //"sound".to_string(),
+        ];
 
-    let f = Factory::new_fn();
-    let mut tree = f.tree(());
-    tree = tree.add(f.object_path(PATH, n).introspectable().add(iface));
+        Ok(capabilities)
+    }
 
-    tree
+    fn notify(&mut self, app_name: String, replaces_id: u32, app_icon: String, summary: String, body: String, actions: Vec<String>, hints: arg::PropMap, expire_timeout: i32) -> Result<u32, dbus::MethodErr> {
+        // The spec says that:
+        // If `replaces_id` is 0, we should create a fresh id and notification.
+        // If `replaces_id` is not 0, we should create a replace the notification with that id,
+        // using the same id.
+        // With our implementation, we send a "new" notification anyway, and let management deal
+        // with replacing data.
+        // When `Config::replacing_enabled` is `false`, we still obey this, those notifications
+        // will just have the same `id`, which I think is fine.
+        //
+        // @NOTE: Some programs don't seem to obey these rules.  Discord will set replaces_id to `id` no
+        // matter what.  To workaround this, we just check if a notification with the same ID
+        // exists before sending it (see: `main`), rather than relying on `replaces_id` being set
+        // correctly.
+        // Also note that there is still a bug here, where since Discord sends the `replaces_id` it
+        // is effectively assigning its own id, which may interfere with ours.  Not sure how mmuch I can
+        // do about this.
+        let id = if replaces_id == 0 {
+            // Grab an ID atomically.  This is moreso to allow global access to `ID_COUNT`, but I'm
+            // also not sure if `notify` is called in a single-threaded way, so it's best to be safe.
+            fetch_id()
+        } else {
+            replaces_id
+        };
+
+        let notification = Notification::from_dbus(
+            id,
+            app_name,
+            app_icon,
+            summary,
+            body,
+            actions,
+            hints,
+            expire_timeout,
+        );
+
+        match self.sender.send(Message::Notify(notification)) {
+            Ok(_) => Ok(id),
+            Err(e) => Err(dbus::MethodErr::failed(&e)),
+        }
+    }
+
+    fn close_notification(&mut self, id: u32) -> Result<(), dbus::MethodErr> {
+        match self.sender.send(Message::Close(id)) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(dbus::MethodErr::failed(&e)),
+        }
+    }
+
+    fn get_server_information(&mut self) -> Result<(String, String, String, String), dbus::MethodErr> {
+        Ok((
+            env!("CARGO_PKG_NAME").to_string(),
+            env!("CARGO_PKG_AUTHORS").to_string(),
+            env!("CARGO_PKG_VERSION").to_string(),
+            "1.2".to_string(),
+        ))
+    }
 }
 
-pub fn init_bus(sender: mpsc::Sender<Message>) -> Connection {
-    let iface = create_iface(sender);
-    let tree = create_tree(iface);
-
-    let c = Connection::get_private(BusType::Session).expect("Failed to get a session bus.");
+pub fn init_dbus_thread() -> (JoinHandle<()>, Receiver<Message>) {
+    let (sender, receiver) = mpsc::channel();
+    let c = Connection::new_session().expect("Failed to get a session bus.");
     let reply = c
-        .register_name("org.freedesktop.Notifications", NameFlag::ReplaceExisting as u32)
+        .request_name("org.freedesktop.Notifications", false, true, false)
         .expect("Failed to register name.");
 
     // Be helpful to the user.
     match reply {
-        RequestNameReply::PrimaryOwner => println!("Acquired notification bus name."),
         RequestNameReply::InQueue => {
             println!("In queue for notification bus name -- is another notification daemon running?")
         }
-        RequestNameReply::Exists => {}
-        RequestNameReply::AlreadyOwner => {}
+        _ => {},
+        //RequestNameReply::PrimaryOwner => {}, // this happens if there are no other notification daemons.
+                                                // we should get the NameAcquired signal shortly.
+        //RequestNameReply::Exists => {}  // should never happen, since `do_not_queue` is false.
+        //RequestNameReply::AlreadyOwner => {}
     };
 
-    tree.set_registered(&c, true).unwrap();
+    let match_rule = MatchRule::new()
+        .with_type(MessageType::Signal)
+        .with_interface("org.freedesktop.DBus")
+        .with_member("NameAcquired");
+    c.add_match(match_rule, |_: (), _conn, msg| {
+        if let Some(s) = msg.get1::<&str>() {
+            if s == "org.freedesktop.Notifications" {
+                println!("Notification bus name acquired.");
 
-    c.add_handler(tree);
-    c
+                // Stop listening for signals -- name was grabbed.
+                return false
+            }
+        }
+
+        // Keep listening for signals.
+        true
+    }).expect("Failed to add match.");
+
+    let mut cr = Crossroads::new();
+    let token = dbus_codegen::register_org_freedesktop_notifications::<Notify>(&mut cr);
+    cr.insert(PATH, &[token], Notify { sender });
+
+    c.start_receive(dbus::message::MatchRule::new_method_call(), Box::new(move |msg, conn| {
+        cr.handle_message(msg, conn).unwrap();
+        true
+    }));
+
+    unsafe {
+        DBUS_CONN = Some(c);
+    }
+
+    let handle = thread::spawn(process_dbus);
+    (handle, receiver)
+}
+
+// Check and process any dbus signals.
+// Includes senders and receivers.
+pub fn process_dbus() {
+    let conn = get_connection();
+    loop {
+        match conn.process(Duration::from_millis(1000)) {
+            Ok(_) => (),
+            Err(e) => eprintln!("DBus Error: {}", e),
+        }
+    }
 }
 
 pub fn get_connection() -> &'static Connection {
@@ -83,17 +184,6 @@ pub fn get_connection() -> &'static Connection {
         assert!(DBUS_CONN.is_some());
         DBUS_CONN.as_ref().unwrap()
     }
-}
-
-pub fn init_connection() -> Receiver<Message> {
-    let (sender, receiver) = mpsc::channel();
-    let c = init_bus(sender);
-
-    unsafe {
-        DBUS_CONN = Some(c);
-    }
-
-    receiver
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -139,6 +229,7 @@ pub struct Notification {
 }
 
 use serde::Serializer;
+
 fn serialize_datetime<S>(datetime: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error>
 where S: Serializer
 {
@@ -157,7 +248,7 @@ impl std::fmt::Debug for Notification {
 
 impl Notification {
     pub fn from_self(summary: &str, body: &str, timeout: i32) -> Self {
-        let id = receiver::fetch_id();
+        let id = fetch_id();
         Self {
             id,
             tag: None,
@@ -179,12 +270,12 @@ impl Notification {
     #[allow(clippy::too_many_arguments)]
     pub fn from_dbus(
         id: u32,
-        app_name: &str,
-        app_icon: &str,
-        summary: &str,
-        body: &str,
-        actions: Vec<&str>,
-        mut hints: HashMap<String, Value>,
+        app_name: String,
+        app_icon: String,
+        summary: String,
+        body: String,
+        actions: Vec<String>,
+        hints: PropMap,
         expire_timeout: i32,
     ) -> Self {
         // The time this notification arrived.  The spec actually doesn't include this for some reason, but
@@ -220,17 +311,26 @@ impl Notification {
             x
         }
 
-        fn image_from_data(dbus_image: DBusImage) -> Option<DynamicImage> {
-            //let start = std::time::Instant::now();
-            //dbg!("Loading image from data...");
+        fn image_from_data(data: &VecDeque<Box<dyn RefArg>>) -> Option<DynamicImage> {
+            let start = std::time::Instant::now();
+            dbg!("Loading image from data...");
+
+            let mut it = data.iter();
+            let width = *dbus::arg::cast::<i32>(it.next()?)?;
+            let height = *dbus::arg::cast::<i32>(it.next()?)?;
+            let rowstride = *dbus::arg::cast::<i32>(it.next()?)?;
+            let _one_point_two_bit_alpha = *dbus::arg::cast::<bool>(it.next()?)?;
+            let bits_per_sample = *dbus::arg::cast::<i32>(it.next()?)?;
+            let channels = *dbus::arg::cast::<i32>(it.next()?)?;
+            let bytes = dbus::arg::cast::<Vec<u8>>(it.next()?)?.clone();
 
             // Sometimes dbus (or the application) can give us junk image data, usually when lots of
             // stuff is sent at the same time the same time, so we should sanity check the image.
             // https://github.com/dunst-project/dunst/blob/3f3082efb3724dcd369de78dc94d41190d089acf/src/icon.c#L316
-            let pixelstride = (dbus_image.channels * dbus_image.bits_per_sample + 7) / 8;
+            let pixelstride = (channels * bits_per_sample + 7) / 8;
             let len_expected =
-                (dbus_image.height - 1) * dbus_image.rowstride + dbus_image.width * pixelstride;
-            let len_actual = dbus_image.data.len() as i32;
+                (height - 1) * rowstride + width * pixelstride;
+            let len_actual = bytes.len() as i32;
             if len_actual != len_expected {
                 eprintln!(
                     "Expected image data to be of length: {}, but got a length of {}.",
@@ -239,13 +339,13 @@ impl Notification {
                 return None;
             }
 
-            let x = match dbus_image.channels {
+            let x = match channels {
                 3 => {
-                    ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
+                    ImageBuffer::from_raw(width as u32, height as u32, bytes)
                         .map(DynamicImage::ImageRgb8)
                 }
                 4 => {
-                    ImageBuffer::from_raw(dbus_image.width as u32, dbus_image.height as u32, dbus_image.data)
+                    ImageBuffer::from_raw(width as u32, height as u32, bytes)
                         .map(DynamicImage::ImageRgba8)
                 }
                 _ => {
@@ -254,31 +354,38 @@ impl Notification {
                 }
             };
 
-            //let end = std::time::Instant::now();
-            //dbg!(end - start);
+            let end = std::time::Instant::now();
+            dbg!(end - start);
 
             x
         }
 
-        let app_image = image_from_path(app_icon);
+        let app_image = image_from_path(&app_icon);
 
+
+        // Structs are stored internally in the rust dbus implementation as VecDeque.
+        // https://github.com/diwic/dbus-rs/issues/363
+        type DBusStruct = VecDeque<Box<dyn RefArg>>;
+        // According to the spec, we should do these in this order.
         let hint_image: Option<DynamicImage>;
-        // We want to pass the `dbus_image.data` vec rather than cloning it, so we have to remove it
-        // from the array.
-        // An alternative might be to put `data` in an option or something like that.
-        if let Some(Value::Struct(dbus_image)) = hints.remove("image-data").or_else(|| hints.remove("image_data")) {
-            hint_image = image_from_data(dbus_image);
-        } else if let Some(Value::String(path)) = hints.get("image-path").or_else(|| hints.get("image_path")) {
-            hint_image = image_from_path(path);
-        } else if let Some(Value::Struct(dbus_image)) = hints.remove("icon_data") {
-            hint_image = image_from_data(dbus_image);
+        if let Some(img_data) = arg::prop_cast::<DBusStruct>(&hints, "image-data") {
+            hint_image = image_from_data(img_data);
+        } else if let Some(img_data) = arg::prop_cast::<DBusStruct>(&hints, "image_data") {
+            hint_image = image_from_data(img_data);
+        } else if let Some(img_path) = hints.get("image-path") {
+            hint_image = image_from_path(img_path.as_str().unwrap());
+        } else if let Some(img_path) = hints.get("image_path") {
+            // TODO: fix ugly.
+            hint_image = image_from_path(img_path.as_str().unwrap());
+        } else if let Some(img_data) = arg::prop_cast::<DBusStruct>(&hints, "icon_data") {
+            hint_image = image_from_data(img_data);
         } else {
             hint_image = None;
         }
 
         let urgency: Urgency;
-        if let Some(Value::U8(level)) = hints.get("urgency") {
-            match level {
+        if let Some(level) = arg::prop_cast::<u8>(&hints, "urgency") {
+            match *level {
                 0 => urgency = Urgency::Low,
                 1 => urgency = Urgency::Normal,
                 2 => urgency = Urgency::Critical,
@@ -288,16 +395,11 @@ impl Notification {
             urgency = Urgency::Normal;
         }
 
-        let tag: Option<String>;
-        if let Some(Value::String(value)) = hints.remove("wired-tag") {
-            tag = Some(value)
-        } else {
-            tag = None;
-        }
+        let tag = arg::prop_cast::<String>(&hints, "wired-tag").cloned();
 
         let percentage: Option<f32>;
-        if let Some(Value::I32(value)) = hints.remove("value") {
-            let v = f64::from(value);
+        if let Some(value) = arg::prop_cast::<i32>(&hints, "value") {
+            let v = f64::from(*value);
             let p = f64::clamp(v * 0.01, 0.0, 1.0);
             // This conversion should not be lossy, since the maximum precision is 0.01 (1%).
             percentage = Some(p as f32)

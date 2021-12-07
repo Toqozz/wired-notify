@@ -115,7 +115,12 @@ impl NotifyWindow {
             .with_title("wired")
             .with_x11_visual(&visual_info)
             .with_transparent(true)
-            .with_visible(false) // Window not visible for first draw, because the position will probably be wrong.
+            // This was originally here for the below reason, but it causes issues and I haven't
+            // been able to observe any actual issue, so we leave it out.
+            //.with_visible(false)  // We don't draw/position stuff until later, so best not to show the
+                                    // window for now.
+                                    // NOTE: you (apparently) can't draw to a window that is not
+                                    // visible!  So we need to make sure we set this to true before drawing.
             .with_override_redirect(true)
             .build(el)
             .expect("Couldn't build winit window.");
@@ -218,7 +223,7 @@ impl NotifyWindow {
         self.winit.set_outer_position(PhysicalPosition { x, y });
     }
 
-    pub fn set_visible(&self, visible: bool) {
+    pub fn _set_visible(&self, visible: bool) {
         self.winit.set_visible(visible);
     }
 

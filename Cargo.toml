@@ -1,6 +1,6 @@
 [package]
 name = "wired"
-version = "0.9.4"
+version = "0.9.5"
 authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 
@@ -8,7 +8,8 @@ edition = "2018"
 wired_derive = { path = "./wired_derive" }
 
 winit = "0.26.0"
-dbus = "0.8.2"
+dbus = "0.9.5"
+dbus-crossroads = "0.5.0"
 x11 = { version = "2.18.1", features = ["xlib", "xss"] }
 pango = "0.6.0"
 pangocairo = "0.7.0"
