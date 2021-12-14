@@ -80,7 +80,6 @@ impl NotifyWindowManager {
         // If notification doesn't meet any render criteria (unlikely, unless deliberately configured that way),
         // then don't make any window or nuffin.
         if !notification_meets_any_criteria(&notification) {
-            dbg!("nope");
             return;
         }
 
