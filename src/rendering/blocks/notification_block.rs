@@ -68,14 +68,12 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         );
         window.context.fill();
 
-        // Base notification background doesn't actually take up space, so use same rect with zero
-        // size.
-        Rect::new(parent_rect.x(), parent_rect.y(), 0.0, 0.0)
+        Rect::new(parent_rect.x(), parent_rect.y(), parent_rect.width(), parent_rect.height())
     }
 
     fn predict_rect_and_init(&mut self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
         self.current_update_mode = window.update_mode;
-        Rect::new(parent_rect.x(), parent_rect.y(), 0.0, 0.0)
+        Rect::new(parent_rect.x(), parent_rect.y(), parent_rect.width(), parent_rect.height())
     }
 
     fn update(&mut self, _delta_time: Duration, window: &NotifyWindow) -> bool {

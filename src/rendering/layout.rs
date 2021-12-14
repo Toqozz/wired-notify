@@ -6,7 +6,7 @@ use crate::{
     rendering::blocks::*,
     maths_utility::{Vec2, Rect},
     config::{Config, AnchorPosition},
-    rendering::window::NotifyWindow,
+    rendering::window::NotifyWindow, bus::dbus::Notification,
 };
 
 use wired_derive::DrawableLayoutElement;
@@ -70,13 +70,13 @@ pub enum LayoutElement {
 }
 
 impl LayoutBlock {
-    pub fn should_draw(&self, window: &NotifyWindow) -> bool {
+    pub fn should_draw(&self, notification: &Notification) -> bool {
         // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
         // optionally allow it.
         // TODO: there should be some way to cache this and not do it every draw operation.
         // We can't just do it for the whole notification because the notification can be replaced.
         let mut should_draw = true;
-        let n = &window.notification;
+        let n = notification;
         for c in &self.render_criteria {
             match c {
                 RenderCriteria::Summary => if n.summary.is_empty() { should_draw = false },
@@ -112,7 +112,7 @@ impl LayoutBlock {
 
     // Call draw on each block in tree.
     pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
-        let rect = if self.should_draw(window) {
+        let rect = if self.should_draw(&window.notification) {
             self.params.draw(&self.hook, &self.offset, parent_rect, window)
         } else {
             // If block shouldn't be rendered, then we should be safe to just return an
@@ -148,7 +148,7 @@ impl LayoutBlock {
         // here to save performance.
         // `predict_rect_and_init` finds the bounding box of an individual element -- children are not
         // involved.
-        let rect = if self.should_draw(window) {
+        let rect = if self.should_draw(&window.notification) {
             self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
         } else {
             let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);

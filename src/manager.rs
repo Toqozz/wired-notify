@@ -72,11 +72,14 @@ impl NotifyWindowManager {
     }
 
     pub fn replace_or_spawn(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
-        if Config::get().debug {
+        let cfg = Config::get();
+        if cfg.debug {
             dbg!(&notification);
         }
 
-        if !Config::get().replacing_enabled {
+        
+
+        if !cfg.replacing_enabled {
             self.new_notification(notification, el);
             return;
         }
@@ -84,7 +87,7 @@ impl NotifyWindowManager {
         let mut maybe_window = None;
         for m in self.monitor_windows.values_mut() {
             for w in m {
-                if (w.notification.id == notification.id && Config::get().replacing_enabled) ||
+                if (w.notification.id == notification.id && cfg.replacing_enabled) ||
                    (w.notification.app_name == notification.app_name &&
                     w.notification.tag.is_some() &&
                     w.notification.tag == notification.tag) {
@@ -475,5 +478,21 @@ impl NotifyWindowManager {
 
     pub fn has_windows(&self) -> bool {
         self.monitor_windows.values().any(|m| m.len() > 0)
+    }
+
+    // Check that ANY blocks in this notification match criteria, so we can tell if we just
+    // shouldn't even bother spawning a window.
+    // This ignores parent-child relationships if we do it lazily.....
+    // But if we don't do it lazily then we're always going to match anyway unless we handle `root`
+    // differently which feels crap.
+    // FUCK
+    pub fn notification_meets_any_criteria(notification: &Notification) -> bool {
+        for block in &Config::get().layout_blocks {
+            if block.should_draw(notification) {
+                return true;
+            }
+        }
+
+        false
     }
 }

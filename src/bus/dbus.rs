@@ -115,6 +115,7 @@ impl OrgFreedesktopNotifications for Notify {
 
 pub fn init_dbus_thread() -> (JoinHandle<()>, Receiver<Message>) {
     let (sender, receiver) = mpsc::channel();
+
     let c = Connection::new_session().expect("Failed to get a session bus.");
     let reply = c
         .request_name("org.freedesktop.Notifications", false, true, false)
@@ -312,8 +313,8 @@ impl Notification {
         }
 
         fn image_from_data(data: &VecDeque<Box<dyn RefArg>>) -> Option<DynamicImage> {
-            let start = std::time::Instant::now();
-            dbg!("Loading image from data...");
+            //let start = std::time::Instant::now();
+            //dbg!("Loading image from data...");
 
             let mut it = data.iter();
             let width = *dbus::arg::cast::<i32>(it.next()?)?;
@@ -354,8 +355,8 @@ impl Notification {
                 }
             };
 
-            let end = std::time::Instant::now();
-            dbg!(end - start);
+            //let end = std::time::Instant::now();
+            //dbg!(end - start);
 
             x
         }

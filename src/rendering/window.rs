@@ -192,17 +192,27 @@ impl NotifyWindow {
     }
 
     pub fn replace_notification(&mut self, new_notification: Notification) {
+        let cfg = Config::get();
+
         self.notification = new_notification;
 
         // Refresh timeout if configured
-        if Config::get().replacing_resets_timeout {
+        if cfg.replacing_resets_timeout {
             self.fuse = self.notification.timeout;
         }
+
+        // The minimum window width and height is 1.0.  We need this size to generate an initial window.
+        // TODO: merge the above function with this so we don't get regressions from not doing
+        // things the same way.
+        let (width, height) = (
+            (cfg.min_window_width as f64).max(1.0),
+            (cfg.min_window_height as f64).max(1.0),
+        );
 
         // As above.  May be valuable to put this into a function like `prepare_notification` or
         // something if we keep changing stuff.
         let mut layout = Config::get().layout.as_ref().unwrap().clone();
-        let rect = layout.predict_rect_tree_and_init(self, &self.get_inner_rect(), Rect::empty());
+        let rect = layout.predict_rect_tree_and_init(self, &Rect::new(0.0, 0.0, width, height), Rect::new(0.0, 0.0, width, height));
         let delta = Vec2::new(-rect.x(), -rect.y());
 
         self.layout = Some(layout);
