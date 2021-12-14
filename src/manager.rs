@@ -77,7 +77,12 @@ impl NotifyWindowManager {
             dbg!(&notification);
         }
 
-        
+        // If notification doesn't meet any render criteria (unlikely, unless deliberately configured that way),
+        // then don't make any window or nuffin.
+        if !notification_meets_any_criteria(&notification) {
+            dbg!("nope");
+            return;
+        }
 
         if !cfg.replacing_enabled {
             self.new_notification(notification, el);
@@ -479,20 +484,25 @@ impl NotifyWindowManager {
     pub fn has_windows(&self) -> bool {
         self.monitor_windows.values().any(|m| m.len() > 0)
     }
+}
 
-    // Check that ANY blocks in this notification match criteria, so we can tell if we just
-    // shouldn't even bother spawning a window.
-    // This ignores parent-child relationships if we do it lazily.....
-    // But if we don't do it lazily then we're always going to match anyway unless we handle `root`
-    // differently which feels crap.
-    // FUCK
-    pub fn notification_meets_any_criteria(notification: &Notification) -> bool {
-        for block in &Config::get().layout_blocks {
-            if block.should_draw(notification) {
-                return true;
-            }
-        }
+// Checks if this block should be drawn (according to render criteria for each block).
+// The root block is handled differently.
+// If the root block doesn't meet criteria, then don't draw at all.
+// If the root block does meet criteria, but no child blocks do, then don't draw.
+pub fn notification_meets_any_criteria(notification: &Notification) -> bool {
+    let layout = Config::get().layout.as_ref().unwrap();
 
-        false
+    // Root block handled differently to be more intuitive.
+    if !layout.should_draw(notification) {
+        return false;
     }
+
+    for child in &layout.children {
+        if child.should_draw(notification) {
+            return true;
+        }
+    }
+
+    false
 }

@@ -137,7 +137,7 @@ fn main() {
                     if cw.check_and_update_config() {
                         poll_interval = Duration::from_millis(Config::get().poll_interval);
                         maybe_print_file = open_print_file();
-                        manager.new_notification(
+                        manager.replace_or_spawn(
                             Notification::from_self("Wired", "Config was reloaded.", 5000),
                             event_loop,
                         );
