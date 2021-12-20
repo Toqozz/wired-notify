@@ -75,6 +75,17 @@ wired-notify.packages.x86_64-linux.wired
 # Do not forget to pass the wired-notify input to where your environment.systemPackages lies
 ```
 
+## NetBSD
+Wired is available from the official repositories,
+```sh
+$ pkgin install wired-notify
+```
+or, if you prefer to build from source
+```sh
+$ cd /usr/pkgsrc/x11/wired-notify
+$ make install
+```
+
 ## Config
 See the [Config](https://github.com/Toqozz/wired-notify/wiki/Config) wiki page for configuration settings.
 
