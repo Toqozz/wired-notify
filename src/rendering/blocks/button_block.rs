@@ -83,7 +83,7 @@ impl ButtonBlockParameters {
 
 // Much of this is the same as TextBlock, see there for documentation.
 impl DrawableLayoutElement for ButtonBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
         let text_col = self.text_color();
         let border_col = self.border_color();
         let background_col = self.background_color();
@@ -114,7 +114,7 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             self.border_width,
             border_col,
             background_col,
-        );
+        )?;
 
         window.context.set_operator(cairo::Operator::Over);
         // Move block to text position (ignoring padding) for draw operation.
@@ -134,11 +134,11 @@ impl DrawableLayoutElement for ButtonBlockParameters {
                 pos.y + self.padding.top,
                 r.width(),
                 r.height(),
-            );
+            )?;
         }
 
         rect.set_xy(pos.x, pos.y);
-        rect
+        Ok(rect)
     }
 
     fn predict_rect_and_init(

@@ -11,10 +11,10 @@ winit = "0.26.0"
 dbus = "0.9.5"
 dbus-crossroads = "0.5.0"
 x11 = { version = "2.18.1", features = ["xlib", "xss"] }
-pango = "0.6.0"
-pangocairo = "0.7.0"
-cairo-rs = "0.6.0"
-cairo-sys-rs = { version = "0.8.0", features = ["xlib"] }
+pango = "0.14.8"
+pangocairo = "0.14.0"
+cairo-rs = "0.14.9"
+cairo-sys-rs = { version = "0.14.9", features = ["xlib"] }
 xdg = "2.2.0"
 
 getopts = "0.2"

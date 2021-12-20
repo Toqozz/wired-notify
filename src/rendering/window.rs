@@ -149,9 +149,9 @@ impl NotifyWindow {
             );
 
             Surface::from_raw_full(sfc_raw)
-        };
+        }.expect("Failed to create cairo surface.");
 
-        let context = cairo::Context::new(&surface);
+        let context = cairo::Context::new(&surface).expect("Failed to create cairo context.");
         let text = TextRenderer::new(&context);
         let fuse = notification.timeout;
 

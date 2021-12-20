@@ -60,7 +60,7 @@ impl ProgressBlockParameters {
 
 // Much of this is the same as TextBlock, see there for documentation.
 impl DrawableLayoutElement for ProgressBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
         let border_col = self.border_color();
         let background_col = self.background_color();
         let fill_col = self.fill_color();
@@ -85,7 +85,7 @@ impl DrawableLayoutElement for ProgressBlockParameters {
             border_col,
             background_col,
             fill_col,
-        );
+        )?;
 
         window.context.set_operator(cairo::Operator::Over);
 
@@ -98,12 +98,12 @@ impl DrawableLayoutElement for ProgressBlockParameters {
                 pos.y + self.padding.top,
                 rect.width() - self.padding.width(),
                 rect.height() - self.padding.height(),
-            );
+            )?;
         }
 
         //rect.set_xy(pos.x, pos.y);
         rect.set_xy(pos.x, pos.y);
-        rect
+        Ok(rect)
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {

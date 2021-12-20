@@ -208,8 +208,8 @@ pub fn distance(x: f64, y: f64) -> f64 {
 }
 
 // http://cairographics.org/samples/rounded_rectangle/
-pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) {
-    ctx.save();
+pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) -> Result<(), cairo::Error> {
+    ctx.save()?;
 
     // Aspect ratio.
     let aspect = 1.0;
@@ -224,11 +224,13 @@ pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width:
     ctx.arc(x + radius        , y + radius         , radius         , 180.0 * degrees, 270.0 * degrees);
     ctx.close_path();
 
-    ctx.restore();
+    ctx.restore()?;
+
+    Ok(())
 }
 
-pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) {
-    ctx.save();
+pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) -> Result<(), cairo::Error> {
+    ctx.save()?;
 
     // Aspect ratio.
     let aspect = 1.0;
@@ -243,77 +245,83 @@ pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64
     ctx.arc_negative(x + width - radius, y + radius         , radius         , 0.0 * degrees, -90.0 * degrees);
     ctx.close_path();
 
-    ctx.restore();
+    ctx.restore()?;
+
+    Ok(())
 }
 
 // Creates a rounded rectangle with a border that acts as a user would expect.
 // Obeys background opacity and such -- border color is not present on the background like it would
 // be with the naive approach.
 #[allow(clippy::too_many_arguments)]
-pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color) {
-    ctx.save();
+pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color) -> Result<(), cairo::Error> {
+    ctx.save()?;
 
     // To my understanding, push group basically lets us write to another texture, which we can
     // then paint on top of stuff later.
     ctx.push_group();
     ctx.set_operator(cairo::Operator::Source);
-    cairo_path_rounded_rectangle(ctx, x, y, width, height, corner_radius);
+    cairo_path_rounded_rectangle(ctx, x, y, width, height, corner_radius)?;
     ctx.set_source_rgba(fg_color.r, fg_color.g, fg_color.b, fg_color.a);
-    ctx.fill();
+    ctx.fill()?;
 
-    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, corner_radius);
+    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, corner_radius)?;
     ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
-    ctx.fill();
-    ctx.pop_group_to_source();
-    ctx.paint();
+    ctx.fill()?;
+    ctx.pop_group_to_source()?;
+    ctx.paint()?;
 
-    ctx.restore();
+    ctx.restore()?;
+
+    Ok(())
 }
 
 // Creates a rounded rectangle with a border that acts as a user would expect.
 // Obeys background opacity and such -- border color is not present on the background like it would
 // be with the naive approach.
 #[allow(clippy::too_many_arguments)]
-pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, fill_percent: f64, border_corner_radius: f64, fill_corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color, fill_color: &Color) {
-    ctx.save();
+pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, fill_percent: f64, border_corner_radius: f64, fill_corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color, fill_color: &Color) -> Result<(), cairo::Error> {
+    ctx.save()?;
 
     // To my understanding, push group basically lets us write to another texture, which we can
     // then paint on top of stuff later.
     ctx.push_group();
     ctx.set_operator(cairo::Operator::Source);
-    cairo_path_rounded_rectangle(ctx, x, y, width, height, border_corner_radius);
+    cairo_path_rounded_rectangle(ctx, x, y, width, height, border_corner_radius)?;
     ctx.set_source_rgba(fg_color.r, fg_color.g, fg_color.b, fg_color.a);
-    ctx.fill();
+    ctx.fill()?;
 
     // Background clipping path (to prevent leaks at small fill %s).
-    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, fill_corner_radius);
+    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, fill_corner_radius)?;
     ctx.clip_preserve();
 
     // Draw background, which subtracts from the clipping area path.
-    cairo_path_rounded_rectangle_inverse(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, fill_corner_radius);
+    cairo_path_rounded_rectangle_inverse(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, fill_corner_radius)?;
     ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
-    ctx.fill();
+    ctx.fill()?;
 
     // Draw fill area, on top of the background.
-    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, fill_corner_radius);
+    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, fill_corner_radius)?;
     ctx.set_source_rgba(fill_color.r, fill_color.g, fill_color.b, fill_color.a);
-    ctx.fill();
+    ctx.fill()?;
 
-    ctx.pop_group_to_source();
-    ctx.paint();
+    ctx.pop_group_to_source()?;
+    ctx.paint()?;
 
-    ctx.restore();
+    ctx.restore()?;
+
+    Ok(())
 }
 
-pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, height: f64) {
+pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, height: f64) -> Result<(), cairo::Error> {
     use crate::config::Config;
     // Often, modules will check for debug before calling this anyway to save work, but it's good
     // to be sure we never draw any debug rects when debug is turned off.
     if !Config::get().debug {
-        return;
+        return Ok(());
     }
 
-    ctx.save();
+    ctx.save()?;
 
     let c = if alt {
         &Config::get().debug_color_alt
@@ -323,9 +331,11 @@ pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, h
     ctx.set_source_rgba(c.r, c.g, c.b, c.a);
     ctx.set_line_width(1.0);
     ctx.rectangle(x, y, width, height);
-    ctx.stroke();
+    ctx.stroke()?;
 
-    ctx.restore();
+    ctx.restore()?;
+
+    Ok(())
 }
 
 pub fn escape_decode(to_escape: String) -> String {

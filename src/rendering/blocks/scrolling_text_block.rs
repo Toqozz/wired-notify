@@ -65,7 +65,7 @@ impl ScrollingTextBlockParameters {
 }
 
 impl DrawableLayoutElement for ScrollingTextBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
         let width = &self.real_width;
 
         // First, generate bounding rect with padding and stuff -- the space the text will
@@ -83,7 +83,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         pos.x += self.padding.left;
         pos.y += self.padding.top;
         // Debug, unpadded drawing, to help users.
-        maths_utility::debug_rect(&window.context, true, pos.x, pos.y, self.clip_rect.width(), self.clip_rect.height());
+        maths_utility::debug_rect(&window.context, true, pos.x, pos.y, self.clip_rect.width(), self.clip_rect.height())?;
 
         let col = if self.hover { self.color_hovered.as_ref().unwrap_or(&self.color) } else { &self.color };
         // If we're larger than the max size, then we should scroll, which is just changing the
@@ -119,7 +119,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         pos.y -= self.padding.top;
 
         rect.set_xy(pos.x, pos.y,);
-        rect
+        Ok(rect)
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {

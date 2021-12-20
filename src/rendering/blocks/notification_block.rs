@@ -31,10 +31,10 @@ pub struct NotificationBlockParameters {
 }
 
 impl DrawableLayoutElement for NotificationBlockParameters {
-    fn draw(&self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
         // Clear
         window.context.set_operator(cairo::Operator::Clear);
-        window.context.paint();
+        window.context.paint()?;
 
         window.context.set_operator(cairo::Operator::Source);
 
@@ -55,7 +55,7 @@ impl DrawableLayoutElement for NotificationBlockParameters {
 
         //let bd_color = &self.border_color;
         window.context.set_source_rgba(bd_color.r, bd_color.g, bd_color.b, bd_color.a);
-        window.context.paint();
+        window.context.paint()?;
 
         let bg_color = &self.background_color;
         let bw = &self.border_width;
@@ -65,10 +65,10 @@ impl DrawableLayoutElement for NotificationBlockParameters {
             *bw, *bw,   // x, y
             parent_rect.width() - bw * 2.0, parent_rect.height() - bw * 2.0,
             self.border_rounding,
-        );
-        window.context.fill();
+        )?;
+        window.context.fill()?;
 
-        Rect::new(parent_rect.x(), parent_rect.y(), parent_rect.width(), parent_rect.height())
+        Ok(Rect::new(parent_rect.x(), parent_rect.y(), parent_rect.width(), parent_rect.height()))
     }
 
     fn predict_rect_and_init(&mut self, _hook: &Hook, _offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {

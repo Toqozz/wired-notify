@@ -52,7 +52,7 @@ impl TextBlockParameters {
 }
 
 impl DrawableLayoutElement for TextBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
         window.context.set_operator(cairo::Operator::Over);
 
         let dimensions = self.get_dimensions(&window.notification);
@@ -70,11 +70,11 @@ impl DrawableLayoutElement for TextBlockParameters {
         // Debug, unpadded drawing, to help users.
         if Config::get().debug {
             let r = window.text.get_sized_rect(dimensions.width.min, dimensions.height.min);
-            maths_utility::debug_rect(&window.context, true, pos.x + self.padding.left, pos.y + self.padding.top, r.width(), r.height());
+            maths_utility::debug_rect(&window.context, true, pos.x + self.padding.left, pos.y + self.padding.top, r.width(), r.height())?;
         }
 
         rect.set_xy(pos.x, pos.y);
-        rect
+        Ok(rect)
     }
 
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {

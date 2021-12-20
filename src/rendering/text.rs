@@ -1,4 +1,4 @@
-use pango::{self, prelude::*, FontDescription, Layout};
+use pango::{self, FontDescription, Layout};
 
 use serde::Deserialize;
 
@@ -43,6 +43,7 @@ impl TextRenderer {
         let pctx = pangocairo::functions::create_context(ctx).expect("Failed to create pango context.");
 
         let layout = Layout::new(&pctx);
+        layout.set_wrap(pango::WrapMode::WordChar);
 
         Self { pctx, layout }
     }
@@ -66,13 +67,13 @@ impl TextRenderer {
 
     // Gets a raw, unpadded rect which surrounds the text.
     pub fn _get_rect(&self) -> Rect {
-        let (width, height) = self.layout.get_pixel_size();
+        let (width, height) = self.layout.pixel_size();
         Rect::new(0.0, 0.0, width as f64, height as f64)
     }
 
     // Gets the rect which surrounds the text, with a minimum width and height applied.
     pub fn get_sized_rect(&self, min_width: i32, min_height: i32) -> Rect {
-        let (mut width, mut height) = self.layout.get_pixel_size();
+        let (mut width, mut height) = self.layout.pixel_size();
         if width < min_width {
             width = min_width;
         }

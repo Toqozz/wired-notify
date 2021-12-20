@@ -59,22 +59,22 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
 
     let gen = quote! {
         impl DrawableLayoutElement for #name {
-            fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-                window.context.save();
+            fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
+                window.context.save()?;
                 let rect = match self {
                     #(#traverse_draw),*
                 };
-                window.context.restore();
+                window.context.restore()?;
 
                 rect
             }
 
             fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
-                window.context.save();
+                window.context.save().expect("Invalid cairo surface state.");
                 let rect = match self {
                     #(#traverse_predict),*
                 };
-                window.context.restore();
+                window.context.restore().expect("Invalid cairo surface state.");;
 
                 rect
             }

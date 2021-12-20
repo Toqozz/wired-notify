@@ -60,7 +60,7 @@ pub struct ImageBlockParameters {
 }
 
 impl DrawableLayoutElement for ImageBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
         window.context.set_operator(cairo::Operator::Over);
 
         // `cached_surface` should always exist on notifications with images, because we always
@@ -76,7 +76,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
             rect.set_xy(pos.x, pos.y);
 
             let (x, y) = (pos.x + self.padding.left, pos.y + self.padding.top);
-            window.context.set_source_surface(&img_sfc, x, y);
+            window.context.set_source_surface(&img_sfc, x, y)?;
             maths_utility::cairo_path_rounded_rectangle(
                 &window.context,
                 x,
@@ -84,9 +84,9 @@ impl DrawableLayoutElement for ImageBlockParameters {
                 self.scale_width as f64,
                 self.scale_height as f64,
                 self.rounding,
-            );
+            )?;
             //window.context.rectangle(x, y, self.scale_width as f64, self.scale_height as f64);
-            window.context.fill();
+            window.context.fill()?;
             maths_utility::debug_rect(
                 &window.context,
                 true,
@@ -94,15 +94,15 @@ impl DrawableLayoutElement for ImageBlockParameters {
                 y,
                 self.scale_width as f64,
                 self.scale_height as f64,
-            );
+            )?;
 
-            rect
+            Ok(rect)
         } else {
             let mut rect = Rect::new(0.0, 0.0, 0.0, 0.0);
             let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
             rect.set_xy(pos.x, pos.y);
 
-            rect
+            Ok(rect)
         }
     }
 

@@ -58,8 +58,10 @@ pub struct Hook {
 // based on the result of `predict_rect_and_init` to make sure we don't draw off canvas, so
 // the result of `LayoutBlock::find_anchor_pos()` can change between `predict_rect_and_init` and
 // `draw`!
+// Really no drawing at all should be done in `predict_rect_and_init`, unless you're using a bad API
+// and it doesn't give prediction methods of its own.
 #[allow(clippy::enum_variant_names)]
-#[derive(Debug, Deserialize, Clone, DrawableLayoutElement)]
+#[derive(Debug, Clone, Deserialize, DrawableLayoutElement)]
 pub enum LayoutElement {
     NotificationBlock(NotificationBlockParameters),
     TextBlock(TextBlockParameters),
@@ -113,7 +115,7 @@ impl LayoutBlock {
     // Call draw on each block in tree.
     pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
         let rect = if self.should_draw(&window.notification) {
-            self.params.draw(&self.hook, &self.offset, parent_rect, window)
+            self.params.draw(&self.hook, &self.offset, parent_rect, window).expect("Invalid cairo surface state.")
         } else {
             // If block shouldn't be rendered, then we should be safe to just return an
             // empty rect.
@@ -130,7 +132,7 @@ impl LayoutBlock {
             window.context.set_source_rgba(c.r, c.g, c.b, c.a);
             window.context.set_line_width(1.0);
             window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
-            window.context.stroke();
+            window.context.stroke().expect("Invalid cairo surface state.");
         }
 
         for child in &mut self.children {
@@ -208,7 +210,7 @@ impl LayoutBlock {
 }
 
 pub trait DrawableLayoutElement {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
+    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error>;
     fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
     fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool { false }
     fn clicked(&mut self, _window: &NotifyWindow) -> bool { false }
