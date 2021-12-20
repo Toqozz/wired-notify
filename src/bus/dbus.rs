@@ -400,10 +400,10 @@ impl Notification {
 
         let percentage: Option<f32>;
         if let Some(value) = arg::prop_cast::<i32>(&hints, "value") {
-            let v = f64::from(*value);
-            let p = f64::clamp(v * 0.01, 0.0, 1.0);
-            // This conversion should not be lossy, since the maximum precision is 0.01 (1%).
-            percentage = Some(p as f32)
+            // This should be ok since we only support values from 0 to 100.
+            let v = *value as f32;
+            let p = f32::clamp(v * 0.01, 0.0, 1.0);
+            percentage = Some(p)
         } else {
             percentage = None;
         }
