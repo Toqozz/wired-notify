@@ -147,7 +147,7 @@ pub struct Config {
     pub shortcuts: ShortcutsConfig,
 
     #[serde(skip)]
-    pub layout: Option<LayoutBlock>,
+    pub layouts: Vec<LayoutBlock>,
 }
 
 impl Config {
@@ -325,7 +325,25 @@ impl Config {
         // Look for children of current root.
         // If child found, insert it and then look for children of that node.
         let mut blocks = config.layout_blocks;
-        let mut root = blocks.swap_remove(0);
+        // Check that all blocks are unique.
+        for i in 0..blocks.len() - 1 {
+            for j in 0..blocks.len() {
+                if blocks[i].name == blocks[j].name && i != j {
+                    return Err(Error::Validate("All LayoutBlocks must have unique names!"));
+                }
+            }
+        }
+
+        let mut roots: Vec<LayoutBlock> = vec![];
+        let mut i = 0;
+        while i < blocks.len() {
+            if blocks[i].parent == "" {
+                roots.push(blocks.swap_remove(i));
+            } else {
+                i += 1;
+            }
+        }
+
         config.layout_blocks = vec![]; // "Take" vec from config.
 
         fn find_and_add_children(
@@ -351,20 +369,24 @@ impl Config {
             remaining
         }
 
-        let remaining = find_and_add_children(&mut root, blocks);
-        if !remaining.is_empty() && config.debug {
-            eprintln!("There were {} blocks remaining after creating the layout tree.  Something must be wrong here.", remaining.len());
+        for mut root in roots {
+            blocks = find_and_add_children(&mut root, blocks);
+
+            match root.params {
+                LayoutElement::NotificationBlock(_) => {
+                    config.layouts.push(root);
+                }
+                _ => return Err(Error::Validate(
+                    "Root LayoutBlock params must be of type NotificationBlock!",
+                )),
+            }
         }
 
-        match root.params {
-            LayoutElement::NotificationBlock(_) => {
-                config.layout = Some(root);
-                Ok(config)
-            }
-            _ => Err(Error::Validate(
-                "The first LayoutBlock params must be of type NotificationBlock!",
-            )),
+        if !blocks.is_empty() && config.debug {
+            eprintln!("There were {} blocks remaining after creating the layout tree.  Something must be wrong here.", blocks.len());
         }
+
+        Ok(config)
     }
 
     // Watch config file for changes, and send message to `Configwatcher` when something

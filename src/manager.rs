@@ -24,7 +24,7 @@ use crate::{
 
 pub struct NotifyWindowManager {
     pub base_window: winit::window::Window,
-    pub monitor_windows: HashMap<u32, Vec<NotifyWindow>>,
+    pub layout_windows: HashMap<String, Vec<NotifyWindow>>,
     pub history: VecDeque<Notification>,
     pub dirty: bool,
 
@@ -33,7 +33,12 @@ pub struct NotifyWindowManager {
 
 impl NotifyWindowManager {
     pub fn new(el: &EventLoopWindowTarget<()>) -> Self {
-        let monitor_windows = HashMap::new();
+        // Create a map for each layout type, which allows us to easily keep track of different
+        // layouts later.
+        let mut layout_windows = HashMap::new();
+        for layout in &Config::get().layouts {
+            layout_windows.insert(layout.name.to_owned(), vec![]);
+        }
 
         let base_window = winit::window::WindowBuilder::new()
             .with_visible(false)
@@ -42,7 +47,7 @@ impl NotifyWindowManager {
 
         Self {
             base_window,
-            monitor_windows,
+            layout_windows,
             history: VecDeque::with_capacity(Config::get().history_length),
             dirty: false,
 
@@ -52,22 +57,27 @@ impl NotifyWindowManager {
 
     // Summon a new notification.
     pub fn new_notification(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
-        if let LayoutElement::NotificationBlock(p) = &Config::get().layout.as_ref().unwrap().params {
-            let window = NotifyWindow::new(el, notification, self);
+        for layout in &Config::get().layouts {
+            // Spawn a new window for each "root" layout that should be drawn.
+            // If this layout doesn't meet any criteria, skip, obviously.
+            if !notification_meets_layout_criteria(layout, &notification) {
+                continue;
+            } else if let LayoutElement::NotificationBlock(p) = &layout.params {
+                let window = NotifyWindow::new(el, notification.clone(), layout.clone(), self);
 
-            let windows = self.monitor_windows.entry(p.monitor).or_insert_with(Vec::new);
+                // Find this notification's layout and push the window there.
+                let windows = self.layout_windows.get_mut(&layout.name).expect("Somehow created a new layout.");
+                windows.push(window);
 
-            // Push a new notification window.
-            windows.push(window);
+                // If we've exceeded max notifications, then mark the top-most one for destroy.
+                let cfg = Config::get();
+                if cfg.max_notifications > 0 && windows.len() > cfg.max_notifications {
+                    windows.first_mut().unwrap().marked_for_destroy = true;
+                }
 
-            // If we've exceeded max notifications, then mark the top-most one for destroy.
-            let cfg = Config::get();
-            if cfg.max_notifications > 0 && windows.len() > cfg.max_notifications {
-                windows.first_mut().unwrap().marked_for_destroy = true;
+                // Outer state is now out of sync with internal state because we have an invisible notification.
+                self.dirty = true;
             }
-
-            // Outer state is now out of sync with internal state because we have an invisible notification.
-            self.dirty = true;
         }
     }
 
@@ -77,27 +87,17 @@ impl NotifyWindowManager {
             dbg!(&notification);
         }
 
-        // If notification doesn't meet any render criteria (unlikely, unless deliberately configured that way),
-        // then don't make any window or nuffin.
-        if !notification_meets_any_criteria(&notification) {
-            return;
-        }
-
-        if !cfg.replacing_enabled {
-            self.new_notification(notification, el);
-            return;
-        }
-
+        // Find any window that has the same id, or the same app name and tag.
+        // If one exists then we should replace that (if replacing is enabled).
         let mut maybe_window = None;
-        for m in self.monitor_windows.values_mut() {
-            for w in m {
-                if (w.notification.id == notification.id && cfg.replacing_enabled) ||
-                   (w.notification.app_name == notification.app_name &&
-                    w.notification.tag.is_some() &&
-                    w.notification.tag == notification.tag) {
+        for w in self.layout_windows.values_mut().flatten() {
+            if notification_meets_layout_criteria(w.layout.as_ref().unwrap(), &notification) &&
+               ((w.notification.id == notification.id && cfg.replacing_enabled) ||
+               (w.notification.app_name == notification.app_name &&
+                w.notification.tag.is_some() &&
+                w.notification.tag == notification.tag)) {
 
-                    maybe_window = Some(w)
-                }
+                maybe_window = Some(w)
             }
         }
 
@@ -112,15 +112,14 @@ impl NotifyWindowManager {
         // Update windows and then check for dirty state.
         // Returning dirty from a window update means the window has been deleted / needs
         // positioning updated.
-        for window in &mut self.monitor_windows.values_mut().flatten() {
+        for window in &mut self.layout_windows.values_mut().flatten() {
             self.dirty |= window.update(delta_time);
         }
 
         if self.dirty {
             self.update_positions();
             // Finally drop windows.
-            #[allow(clippy::for_kv_map)]    // Better that we keep the monitor in mind here for future.
-            for (_monitor_id, windows) in &mut self.monitor_windows {
+            for windows in self.layout_windows.values_mut() {
                 // Send signal for notifications that are going to be closed, then drop them.
                 for window in windows.iter().filter(|w| w.marked_for_destroy) {
                     let message = OrgFreedesktopNotificationsNotificationClosed {
@@ -141,6 +140,7 @@ impl NotifyWindowManager {
                     }
                     self.history.push_back(window.notification.clone());
                 }
+
                 windows.retain(|w| !w.marked_for_destroy);
             }
         }
@@ -159,7 +159,7 @@ impl NotifyWindowManager {
                 match maths_utility::query_screensaver_info(&self.base_window) {
                     Ok(info) => {
                         if info.idle / 1000 >= threshold {
-                            self.monitor_windows
+                            self.layout_windows
                                 .values_mut()
                                 .flatten()
                                 .for_each(|w| w.update_mode = UpdateModes::DRAW);
@@ -173,73 +173,76 @@ impl NotifyWindowManager {
 
     fn update_positions(&mut self) {
         let cfg = Config::get();
-        if let LayoutElement::NotificationBlock(p) = &cfg.layout.as_ref().unwrap().params {
-            for (monitor_id, windows) in &self.monitor_windows {
-                // If there are no windows for this monitor, leave it alone.
-                if windows.is_empty() {
+        for (layout_name, windows) in &self.layout_windows {
+            // If there are no windows for this layout, leave it alone.
+            if windows.is_empty() {
+                continue;
+            }
+
+            // Grab the layout associated with these windows.
+            let layout = cfg.layouts.iter().find(|l| &l.name == layout_name)
+                .expect("Failed to find matching layout.");
+            let layout_params = layout.as_notification_block();
+
+            // Grab a winit window reference to use to call winit functions.
+            // The functions here are just convenience functions to avoid needing a reference
+            // to the event loop -- they don't relate to the individual window.
+            let maybe_monitor = self.base_window
+                .available_monitors()
+                .nth(layout_params.monitor as usize)
+                .or_else(|| self.base_window.primary_monitor());
+
+            // If we can't find a monitor, it's basically over.
+            // But let's not crash.  Maybe we'll find a monitor next time (if it was unplugged
+            // or something).
+            let monitor = match maybe_monitor {
+                Some(m) => m,
+                None => continue,
+            };
+
+            let (pos, size) = (monitor.position(), monitor.size());
+            let monitor_rect =
+                Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
+            let mut prev_rect = monitor_rect;
+
+            let mut real_idx = 0;
+            for window in windows {
+                // Windows which are marked for destroy should be overlapped so that destroying them
+                // will be less noticeable.
+                if window.marked_for_destroy {
                     continue;
                 }
 
-                // Grab a winit window reference to use to call winit functions.
-                // The functions here are just convenience functions to avoid needing a reference
-                // to the event loop -- they don't relate to the individual window.
-                let winit_utility = &windows[0].winit;
-                let maybe_monitor = winit_utility
-                    .available_monitors()
-                    .nth(*monitor_id as usize)
-                    .or_else(|| winit_utility.primary_monitor());
+                let mut window_rect = window.get_inner_rect();
 
-                // If we can't find a monitor, it's basically over.
-                // But let's not crash.  Maybe we'll find a monitor next time (if it was unplugged
-                // or something).
-                let monitor = match maybe_monitor {
-                    Some(m) => m,
-                    None => continue,
+                // For the first notification, we attach to the monitor.
+                // For the second and more notifications, we attach to the previous
+                // notification.
+                let pos = if real_idx == 0 {
+                    LayoutBlock::find_anchor_pos(
+                        &layout.hook,
+                        &layout.offset,
+                        &prev_rect,
+                        &window_rect,
+                    )
+                } else {
+                    LayoutBlock::find_anchor_pos(
+                        &layout_params.notification_hook,
+                        &layout_params.gap,
+                        &prev_rect,
+                        &window_rect
+                    )
                 };
 
-                let (pos, size) = (monitor.position(), monitor.size());
-                let monitor_rect =
-                    Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
-                let mut prev_rect = monitor_rect;
+                // Note: `set_position` doesn't happen instantly.  If we read
+                // `get_rect()`s position straight after this call it probably won't be correct,
+                // which is why we `set_xy` manually after.
+                window.set_position(pos.x, pos.y);
+                window_rect.set_xy(pos.x, pos.y);
+                prev_rect = window_rect;
 
-                let mut real_idx = 0;
-                for window in windows {
-                    // Windows which are marked for destroy should be overlapped so that destroying them
-                    // will be less noticeable.
-                    if window.marked_for_destroy {
-                        continue;
-                    }
-
-                    let mut window_rect = window.get_inner_rect();
-
-                    // For the first notification, we attach to the monitor.
-                    // For the second and more notifications, we attach to the previous
-                    // notification.
-                    let pos = if real_idx == 0 {
-                        LayoutBlock::find_anchor_pos(
-                            &cfg.layout.as_ref().unwrap().hook,
-                            &cfg.layout.as_ref().unwrap().offset,
-                            &prev_rect,
-                            &window_rect,
-                        )
-                    } else {
-                        LayoutBlock::find_anchor_pos(&p.notification_hook, &p.gap, &prev_rect, &window_rect)
-                    };
-
-                    // Note: `set_position` doesn't happen instantly.  If we read
-                    // `get_rect()`s position straight after this call it probably won't be correct,
-                    // which is why we `set_xy` manually after.
-                    window.set_position(pos.x, pos.y);
-                    window_rect.set_xy(pos.x, pos.y);
-                    prev_rect = window_rect;
-
-                    real_idx += 1;
-                }
+                real_idx += 1;
             }
-        } else {
-            // Panic because the config must have not been setup properly.
-            // @TODO: move this panic to config verify, and then just unwrap or something instead.
-            panic!("The root LayoutElement must be a NotificationBlock!");
         }
 
         // Outer state is now up to date with internal state.
@@ -299,11 +302,7 @@ impl NotifyWindowManager {
         } else if pressed == config.shortcuts.notification_closeall {
             self.drop_windows();
         } else if pressed == config.shortcuts.notification_pause {
-            if let Some((monitor, idx)) = self.find_window_idx(window_id) {
-                let window = self.monitor_windows
-                    .get_mut(&monitor).unwrap()
-                    .get_mut(idx).unwrap();
-
+            if let Some(window) = self.find_window_mut(window_id) {
                 window.update_mode.toggle(UpdateModes::FUSE);
             }
         } else {
@@ -371,11 +370,11 @@ impl NotifyWindowManager {
     }
 
     // Find window across all monitors based on an id, which we receive from winit events.
-    pub fn find_window_idx(&self, window_id: WindowId) -> Option<(u32, usize)> {
-        for (monitor, windows) in &self.monitor_windows {
+    pub fn find_window_idx(&self, window_id: WindowId) -> Option<(&str, usize)> {
+        for (layout_name, windows) in &self.layout_windows {
             let found = windows.iter().position(|w| w.winit.id() == window_id);
             if let Some(idx) = found {
-                return Some((*monitor, idx));
+                return Some((layout_name, idx));
             }
         }
 
@@ -387,30 +386,18 @@ impl NotifyWindowManager {
     // Potentially, this call is delayed and we've already dropped that window, which is definitely
     // plausible.
     pub fn find_window(&self, window_id: WindowId) -> Option<&NotifyWindow> {
-        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
-            if let Some(windows) = self.monitor_windows.get(&monitor) {
-                return windows.get(idx);
-            }
-        }
-
-        None
+        self.layout_windows.values().flatten().find(|w| w.winit.id() == window_id)
     }
 
     pub fn find_window_mut(&mut self, window_id: WindowId) -> Option<&mut NotifyWindow> {
-        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
-            if let Some(windows) = self.monitor_windows.get_mut(&monitor) {
-                return windows.get_mut(idx);
-            }
-        }
-
-        None
+        self.layout_windows.values_mut().flatten().find(|w| w.winit.id() == window_id)
     }
 
     pub fn find_window_ordered(&self, num: usize) -> Option<WindowId> {
         let mut windows: Vec<&NotifyWindow> =
-            self.monitor_windows.values()
-                                .flatten()
-                                .collect();
+            self.layout_windows.values()
+                               .flatten()
+                               .collect();
 
         // `sort_unstable` is faster, but windows with the exact same creation timestamp may by
         // shifted in ordering, which is undersireable.  DateTime is probably precise enough to get
@@ -420,7 +407,7 @@ impl NotifyWindowManager {
     }
 
     pub fn find_window_nid(&self, notification_id: u32) -> Option<WindowId> {
-        self.monitor_windows
+        self.layout_windows
             .values()
             .flatten()
             .find(|w| w.notification.id == notification_id)
@@ -429,11 +416,7 @@ impl NotifyWindowManager {
 
     // Drop a window.  Return true if we found the window and told it to drop, false otherwise.
     pub fn drop_window_id(&mut self, window_id: WindowId) -> bool {
-        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
-            let window = self.monitor_windows
-                .get_mut(&monitor).unwrap()
-                .get_mut(idx).unwrap();
-
+        if let Some(window) = self.find_window_mut(window_id) {
             window.marked_for_destroy = true;
             self.dirty = true;
             return true;
@@ -445,6 +428,9 @@ impl NotifyWindowManager {
     // @TODO: how about a shortcut for dropping all windows on one monitor?  Support multi-monitor
     // better first.
     pub fn drop_windows(&mut self) {
+        self.layout_windows.values_mut().flatten().for_each(|w| w.marked_for_destroy = true);
+        self.dirty = true;
+        /*
         #[allow(clippy::for_kv_map)]
         for (_monitor, windows) in &mut self.monitor_windows {
             for window in windows.iter_mut() {
@@ -452,15 +438,12 @@ impl NotifyWindowManager {
                 self.dirty = true;
             }
         }
+        */
     }
 
     // Draw an individual window (mostly for expose events).
     pub fn request_redraw(&mut self, window_id: WindowId) -> bool {
-        if let Some((monitor, idx)) = self.find_window_idx(window_id) {
-            let window = self.monitor_windows
-                .get_mut(&monitor).unwrap()
-                .get_mut(idx).unwrap();
-
+        if let Some(window) = self.find_window_mut(window_id) {
             window.dirty = true;
             return true;
         }
@@ -470,7 +453,7 @@ impl NotifyWindowManager {
 
     pub fn drop_notification(&mut self, id: u32) -> bool {
         // This should be Some, otherwise we were given a bad id.
-        let maybe_window = self.monitor_windows.values_mut().flatten().find(|w| w.notification.id == id);
+        let maybe_window = self.layout_windows.values_mut().flatten().find(|w| w.notification.id == id);
         if let Some(window) = maybe_window {
             window.marked_for_destroy = true;
             self.dirty = true;
@@ -481,7 +464,7 @@ impl NotifyWindowManager {
     }
 
     pub fn has_windows(&self) -> bool {
-        self.monitor_windows.values().any(|m| m.len() > 0)
+        self.layout_windows.values().any(|m| m.len() > 0)
     }
 }
 
@@ -489,6 +472,26 @@ impl NotifyWindowManager {
 // The root block is handled differently.
 // If the root block doesn't meet criteria, then don't draw at all.
 // If the root block does meet criteria, but no child blocks do, then don't draw.
+pub fn notification_meets_layout_criteria(root: &LayoutBlock, notification: &Notification) -> bool {
+    // Root block handled differently to be more intuitive.
+    if !root.should_draw(notification) {
+        return false;
+    }
+
+    for child in &root.children {
+        if child.should_draw(notification) {
+            return true;
+        }
+    }
+
+    false
+}
+
+// Checks if this block should be drawn (according to render criteria for each block).
+// The root block is handled differently.
+// If the root block doesn't meet criteria, then don't draw at all.
+// If the root block does meet criteria, but no child blocks do, then don't draw.
+/*
 pub fn notification_meets_any_criteria(notification: &Notification) -> bool {
     let layout = Config::get().layout.as_ref().unwrap();
 
@@ -505,3 +508,4 @@ pub fn notification_meets_any_criteria(notification: &Notification) -> bool {
 
     false
 }
+*/

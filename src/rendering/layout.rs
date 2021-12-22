@@ -207,6 +207,14 @@ impl LayoutBlock {
 
         dirty
     }
+
+    pub fn as_notification_block(&self) -> &NotificationBlockParameters {
+        if let LayoutElement::NotificationBlock(p) = &self.params {
+            return p;
+        } else {
+            panic!("Tried to cast a LayoutBlock as type NotificationBlock when it was something else.");
+        }
+    }
 }
 
 pub trait DrawableLayoutElement {

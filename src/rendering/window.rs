@@ -70,6 +70,7 @@ impl NotifyWindow {
     pub fn new(
         el: &EventLoopWindowTarget<()>,
         notification: Notification,
+        mut layout: LayoutBlock,
         manager: &NotifyWindowManager,
     ) -> Self {
         let cfg = Config::get();
@@ -175,7 +176,6 @@ impl NotifyWindow {
         // manually draw here.
         // `Rect::new(0.0, 0.0, width, height) is basically the same as `window.get_inner_rect()`,
         // but we don't trust it to be initialized yet.
-        let mut layout = cfg.layout.as_ref().unwrap().clone();
         let rect = layout.predict_rect_tree_and_init(
             &window,
             //&window.get_inner_rect(),
@@ -211,7 +211,7 @@ impl NotifyWindow {
 
         // As above.  May be valuable to put this into a function like `prepare_notification` or
         // something if we keep changing stuff.
-        let mut layout = Config::get().layout.as_ref().unwrap().clone();
+        let mut layout = self.layout_take();
         let rect = layout.predict_rect_tree_and_init(self, &Rect::new(0.0, 0.0, width, height), Rect::new(0.0, 0.0, width, height));
         let delta = Vec2::new(-rect.x(), -rect.y());
 

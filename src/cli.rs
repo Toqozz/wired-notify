@@ -79,7 +79,7 @@ impl CLIListener {
 // Socket stuff:
 fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, CLIError> {
     if arg == "latest" {
-        let count = manager.monitor_windows
+        let count = manager.layout_windows
             .values()
             .flatten()
             .count();
