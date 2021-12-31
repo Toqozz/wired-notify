@@ -170,6 +170,10 @@ fn print_usage(opts: Options) {
     );
 }
 
+fn print_version() {
+    println!(env!("CARGO_PKG_VERSION"));
+}
+
 fn validate_identifier(input: &str, allow_all: bool) -> Result<(), &'static str> {
     if input == "latest" || (input == "all" && allow_all) {
         return Ok(());
@@ -216,6 +220,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     );
     opts.optopt("s", "show", "show the last N notifications", "N");
     opts.optflag("r", "run", "run the wired daemon");
+    opts.optflag("v", "version", "print the version of wired and leave");
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(e) => panic_any(e.to_string()),
@@ -224,6 +229,11 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     // Matching
     if matches.opt_present("h") {
         print_usage(opts);
+        return Ok(ShouldRun::No);
+    }
+
+    if matches.opt_present("v") {
+        print_version();
         return Ok(ShouldRun::No);
     }
 
