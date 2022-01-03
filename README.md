@@ -41,7 +41,8 @@ $ cargo build --release
 $ ./target/release/wired
 ```
 
-## AUR
+## Installing
+### AUR
 Wired is available on the [AUR](https://aur.archlinux.org/packages/wired/)!
 ```sh
 $ yay -S wired
@@ -52,7 +53,7 @@ There's also a `-git` version which tracks master.  Beware!  No guarantees are m
 $ yay -S wired-git
 ```
 
-## Nix (Flakes)
+### Nix (Flakes)
 Wired can be either run directly from the cloned repository:
 ```sh
 $ git clone https://github.com/Toqozz/wired-notify.git
@@ -75,7 +76,7 @@ wired-notify.packages.x86_64-linux.wired
 # Do not forget to pass the wired-notify input to where your environment.systemPackages lies
 ```
 
-## NetBSD
+### NetBSD
 Wired is available from the official repositories,
 ```sh
 $ pkgin install wired-notify
@@ -84,6 +85,17 @@ or, if you prefer to build from source
 ```sh
 $ cd /usr/pkgsrc/x11/wired-notify
 $ make install
+```
+
+## Running
+The recommended way to start Wired is just to put the following in your autostart script:
+```
+/path/to/wired &
+```
+
+There is also a `wired.service` file in the root of the repository if you want to use systemd. Just copy it to `/usr/lib/systemd/user/wired.service` (or your distro equivalent) and run:
+```
+$ systemd --enable --now --user wired.service
 ```
 
 ## Config
