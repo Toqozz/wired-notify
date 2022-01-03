@@ -140,32 +140,30 @@ impl LayoutBlock {
             window.context.push_group();
         }
 
-        {
-            let rect = if self.should_draw(&window.notification) {
-                self.params.draw(&self.hook, &self.offset, parent_rect, window)
-                    .expect("Invalid cairo surface state.")
-            } else {
-                // If block shouldn't be rendered, then we should be safe to just return an
-                // empty rect.
-                // We still need to set the position correctly, because other layout elements may be
-                // depending on its position (e.g. in the center), even if it may not be being rendered.
-                let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
-                Rect::new(pos.x, pos.y, 0.0, 0.0)
-            };
-            let mut acc_rect = accum_rect.union(&rect);
+        let rect = if self.should_draw(&window.notification) {
+            self.params.draw(&self.hook, &self.offset, parent_rect, window)
+                .expect("Invalid cairo surface state.")
+        } else {
+            // If block shouldn't be rendered, then we should be safe to just return an
+            // empty rect.
+            // We still need to set the position correctly, because other layout elements may be
+            // depending on its position (e.g. in the center), even if it may not be being rendered.
+            let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
+            Rect::new(pos.x, pos.y, 0.0, 0.0)
+        };
+        let mut acc_rect = accum_rect.union(&rect);
 
-            // Draw debug rect around bounding box.
-            if Config::get().debug {
-                let c = &Config::get().debug_color;
-                window.context.set_source_rgba(c.r, c.g, c.b, c.a);
-                window.context.set_line_width(1.0);
-                window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
-                window.context.stroke().expect("Invalid cairo surface state.");
-            }
+        // Draw debug rect around bounding box.
+        if Config::get().debug {
+            let c = &Config::get().debug_color;
+            window.context.set_source_rgba(c.r, c.g, c.b, c.a);
+            window.context.set_line_width(1.0);
+            window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
+            window.context.stroke().expect("Invalid cairo surface state.");
+        }
 
-            for child in &mut self.children {
-                acc_rect = child.draw_tree(window, &rect, acc_rect);
-            }
+        for child in &mut self.children {
+            acc_rect = child.draw_tree(window, &rect, acc_rect);
         }
 
         // The push group from earlier gets popped and all the drawing is done at once.
