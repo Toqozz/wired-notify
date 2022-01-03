@@ -1,6 +1,6 @@
 [package]
 name = "wired"
-version = "0.9.5"
+version = "0.10.0"
 authors = ["Michael Palmos <toqoz@hotmail.com>"]
 edition = "2018"
 

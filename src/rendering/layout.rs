@@ -23,6 +23,8 @@ pub struct LayoutBlock {
     // Defaults to always none (always rendered).
     #[serde(default)]
     pub render_criteria: Vec<RenderCriteria>,
+    #[serde(default)]
+    pub render_anti_criteria: Vec<RenderCriteria>,
     #[serde(skip)]
     pub children: Vec<LayoutBlock>,
 
@@ -92,6 +94,19 @@ impl LayoutBlock {
             }
         }
 
+        for c in &self.render_anti_criteria {
+            match c {
+                RenderCriteria::Summary => if n.summary.is_empty() { should_draw = true },
+                RenderCriteria::Body => if n.body.is_empty() { should_draw = true },
+                RenderCriteria::AppImage => if n.app_image.is_none() { should_draw = true },
+                RenderCriteria::HintImage => if n.hint_image.is_none() { should_draw = true },
+                RenderCriteria::AppName => if n.app_name.is_empty() { should_draw = true },
+                RenderCriteria::Progress => if n.percentage.is_none() { should_draw = true },
+                RenderCriteria::ActionDefault => if n.get_default_action().is_none() { should_draw = true },
+                RenderCriteria::ActionOther(i) => if n.get_other_action(*i).is_none() { should_draw = true },
+            }
+        }
+
         should_draw
     }
 
@@ -114,29 +129,49 @@ impl LayoutBlock {
 
     // Call draw on each block in tree.
     pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
-        let rect = if self.should_draw(&window.notification) {
-            self.params.draw(&self.hook, &self.offset, parent_rect, window).expect("Invalid cairo surface state.")
-        } else {
-            // If block shouldn't be rendered, then we should be safe to just return an
-            // empty rect.
-            // We still need to set the position correctly, because other layout elements may be
-            // depending on its position (e.g. in the center), even if it may not be being rendered.
-            let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
-            Rect::new(pos.x, pos.y, 0.0, 0.0)
-        };
-        let mut acc_rect = accum_rect.union(&rect);
-
-        // Draw debug rect around bounding box.
-        if Config::get().debug {
-            let c = &Config::get().debug_color;
-            window.context.set_source_rgba(c.r, c.g, c.b, c.a);
-            window.context.set_line_width(1.0);
-            window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
-            window.context.stroke().expect("Invalid cairo surface state.");
+        // This is so dirty but OK.  Eventually it would be better to just build a buffer of things
+        // to draw instead of recursing here.
+        // If this is a root node, (the first one) we want to surround all following drawing
+        // operations in a push group.
+        // Using a push group is important because otherwise the X server might update the screen
+        // in-between one of our draws, which would be bad: https://www.cairographics.org/Xlib/
+        // (Animations and Full Screen section)
+        if self.parent.is_empty() {
+            window.context.push_group();
         }
 
-        for child in &mut self.children {
-            acc_rect = child.draw_tree(window, &rect, acc_rect);
+        {
+            let rect = if self.should_draw(&window.notification) {
+                self.params.draw(&self.hook, &self.offset, parent_rect, window)
+                    .expect("Invalid cairo surface state.")
+            } else {
+                // If block shouldn't be rendered, then we should be safe to just return an
+                // empty rect.
+                // We still need to set the position correctly, because other layout elements may be
+                // depending on its position (e.g. in the center), even if it may not be being rendered.
+                let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
+                Rect::new(pos.x, pos.y, 0.0, 0.0)
+            };
+            let mut acc_rect = accum_rect.union(&rect);
+
+            // Draw debug rect around bounding box.
+            if Config::get().debug {
+                let c = &Config::get().debug_color;
+                window.context.set_source_rgba(c.r, c.g, c.b, c.a);
+                window.context.set_line_width(1.0);
+                window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
+                window.context.stroke().expect("Invalid cairo surface state.");
+            }
+
+            for child in &mut self.children {
+                acc_rect = child.draw_tree(window, &rect, acc_rect);
+            }
+        }
+
+        // The push group from earlier gets popped and all the drawing is done at once.
+        if self.parent.is_empty() {
+            window.context.pop_group_to_source().expect("Failed to pop group to source.");
+            window.context.paint().expect("Invalid cairo surface state.");
         }
 
         self.cache_rect = rect;

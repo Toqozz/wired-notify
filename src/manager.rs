@@ -18,7 +18,7 @@ use crate::{
     },
     config::Config,
     maths_utility::{self, Rect},
-    rendering::layout::{LayoutBlock, LayoutElement},
+    rendering::layout::LayoutBlock,
     rendering::window::{NotifyWindow, UpdateModes},
 };
 
@@ -62,7 +62,7 @@ impl NotifyWindowManager {
             // If this layout doesn't meet any criteria, skip, obviously.
             if !notification_meets_layout_criteria(layout, &notification) {
                 continue;
-            } else if let LayoutElement::NotificationBlock(p) = &layout.params {
+            } else {
                 let window = NotifyWindow::new(el, notification.clone(), layout.clone(), self);
 
                 // Find this notification's layout and push the window there.
@@ -370,7 +370,7 @@ impl NotifyWindowManager {
     }
 
     // Find window across all monitors based on an id, which we receive from winit events.
-    pub fn find_window_idx(&self, window_id: WindowId) -> Option<(&str, usize)> {
+    pub fn _find_window_idx(&self, window_id: WindowId) -> Option<(&str, usize)> {
         for (layout_name, windows) in &self.layout_windows {
             let found = windows.iter().position(|w| w.winit.id() == window_id);
             if let Some(idx) = found {

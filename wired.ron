@@ -54,11 +54,13 @@
     //print_to_file: "/tmp/wired.log",
 
     layout_blocks: [
+        // Layout 1, when an image is present.
         (
-            name: "root",
+            name: "root_image",
             parent: "",
             hook: Hook(parent_anchor: TL, self_anchor: TL),
             offset: Vec2(x: 7.0, y: 7.0),
+            render_criteria: [HintImage],
             // https://github.com/Toqozz/wired-notify/wiki/NotificationBlock
             params: NotificationBlock((
                 monitor: 0,
@@ -78,10 +80,9 @@
 
         (
             name: "image",
-            parent: "root",
+            parent: "root_image",
             hook: Hook(parent_anchor: TL, self_anchor: TL),
             offset: Vec2(x: 0.0, y: 0.0),
-            render_criteria: [HintImage],
             // https://github.com/Toqozz/wired-notify/wiki/ImageBlock
             params: ImageBlock((
                 image_type: Hint,
@@ -95,9 +96,71 @@
         ),
 
         (
-            name: "summary",
+            name: "summary_image",
             parent: "image",
             hook: Hook(parent_anchor: MR, self_anchor: BL),
+            offset: Vec2(x: 0.0, y: 0.0),
+            // https://github.com/Toqozz/wired-notify/wiki/TextBlock
+            params: TextBlock((
+                text: "%s",
+                font: "Arial Bold 11",
+                ellipsize: Middle,
+                color: Color(hex: "#ebdbb2"),
+                color_hovered: Color(hex: "#fbf1c7"),
+                padding: Padding(left: 7.0, right: 7.0, top: 7.0, bottom: 0.0),
+                dimensions: (width: (min: 50, max: 150), height: (min: 0, max: 0)),
+            )),
+        ),
+
+        (
+            name: "body_image",
+            parent: "summary_image",
+            hook: Hook(parent_anchor: BL, self_anchor: TL),
+            offset: Vec2(x: 0.0, y: -3.0),
+            // https://github.com/Toqozz/wired-notify/wiki/ScrollingTextBlock
+            params: ScrollingTextBlock((
+                text: "%b",
+                font: "Arial 11",
+                color: Color(hex: "#ebdbb2"),
+                color_hovered: Color(hex: "#fbf1c7"),
+                padding: Padding(left: 7.0, right: 7.0, top: 3.0, bottom: 7.0),
+                width: (min: 150, max: 250),
+                scroll_speed: 0.1,
+                lhs_dist: 35.0,
+                rhs_dist: 35.0,
+                scroll_t: 1.0,
+            )),
+        ),
+
+
+        // Layout 2, when no image is present. ------------------------------------------
+        (
+            name: "root",
+            parent: "",
+            hook: Hook(parent_anchor: TL, self_anchor: TL),
+            offset: Vec2(x: 7.0, y: 7.0),
+            render_anti_criteria: [HintImage],
+            // https://github.com/Toqozz/wired-notify/wiki/NotificationBlock
+            params: NotificationBlock((
+                monitor: 0,
+                border_width: 3.0,
+                border_rounding: 3.0,
+                //background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
+                background_color: Color(hex: "#282828"),
+                border_color: Color(hex: "#ebdbb2"),
+                border_color_low: Color(hex: "#282828"),
+                border_color_critical: Color(hex: "#fb4934"),
+                border_color_paused: Color(hex: "#fabd2f"),
+
+                gap: Vec2(x: 0.0, y: 8.0),
+                notification_hook: Hook(parent_anchor: BL, self_anchor: TL),
+            )),
+        ),
+
+        (
+            name: "summary",
+            parent: "root",
+            hook: Hook(parent_anchor: TL, self_anchor: TL),
             offset: Vec2(x: 0.0, y: 0.0),
             // https://github.com/Toqozz/wired-notify/wiki/TextBlock
             params: TextBlock((
@@ -115,14 +178,14 @@
             name: "body",
             parent: "summary",
             hook: Hook(parent_anchor: BL, self_anchor: TL),
-            offset: Vec2(x: 0.0, y: -3.0),
+            offset: Vec2(x: 0.0, y: 0.0),
             // https://github.com/Toqozz/wired-notify/wiki/ScrollingTextBlock
             params: ScrollingTextBlock((
                 text: "%b",
                 font: "Arial 11",
                 color: Color(hex: "#ebdbb2"),
                 color_hovered: Color(hex: "#fbf1c7"),
-                padding: Padding(left: 7.0, right: 7.0, top: 3.0, bottom: 7.0),
+                padding: Padding(left: 7.0, right: 7.0, top: 0.0, bottom: 7.0),
                 width: (min: 150, max: 250),
                 scroll_speed: 0.1,
                 lhs_dist: 35.0,
