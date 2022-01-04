@@ -96,14 +96,14 @@ impl LayoutBlock {
 
         for c in &self.render_anti_criteria {
             match c {
-                RenderCriteria::Summary => if n.summary.is_empty() { should_draw = true },
-                RenderCriteria::Body => if n.body.is_empty() { should_draw = true },
-                RenderCriteria::AppImage => if n.app_image.is_none() { should_draw = true },
-                RenderCriteria::HintImage => if n.hint_image.is_none() { should_draw = true },
-                RenderCriteria::AppName => if n.app_name.is_empty() { should_draw = true },
-                RenderCriteria::Progress => if n.percentage.is_none() { should_draw = true },
-                RenderCriteria::ActionDefault => if n.get_default_action().is_none() { should_draw = true },
-                RenderCriteria::ActionOther(i) => if n.get_other_action(*i).is_none() { should_draw = true },
+                RenderCriteria::Summary => if !n.summary.is_empty() { should_draw = false },
+                RenderCriteria::Body => if !n.body.is_empty() { should_draw = false },
+                RenderCriteria::AppImage => if !n.app_image.is_none() { should_draw = false },
+                RenderCriteria::HintImage => if !n.hint_image.is_none() { should_draw = false },
+                RenderCriteria::AppName => if !n.app_name.is_empty() { should_draw = false },
+                RenderCriteria::Progress => if !n.percentage.is_none() { should_draw = false },
+                RenderCriteria::ActionDefault => if !n.get_default_action().is_none() { should_draw = false },
+                RenderCriteria::ActionOther(i) => if !n.get_other_action(*i).is_none() { should_draw = false },
             }
         }
 
