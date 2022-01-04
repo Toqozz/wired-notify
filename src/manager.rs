@@ -87,9 +87,10 @@ impl NotifyWindowManager {
             dbg!(&notification);
         }
 
-        // Find any window that has the same id, or the same app name and tag.
+        // Find any windows that have the same id, or the same app name and tag.
         // If one exists then we should replace that (if replacing is enabled).
-        let mut maybe_window = None;
+        let mut maybe_windows = vec![];
+        //let mut maybe_window = None;
         for w in self.layout_windows.values_mut().flatten() {
             if notification_meets_layout_criteria(w.layout.as_ref().unwrap(), &notification) &&
                ((w.notification.id == notification.id && cfg.replacing_enabled) ||
@@ -97,12 +98,15 @@ impl NotifyWindowManager {
                 w.notification.tag.is_some() &&
                 w.notification.tag == notification.tag)) {
 
-                maybe_window = Some(w)
+                maybe_windows.push(w);
+                //maybe_window = Some(w)
             }
         }
 
-        if let Some(window) = maybe_window {
-            window.replace_notification(notification);
+        if maybe_windows.len() > 0 {
+            for w in maybe_windows {
+                w.replace_notification(notification.clone());
+            }
         } else {
             self.new_notification(notification, el);
         }
