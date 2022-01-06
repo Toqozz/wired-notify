@@ -44,7 +44,7 @@ impl OrgFreedesktopNotifications for Notify {
             "actions".to_string(),
             "body".to_string(),
             "body-hyperlinks".to_string(),
-            "body-markup".to_string(),
+            //"body-markup".to_string(),
             //"icon-multi".to_string(),
             "icon-static".to_string(),
             //"persistence".to_string(),
