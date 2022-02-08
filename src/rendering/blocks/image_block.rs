@@ -61,8 +61,6 @@ pub struct ImageBlockParameters {
 
 impl DrawableLayoutElement for ImageBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
-        window.context.set_operator(cairo::Operator::Over);
-
         // `cached_surface` should always exist on notifications with images, because we always
         // cache it.  If-let is just a precaution here.
         if let Some(ref img_sfc) = self.cached_surface {

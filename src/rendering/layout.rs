@@ -178,10 +178,9 @@ impl LayoutBlock {
         // The push group from earlier gets popped and all the drawing is done at once.
         if self.parent.is_empty() {
             window.context.pop_group_to_source().expect("Failed to pop group to source.");
-            window.context.save();
             window.context.set_operator(cairo::Operator::Source);
             window.context.paint().expect("Invalid cairo surface state.");
-            window.context.restore();
+            window.context.set_operator(cairo::Operator::Over);
         }
 
         self.cache_rect = rect;

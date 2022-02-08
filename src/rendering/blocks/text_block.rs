@@ -53,7 +53,8 @@ impl TextBlockParameters {
 
 impl DrawableLayoutElement for TextBlockParameters {
     fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
-        window.context.set_operator(cairo::Operator::Over);
+        // This is implicit in >0.10.1.
+        //window.context.set_operator(cairo::Operator::Over);
 
         let dimensions = self.get_dimensions(&window.notification);
 

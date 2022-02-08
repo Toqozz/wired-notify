@@ -61,6 +61,8 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
         impl DrawableLayoutElement for #name {
             fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
                 window.context.save()?;
+                // Default operator is Over, for ease of use.
+                window.context.set_operator(cairo::Operator::Over);
                 let rect = match self {
                     #(#traverse_draw),*
                 };
@@ -71,6 +73,7 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
 
             fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
                 window.context.save().expect("Invalid cairo surface state.");
+                window.context.set_operator(cairo::Operator::Over);
                 let rect = match self {
                     #(#traverse_predict),*
                 };
