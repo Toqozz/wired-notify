@@ -146,8 +146,9 @@ impl LayoutBlock {
         // right?
         let (rect, acc_rect) = {
             let rect = if self.should_draw(&window.notification) {
-                self.params.draw(&self.hook, &self.offset, parent_rect, window)
-                    .expect("Invalid cairo surface state.")
+                let rect = self.params.draw(&self.hook, &self.offset, parent_rect, window)
+                    .expect("Invalid cairo surface state.");
+                rect
             } else {
                 // If block shouldn't be rendered, then we should be safe to just return an
                 // empty rect.
@@ -176,9 +177,11 @@ impl LayoutBlock {
 
         // The push group from earlier gets popped and all the drawing is done at once.
         if self.parent.is_empty() {
-            window.context.set_operator(cairo::Operator::Source);
             window.context.pop_group_to_source().expect("Failed to pop group to source.");
+            window.context.save();
+            window.context.set_operator(cairo::Operator::Source);
             window.context.paint().expect("Invalid cairo surface state.");
+            window.context.restore();
         }
 
         self.cache_rect = rect;

@@ -255,10 +255,9 @@ pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64
 // be with the naive approach.
 #[allow(clippy::too_many_arguments)]
 pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color) -> Result<(), cairo::Error> {
-    ctx.save()?;
-
     // To my understanding, push group basically lets us write to another texture, which we can
     // then paint on top of stuff later.
+    // push_group() calls ctx.save().
     ctx.push_group();
     ctx.set_operator(cairo::Operator::Source);
     cairo_path_rounded_rectangle(ctx, x, y, width, height, corner_radius)?;
@@ -271,8 +270,6 @@ pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, wi
     ctx.pop_group_to_source()?;
     ctx.paint()?;
 
-    ctx.restore()?;
-
     Ok(())
 }
 
@@ -281,8 +278,6 @@ pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, wi
 // be with the naive approach.
 #[allow(clippy::too_many_arguments)]
 pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, fill_percent: f64, border_corner_radius: f64, fill_corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color, fill_color: &Color) -> Result<(), cairo::Error> {
-    ctx.save()?;
-
     // To my understanding, push group basically lets us write to another texture, which we can
     // then paint on top of stuff later.
     ctx.push_group();
@@ -307,8 +302,6 @@ pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: 
 
     ctx.pop_group_to_source()?;
     ctx.paint()?;
-
-    ctx.restore()?;
 
     Ok(())
 }
