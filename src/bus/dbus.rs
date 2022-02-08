@@ -299,14 +299,14 @@ impl Notification {
         }
 
         fn image_from_path(path: &str) -> Option<DynamicImage> {
-            let _start = std::time::Instant::now();
+            //let _start = std::time::Instant::now();
             //dbg!("Loading image from path...");
 
             // @TODO: this path shouldn't be active if app_icon is empty?
             let img_path = Path::new(path);
             let x = image::open(img_path).ok();
 
-            let _end = std::time::Instant::now();
+            //let _end = std::time::Instant::now();
             //dbg!(end - start);
 
             x

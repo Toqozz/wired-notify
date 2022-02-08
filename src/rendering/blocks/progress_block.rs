@@ -88,7 +88,6 @@ impl DrawableLayoutElement for ProgressBlockParameters {
         )?;
 
         window.context.set_operator(cairo::Operator::Over);
-
         // Debug, unpadded drawing, to help users.
         if Config::get().debug {
             maths_utility::debug_rect(
@@ -101,7 +100,6 @@ impl DrawableLayoutElement for ProgressBlockParameters {
             )?;
         }
 
-        //rect.set_xy(pos.x, pos.y);
         rect.set_xy(pos.x, pos.y);
         Ok(rect)
     }
