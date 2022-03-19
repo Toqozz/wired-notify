@@ -317,6 +317,7 @@ impl NotifyWindowManager {
                 config.shortcuts.notification_action2_and_close,
                 config.shortcuts.notification_action3_and_close,
                 config.shortcuts.notification_action4_and_close,
+                config.shortcuts.notification_interact_and_close,
             ]
             .contains(&pressed)
             {
@@ -335,6 +336,12 @@ impl NotifyWindowManager {
             } else if pressed == config.shortcuts.notification_action4
                 || pressed == config.shortcuts.notification_action4_and_close {
                 3
+            } else if pressed == config.shortcuts.notification_interact
+                || pressed == config.shortcuts.notification_interact_and_close {
+                if let Some(window) = self.find_window_mut(window_id) {
+                    window.process_mouse_click();
+                }
+                return;
             } else {
                 // `pressed` did not match any action key.
                 return;
