@@ -432,6 +432,8 @@ pub struct ShortcutsConfig {
     pub notification_action2_and_close: Option<u16>,
     pub notification_action3_and_close: Option<u16>,
     pub notification_action4_and_close: Option<u16>,
+
+    pub notification_interact_and_close: Option<u16>,
 }
 
 impl Default for ShortcutsConfig {
@@ -451,6 +453,7 @@ impl Default for ShortcutsConfig {
             notification_action2_and_close: None,
             notification_action3_and_close: None,
             notification_action4_and_close: None,
+            notification_interact_and_close: None,
         }
     }
 }
