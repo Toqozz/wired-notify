@@ -86,6 +86,13 @@ or, if you prefer to build from source
 $ cd /usr/pkgsrc/x11/wired-notify
 $ make install
 ```
+### Fedora, CentOs and other RHEL-based distributions
+Make sure you have DNF installed, and run the script with sudo permissions, otherwise the necessary dependencies cannot be installed.
+```sh
+$ cd wired-notify
+$ chmod +x installer.sh
+$ sudo ./installer.sh
+```
 
 ## Running
 The recommended way to start Wired is just to put the following in your autostart script:
