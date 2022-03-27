@@ -22,12 +22,9 @@ if [ "$(id -un)" != "root" ]; then
 fi
 
 function notificationDaemonCompilation(){
-    echo -e "$BLUE [ * ] Cloning the Wired-Notify repository. $RESTORE"
-    git clone https://github.com/Toqozz/wired-notify.git /home/$(ls -U /home/ | head -1)/wired-notify > /dev/null 2>&1
-    echo -e "$GREEN [ ✔ ] Wired-Notify repository successfully cloned in /home/$(ls -U /home/ | head -1)/wired-notify!\n $RESTORE"
     echo -e "$BLUE [ * ] Starting compilation! This process may take a few minutes. $RESTORE"
-    cd /home/$(ls -U /home/ | head -1)/wired-notify/
-    cargo build --release > /dev/null 2>&1
+    cd $(dirname "${BASH_SOURCE[0]}") && pwd > /dev/null 2>&1   
+    cargo build --release > /dev/null 2>&1>
     echo -e "$GREEN [ ✔ ] Wired-Notify has been successfully compiled! To execute run the command : '~/wired-notify/target/release/wired &' or move the wired binary to another path and run: '/path/to/wired &'. $RESTORE "
     exit 0
 }
@@ -51,33 +48,15 @@ function checkDunstFacilities(){
         fi
 }
 
-function startDaemonCompilation(){
-    which git > /dev/null 2>&1 
-    if [ "$?" -eq "0" ]; then
-        checkDunstFacilities
-    else
-        read -p "$(echo -e "$RED [ X ] Git is required to clone the Wired-Notify repository! Do you want to install it? (y)es, (n)ot: $RESTORE")" INPUT
-        case $INPUT in
-            [Yy]* )
-                echo -e "$BLUE [ * ] Installing Git! $RESTORE";
-                dnf -y install git > /dev/null 2>&1;
-                echo -e "$GREEN [ ✔ ]$BLUE Git ➜$GREEN INSTALLED\n $RESTORE";
-                checkDunstFacilities;;
-            [Nn]* )
-                echo -e "$RED [ X ] The Wired-Notify repository cannot be cloned without Git. Exiting the installer... $RESTORE";
-                exit 1;;
-        esac
-    fi
-}
-
 function dependenciesInstallation(){
     echo -e "$BLUE [ * ] Installing dependencies $RESTORE"
     sleep 1
     dnf -y install cargo rust-x11+xss-devel rust-glib+v2_68-devel dbus-devel pkgconf-pkg-config rust-pango+default-devel rust-cairo-rs+default-devel >/dev/null 2>&1
+    dnf -y update rustc > /dev/null 2>&1
     which cargo > /dev/null 2>&1
     if [ "$?" -eq "0" ]; then
         echo -e "$GREEN [ ✔ ]$BLUE Cargo and dependencies ➜$GREEN INSTALLED.\n $RESTORE"
-        startDaemonCompilation
+        checkDunstFacilities
         sleep 1
     else
         echo -e "$RED [ X ]$BLUE Cargo and dependencies: ➜$RED NOT INSTALLED.\n $RESTORE $BLUE Try to install the dependencies manually using the command: "dnf install cargo rust-x11+xss-devel rust-glib+v2_68-devel dbus-devel pkgconf-pkg-config rust-pango+default-devel rust-cairo-rs+default-devel" and re-run the script! $RESTORE"
