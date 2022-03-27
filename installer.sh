@@ -23,7 +23,7 @@ fi
 
 function notificationDaemonCompilation(){
     echo -e "$BLUE [ * ] Starting compilation! This process may take a few minutes. $RESTORE"
-    cd $(dirname "${BASH_SOURCE[0]}") && pwd > /dev/null 2>&1   
+    cd $(pwd) > /dev/null 2>&1   
     cargo build --release > /dev/null 2>&1>
     echo -e "$GREEN [ ✔ ] Wired-Notify has been successfully compiled! To execute run the command : '~/wired-notify/target/release/wired &' or move the wired binary to another path and run: '/path/to/wired &'. $RESTORE "
     exit 0
