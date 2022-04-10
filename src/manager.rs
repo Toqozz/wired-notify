@@ -6,6 +6,7 @@ use dbus::channel::Sender;
 use dbus::strings::Path;
 use winit::{
     dpi::PhysicalPosition, event, event::ElementState, event::MouseButton, event::WindowEvent,
+    monitor::MonitorHandle,
     event_loop::EventLoopWindowTarget, window::WindowId,
 };
 
@@ -29,6 +30,7 @@ pub struct NotifyWindowManager {
     pub dirty: bool,
 
     idle_check_timer: f32,
+    active_monitor: Option<MonitorHandle>,
 }
 
 impl NotifyWindowManager {
@@ -45,6 +47,8 @@ impl NotifyWindowManager {
             .build(el)
             .expect("Failed to create base window.");
 
+        let active_monitor = maths_utility::get_active_monitor(&base_window);
+
         Self {
             base_window,
             layout_windows,
@@ -52,6 +56,7 @@ impl NotifyWindowManager {
             dirty: false,
 
             idle_check_timer: 0.0,
+            active_monitor,
         }
     }
 
@@ -113,12 +118,20 @@ impl NotifyWindowManager {
     }
 
     pub fn update(&mut self, delta_time: Duration) {
+        let active_monitor = maths_utility::get_active_monitor(&self.base_window);
+
         // Update windows and then check for dirty state.
         // Returning dirty from a window update means the window has been deleted / needs
         // positioning updated.
         for window in &mut self.layout_windows.values_mut().flatten() {
             self.dirty |= window.update(delta_time);
+
+            // Kind of a hack to enable active monitor stuff.
+            let layout = window._layout().as_notification_block();
+            self.dirty |= layout.monitor < 0 && (active_monitor != self.active_monitor);
         }
+
+        self.active_monitor = active_monitor;
 
         if self.dirty {
             self.update_positions();
@@ -188,21 +201,31 @@ impl NotifyWindowManager {
                 .expect("Failed to find matching layout.");
             let layout_params = layout.as_notification_block();
 
-            // Grab a winit window reference to use to call winit functions.
-            // The functions here are just convenience functions to avoid needing a reference
-            // to the event loop -- they don't relate to the individual window.
-            let maybe_monitor = self.base_window
-                .available_monitors()
-                .nth(layout_params.monitor as usize)
-                .or_else(|| self.base_window.primary_monitor());
+            let monitor = {
+                let mut maybe_monitor;
+                // Use cursor focus.
+                if layout_params.monitor < 0 {
+                    maybe_monitor = self.active_monitor.clone();
+                } else {
+                    maybe_monitor = self.base_window
+                        .available_monitors()
+                        .nth(layout_params.monitor as usize)
+                }
 
-            // If we can't find a monitor, it's basically over.
-            // But let's not crash.  Maybe we'll find a monitor next time (if it was unplugged
-            // or something).
-            let monitor = match maybe_monitor {
-                Some(m) => m,
-                None => continue,
+                // Fallback, try to use primary monitor.
+                if maybe_monitor.is_none() {
+                    maybe_monitor = self.base_window.primary_monitor();
+                }
+
+                // If we can't find a monitor, it's basically over.
+                // But we don't have to crash.  Maybe we'll find a monitor next
+                // time (if it was unplugged or something).
+                match maybe_monitor {
+                    Some(m) => m,
+                    None => continue,
+                }
             };
+
 
             let (pos, size) = (monitor.position(), monitor.size());
             let monitor_rect =

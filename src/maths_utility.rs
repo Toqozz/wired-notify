@@ -3,6 +3,8 @@ use std::process::{Command, Stdio};
 
 use x11::xss::{XScreenSaverQueryInfo, XScreenSaverInfo};
 use winit::window::Window;
+use winit::platform::unix::WindowExtUnix;
+use winit::monitor::MonitorHandle;
 use serde::Deserialize;
 use crate::config::Color;
 use crate::bus::dbus::Notification;
@@ -541,6 +543,96 @@ pub fn query_screensaver_info(base_window: &Window) -> Result<XScreenSaverInfo, 
         }
     }
 }
+
+pub fn get_cursor_pos(base_window: &Window) -> (i32, i32) {
+    // Christ this feels expensive...
+    unsafe {
+        let display = base_window.xlib_display().unwrap();
+        let screen = x11::xlib::XDefaultScreen(display as _);
+        let root = x11::xlib::XRootWindow(display as _, screen);
+
+        let mut _root  = 0;
+        let mut _child  = 0;
+        let mut _win_x  = 0;
+        let mut _win_y  = 0;
+        let mut _mask  = 0;
+
+        let mut cursor_x = 0;
+        let mut cursor_y = 0;
+
+        x11::xlib::XQueryPointer(
+            display as _,
+            root,
+            &mut _root,
+            &mut _child,
+            &mut cursor_x,
+            &mut cursor_y,
+            &mut _win_x,
+            &mut _win_y,
+            &mut _mask,
+        );
+
+        (cursor_x, cursor_y)
+    }
+}
+
+
+// Check if the cursor resides in each monitor rect.  This should be good
+// enough for most use cases.
+pub fn get_active_monitor(base_window: &Window) -> Option<MonitorHandle> {
+    let (x, y) = get_cursor_pos(base_window);
+    let cursor_pos = &Vec2 { x: x as f64, y: y as f64 };
+    for monitor in base_window.available_monitors() {
+        let (pos, size) = (monitor.position(), monitor.size());
+        let rect = Rect::new(
+            pos.x.into(), pos.y.into(), size.width.into(), size.height.into()
+        );
+
+        if rect.contains_point(&cursor_pos) {
+            return Some(monitor);
+        }
+    }
+
+    None
+}
+
+/*
+// This might be useful for doing keyboard focus stuff...
+let mut win: c_ulong = 0;
+let mut ret: c_int = 0;
+unsafe {
+    x11::xlib::XGetInputFocus(
+        self.base_window.xlib_display().unwrap() as _,
+        &mut win,
+        &mut ret
+    );
+}
+
+unsafe {
+    let mut rr = Box::new(0);
+    let mut pr = Box::new(0);
+    let mut child_count: u32 = 0;
+    let mut children = std::ptr::null_mut();
+    x11::xlib::XQueryTree(
+        self.base_window.xlib_display().unwrap() as _,
+        win,
+        rr.as_mut(),
+        pr.as_mut(),
+        &mut children,
+        &mut child_count,
+    );
+
+    let mut attrs = std::mem::MaybeUninit::<x11::xlib::XWindowAttributes>::uninit();
+    x11::xlib::XGetWindowAttributes(
+        self.base_window.xlib_display().unwrap() as _,
+        win,
+        attrs.as_mut_ptr(),
+    );
+    let a = attrs.assume_init();
+
+    dbg!(a);
+}
+*/
 
 // For serde defaults.  So annoying that we need a function for this.
 // Issue been open since 2018, so I guess it's never getting fixed.
