@@ -106,18 +106,12 @@ pub struct Config {
     pub max_notifications: usize,
     pub timeout: i32,                  // Default timeout, in milliseconds.
     pub poll_interval: u64,            // Time between checking for updates, new notifications, events, drawing, etc.
-    pub print_to_file: Option<String>, // A file to print notification info to, for scripting purposes.
-    pub idle_threshold: Option<u64>,   // The threshold before pausing notifications due to being idle.  0 = ignore.
     pub layout_blocks: Vec<LayoutBlock>,
 
     // Optional Properties
-    // Draws rectangles around elements.
-    #[serde(default)]
-    pub debug: bool,
-    #[serde(default = "Config::default_debug_color")]
-    pub debug_color: Color,
-    #[serde(default = "Config::default_debug_color_alt")]
-    pub debug_color_alt: Color,
+
+    // The threshold before pausing notifications due to being idle.  0 = ignore.
+    pub idle_threshold: Option<u64>,
 
     // Enable/disable notification replace functionality.  I don't like how some apps do it.
     #[serde(default = "maths_utility::val_true")]
@@ -125,13 +119,21 @@ pub struct Config {
     // Whether or not to refresh the timeout of a notification on an update
     #[serde(default)]
     pub replacing_resets_timeout: bool,
+
     // Enable/disable notification closing functionality.  I don't like how some apps do it.
     #[serde(default = "maths_utility::val_true")]
     pub closing_enabled: bool,
+
     // How many notifications are kept in history.  Older notifications will be removed first.
     // Each notification is roughly 256 bytes (excluding buffers), so do the math there.
     #[serde(default = "maths_utility::val_10")]
     pub history_length: usize,
+    // Which input should we follow when follow active monitor is set?
+    #[serde(default)]
+    pub focus_follows: FollowMode,
+
+    // A file to print notification info to, for scripting purposes.
+    pub print_to_file: Option<String>,
 
     // Minimum window width and height.  This is used to create the base rect that the notification
     // grows within.
@@ -142,6 +144,14 @@ pub struct Config {
     pub min_window_width: u32,
     #[serde(default)]
     pub min_window_height: u32,
+
+    // Draws rectangles around elements.
+    #[serde(default)]
+    pub debug: bool,
+    #[serde(default = "Config::default_debug_color")]
+    pub debug_color: Color,
+    #[serde(default = "Config::default_debug_color_alt")]
+    pub debug_color_alt: Color,
 
     #[serde(default)]
     pub shortcuts: ShortcutsConfig,
@@ -455,6 +465,18 @@ impl Default for ShortcutsConfig {
             notification_action4_and_close: None,
             notification_interact_and_close: None,
         }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum FollowMode {
+    Mouse,
+    Window,
+}
+
+impl Default for FollowMode {
+    fn default() -> Self {
+        Self::Mouse
     }
 }
 

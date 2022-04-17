@@ -13,24 +13,46 @@
     // 16ms ~= 60hz / 7ms ~= 144hz.
     poll_interval: 16,
 
-    // How many notifications are kept in history.
-    // Each notification is roughly 256 bytes (excluding buffers!), so do the math here.
-    history_length: 10,
+    // Wired will pause notifications if you are idle (no mouse or keyboard input) for longer than
+    // `idle_threshold` seconds.
+    // Note that notifications will not be automatically unpaused on wake, and will need to be manually
+    // cleared.  Let me know if you think this should be different.
+    // If `idle_threshold` is not specified, the behavior will be disabled entirely.
+    //idle_threshold: 3600,
 
     // Enable/disable replacement functionality.
     // If this is disabled, replacement requests will just send a new notification.
     // E.g., with replacing_enabled: true, Pidgin will only show the latest message from each contact,
     // instead of sending a new one for each message.
-    replacing_enabled: true,
+    // Default: true
+    //replacing_enabled: true,
 
     // Whether a notification should reset its timeout when it is replaced.
     // No effect if replacing_enabled is set to false.
-    replacing_resets_timeout: false,
+    // Default: false
+    //replacing_resets_timeout: false,
 
-    // Enable/disable debug rendering.
-    debug: false,
-    debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0), // Primary color for debug rectangles.
-    debug_color_alt: Color(r: 1.0, g: 0.0, b: 0.0, a: 1.0), // Secondary color for debug rectangles.
+    // Some apps/programs close notifications on their own by sending a request to dbus.
+    // Sometimes this is not desired.
+    // Default: true
+    //closing_enabled: true,
+
+    // How many notifications are kept in history.
+    // Each notification is roughly 256 bytes (excluding buffers!), so there's some math to do here.
+    // Default: 10
+    //history_length: 10,
+
+    // When a `NotificationBlock` has monitorr: -1 (i.e. should follow active monitor), then what input
+    // should we use to determine the active monitor?
+    // Options: Mouse, Window
+    // Default: Mouse
+    //focus_follows: Mouse,
+
+    // Enable printing notification data to a file.
+    // Useful for scripting purposes.
+    // The data is written as JSON.
+    // Default: None
+    //print_to_file: "/tmp/wired.log",
 
     // Minimum window width and height.  This is used to create the base rect that the notification
     // grows within.
@@ -41,17 +63,11 @@
     //min_window_width: 1,
     //min_window_height: 1,
 
-    // Wired will pause notifications if you are idle (no mouse or keyboard input) for longer than
-    // `idle_threshold` seconds.
-    // Note that notifications will not be automatically unpaused on wake, and will need to be manually
-    // cleared.  Let me know if you think this should be different.
-    // If `idle_threshold` is not specified, the behavior will be disabled entirely.
-    //idle_threshold: 3600,
+    // Enable/disable debug rendering.
+    debug: false,
+    debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0), // Primary color for debug rectangles.
+    debug_color_alt: Color(r: 1.0, g: 0.0, b: 0.0, a: 1.0), // Secondary color for debug rectangles.
 
-    // Enable printing notification data to a file.
-    // Useful for scripting purposes.
-    // The data is written as JSON.
-    //print_to_file: "/tmp/wired.log",
 
     layout_blocks: [
         // Layout 1, when an image is present.

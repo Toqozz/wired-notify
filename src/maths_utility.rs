@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use std::process::{Command, Stdio};
 
+use x11::xlib;
 use x11::xss::{XScreenSaverQueryInfo, XScreenSaverInfo};
 use winit::window::Window;
 use winit::platform::unix::WindowExtUnix;
@@ -43,6 +44,7 @@ impl Default for Rect {
     }
 }
 
+// https://github.com/libsdl-org/SDL/blob/d81fee76235a1f13123818815ecebcb27764595d/src/video/SDL_rect_impl.h
 impl Rect {
     pub const EMPTY: Self = Self { x: 0.0, y: 0.0, width: 0.0, height: 0.0 };
 
@@ -183,9 +185,53 @@ impl Rect {
         self
     }
 
+    pub fn area(&self) -> f64 {
+        self.width * self.height
+    }
+
     pub fn contains_point(&self, point: &Vec2) -> bool {
         (point.x >= self.x) && (point.x < (self.x + self.width())) &&
         (point.y >= self.y) && (point.y < (self.y + self.height()))
+    }
+
+    pub fn intersect(&self, other: &Rect) -> Option<Rect> {
+        let mut result = Rect::new(0.0, 0.0, 0.0, 0.0);
+
+        // Horizontal intersection.
+        let mut s_min = self.left();
+        let mut s_max = self.right();
+        let o_min = other.left();
+        let o_max = other.right();
+        if o_min > s_min {
+            s_min = o_min;
+        }
+
+        result.set_x(s_min);
+        if o_max < s_max {
+            s_max = o_max;
+        }
+        result.set_width(s_max - s_min);
+
+        // Vertical intersection.
+        let mut s_min = self.top();
+        let mut s_max = self.bottom();
+        let o_min = other.top();
+        let o_max = other.bottom();
+        if o_min > s_min {
+            s_min = o_min;
+        }
+
+        result.set_y(s_min);
+        if o_max < s_max {
+            s_max = o_max;
+        }
+        result.set_height(s_max - s_min);
+
+        if result.width() > 0.0 || result.height() > 0.0 {
+            Some(result)
+        } else {
+            None
+        }
     }
 }
 
@@ -544,51 +590,50 @@ pub fn query_screensaver_info(base_window: &Window) -> Result<XScreenSaverInfo, 
     }
 }
 
-pub fn get_cursor_pos(base_window: &Window) -> (i32, i32) {
-    // Christ this feels expensive...
+pub fn get_mouse_pos(base_window: &Window) -> (i32, i32) {
+    // Christ this feels expensive, but it's probably fine.
+    let display = base_window.xlib_display().unwrap();
+
+    let mut _root = 0;
+    let mut _child = 0;
+    let mut _win_x = 0;
+    let mut _win_y = 0;
+    let mut _mask = 0;
+
+    let mut mouse_x = 0;
+    let mut mouse_y = 0;
+
     unsafe {
-        let display = base_window.xlib_display().unwrap();
         let screen = x11::xlib::XDefaultScreen(display as _);
         let root = x11::xlib::XRootWindow(display as _, screen);
-
-        let mut _root  = 0;
-        let mut _child  = 0;
-        let mut _win_x  = 0;
-        let mut _win_y  = 0;
-        let mut _mask  = 0;
-
-        let mut cursor_x = 0;
-        let mut cursor_y = 0;
-
         x11::xlib::XQueryPointer(
             display as _,
             root,
             &mut _root,
             &mut _child,
-            &mut cursor_x,
-            &mut cursor_y,
+            &mut mouse_x,
+            &mut mouse_y,
             &mut _win_x,
             &mut _win_y,
             &mut _mask,
         );
-
-        (cursor_x, cursor_y)
     }
-}
 
+    (mouse_x, mouse_y)
+}
 
 // Check if the cursor resides in each monitor rect.  This should be good
 // enough for most use cases.
-pub fn get_active_monitor(base_window: &Window) -> Option<MonitorHandle> {
-    let (x, y) = get_cursor_pos(base_window);
-    let cursor_pos = &Vec2 { x: x as f64, y: y as f64 };
+pub fn get_active_monitor_mouse(base_window: &Window) -> Option<MonitorHandle> {
+    let (x, y) = get_mouse_pos(base_window);
+    let mouse_pos = &Vec2 { x: x as f64, y: y as f64 };
     for monitor in base_window.available_monitors() {
         let (pos, size) = (monitor.position(), monitor.size());
         let rect = Rect::new(
             pos.x.into(), pos.y.into(), size.width.into(), size.height.into()
         );
 
-        if rect.contains_point(&cursor_pos) {
+        if rect.contains_point(&mouse_pos) {
             return Some(monitor);
         }
     }
@@ -596,45 +641,89 @@ pub fn get_active_monitor(base_window: &Window) -> Option<MonitorHandle> {
     None
 }
 
-/*
-// This might be useful for doing keyboard focus stuff...
-let mut win: c_ulong = 0;
-let mut ret: c_int = 0;
-unsafe {
-    x11::xlib::XGetInputFocus(
-        self.base_window.xlib_display().unwrap() as _,
-        &mut win,
-        &mut ret
-    );
+pub fn get_active_window_rect(base_window: &Window) -> Option<Rect> {
+    let display = base_window.xlib_display().unwrap();
+    let mut focus_win: x11::xlib::Window = 0;
+
+    unsafe {
+        let mut _revert_win = 0;
+        x11::xlib::XGetInputFocus(
+            display as _,
+            &mut focus_win,
+            &mut _revert_win,
+        );
+    }
+
+    if focus_win as u64 == 0 {
+        return None;
+    }
+
+    // https://stackoverflow.com/questions/3806872/window-position-in-xlib
+    unsafe {
+        let mut window_attr = std::mem::MaybeUninit::<xlib::XWindowAttributes>::uninit();
+        x11::xlib::XGetWindowAttributes(
+            display as _,
+            focus_win as _,
+            window_attr.as_mut_ptr(),
+        );
+        let window_attr = window_attr.assume_init();
+
+        let screen = x11::xlib::XDefaultScreen(display as _);
+        let root = x11::xlib::XRootWindow(display as _, screen);
+
+        let mut x = 0;
+        let mut y = 0;
+        let mut _child = 0;
+        let result = x11::xlib::XTranslateCoordinates(
+            display as _,
+            focus_win as _,
+            root,
+            0,
+            0,
+            &mut x,
+            &mut y,
+            &mut _child
+        );
+
+        // If no result, the window is probably on another XScreen, which we don't support for now.
+        if result != 0 {
+            Some(
+                Rect::new(x as f64, y as f64, window_attr.width as f64, window_attr.height as f64)
+            )
+        } else {
+            None
+        }
+    }
 }
 
-unsafe {
-    let mut rr = Box::new(0);
-    let mut pr = Box::new(0);
-    let mut child_count: u32 = 0;
-    let mut children = std::ptr::null_mut();
-    x11::xlib::XQueryTree(
-        self.base_window.xlib_display().unwrap() as _,
-        win,
-        rr.as_mut(),
-        pr.as_mut(),
-        &mut children,
-        &mut child_count,
-    );
+pub fn get_active_monitor_keyboard(base_window: &Window) -> Option<MonitorHandle> {
+    let window_rect = match get_active_window_rect(base_window) {
+        Some(w) => w,
+        None => return None,
+    };
 
-    let mut attrs = std::mem::MaybeUninit::<x11::xlib::XWindowAttributes>::uninit();
-    x11::xlib::XGetWindowAttributes(
-        self.base_window.xlib_display().unwrap() as _,
-        win,
-        attrs.as_mut_ptr(),
-    );
-    let a = attrs.assume_init();
+    let mut largest = 0.0;
+    let mut handle = None;
 
-    dbg!(a);
+    for monitor in base_window.available_monitors() {
+        let (pos, size) = (monitor.position(), monitor.size());
+        let monitor_rect = Rect::new(
+            pos.x.into(), pos.y.into(), size.width.into(), size.height.into()
+        );
+
+        if let Some(intersection) = monitor_rect.intersect(&window_rect) {
+            let area = intersection.area();
+            if area > largest {
+                handle.replace(monitor);
+                largest = area;
+            }
+        }
+    }
+
+    handle
 }
-*/
 
-// For serde defaults.  So annoying that we need a function for this.
+// For serde defaults.  Annoying that we need a function for this.
 // Issue been open since 2018, so I guess it's never getting fixed.
 pub fn val_true() -> bool {
     true

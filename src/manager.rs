@@ -10,6 +10,7 @@ use winit::{
     event_loop::EventLoopWindowTarget, window::WindowId,
 };
 
+use crate::config::FollowMode;
 use crate::{
     //notification::Notification,
     bus,
@@ -29,7 +30,8 @@ pub struct NotifyWindowManager {
     pub history: VecDeque<Notification>,
     pub dirty: bool,
 
-    idle_check_timer: f32,
+    // For "expensive" updates that don't have to happen every frame.
+    slow_update_timer: f32,
     active_monitor: Option<MonitorHandle>,
 }
 
@@ -47,7 +49,10 @@ impl NotifyWindowManager {
             .build(el)
             .expect("Failed to create base window.");
 
-        let active_monitor = maths_utility::get_active_monitor(&base_window);
+        let active_monitor = match Config::get().focus_follows {
+            FollowMode::Mouse => maths_utility::get_active_monitor_mouse(&base_window),
+            FollowMode::Window => maths_utility::get_active_monitor_keyboard(&base_window),
+        };
 
         Self {
             base_window,
@@ -55,7 +60,7 @@ impl NotifyWindowManager {
             history: VecDeque::with_capacity(Config::get().history_length),
             dirty: false,
 
-            idle_check_timer: 0.0,
+            slow_update_timer: 0.0,
             active_monitor,
         }
     }
@@ -118,20 +123,44 @@ impl NotifyWindowManager {
     }
 
     pub fn update(&mut self, delta_time: Duration) {
-        let active_monitor = maths_utility::get_active_monitor(&self.base_window);
+        // Idle threshold granularity is 1s, but I want to update active monitor faster than
+        // that.
+        self.slow_update_timer += delta_time.as_secs_f32();
+        if self.slow_update_timer > 0.33 {
+            self.slow_update_timer = 0.0;
+
+            // Could probably only update this if we're actually configured to follow a monitor,
+            // but it's not really worth it.
+            let active_monitor = match Config::get().focus_follows {
+                FollowMode::Mouse => maths_utility::get_active_monitor_mouse(&self.base_window),
+                FollowMode::Window => maths_utility::get_active_monitor_keyboard(&self.base_window),
+            };
+            if active_monitor != self.active_monitor {
+                self.active_monitor = active_monitor;
+                self.dirty = true;
+            }
+
+            if let Some(threshold) = Config::get().idle_threshold {
+                match maths_utility::query_screensaver_info(&self.base_window) {
+                    Ok(info) => {
+                        if info.idle / 1000 >= threshold {
+                            self.layout_windows
+                                .values_mut()
+                                .flatten()
+                                .for_each(|w| w.update_mode = UpdateModes::DRAW);
+                        }
+                    },
+                    Err(e) => eprintln!("{}", e),
+                }
+            }
+        }
 
         // Update windows and then check for dirty state.
         // Returning dirty from a window update means the window has been deleted / needs
         // positioning updated.
         for window in &mut self.layout_windows.values_mut().flatten() {
             self.dirty |= window.update(delta_time);
-
-            // Kind of a hack to enable active monitor stuff.
-            let layout = window._layout().as_notification_block();
-            self.dirty |= layout.monitor < 0 && (active_monitor != self.active_monitor);
         }
-
-        self.active_monitor = active_monitor;
 
         if self.dirty {
             self.update_positions();
@@ -159,31 +188,6 @@ impl NotifyWindowManager {
                 }
 
                 windows.retain(|w| !w.marked_for_destroy);
-            }
-        }
-
-        // TODO: SHOULD_CHECK_IDLE? Somewhere?
-        // TODO: there should probably be a way to make this so we only need to set new windows  
-        // update mode instead of just brute forcing them.  but maybe this is fine anyway?
-        // Definitely less bug prone.
-        // Our idle threshold granularity is 1s, so we can save time by only checking at that
-        // frequency.
-        self.idle_check_timer += delta_time.as_secs_f32();
-        if self.idle_check_timer > 1.0 {
-            self.idle_check_timer = 0.0;
-
-            if let Some(threshold) = Config::get().idle_threshold {
-                match maths_utility::query_screensaver_info(&self.base_window) {
-                    Ok(info) => {
-                        if info.idle / 1000 >= threshold {
-                            self.layout_windows
-                                .values_mut()
-                                .flatten()
-                                .for_each(|w| w.update_mode = UpdateModes::DRAW);
-                        }
-                    },
-                    Err(e) => eprintln!("{}", e),
-                }
             }
         }
     }
