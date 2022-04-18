@@ -25,6 +25,9 @@ tools.
     - Open an issue if you have ideas of more actions.
 - **Every notification is a different window** - pretty sick of stuff only being able to show one notification at a time honestly.
 
+## Showcase
+[Check out what other people have made with Wired!](https://github.com/Toqozz/wired-notify/issues/63)
+
 ## Making your own elements
 Making your own layout elements is designed to be as easy as possible.
 Anybody who knows basic Rust should be able to make a layout element.

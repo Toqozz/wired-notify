@@ -17,6 +17,11 @@ cairo-rs = "0.15.1"
 cairo-sys-rs = { version = "0.15.1", features = ["xlib"] }
 xdg = "2.2.0"
 
+# svg
+usvg = "0.22.0"
+resvg = "0.22.0"
+tiny-skia = "0.6.1"
+
 getopts = "0.2"
 chrono = "0.4.19"
 image = "0.22.2"

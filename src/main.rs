@@ -59,6 +59,16 @@ fn open_print_file() -> Option<File> {
 }
 
 fn main() {
+    // If any thread panics, we want to kill the process.
+    // https://stackoverflow.com/questions/35988775/how-can-i-cause-a-panic-on-a-thread-to-immediately-end-the-main-thread
+    let orig_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        // invoke the default handler and exit the process
+        orig_hook(panic_info);
+        std::process::exit(1);
+    }));
+
+
     let args: Vec<String> = env::args().collect();
     match cli::process_cli(args) {
         Ok(should_run) => match should_run {

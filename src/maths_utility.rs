@@ -723,6 +723,56 @@ pub fn get_active_monitor_keyboard(base_window: &Window) -> Option<MonitorHandle
     handle
 }
 
+pub fn svg_to_pixels(data: &Vec<u8>, width: u32, height: u32) -> Option<Vec<u8>> {
+    use usvg::{Tree, Options, FitTo};
+    use tiny_skia::{Pixmap, Transform};
+
+    /*
+    let mut opt = usvg::Options::default();
+    opt.resources_dir =
+        std::fs::canonicalize(path).ok().and_then(|p| p.parent().map(|p| p.to_path_buf()));
+    opt.fontdb.load_system_fonts();
+    */
+
+    let opt = Options::default();
+    let tree = Tree::from_data(&data, &opt.to_ref()).ok()?;
+    let mut pixmap = Pixmap::new(width, height)?;
+    resvg::render(
+        &tree,
+        FitTo::Size(pixmap.width(), pixmap.height()),
+        Transform::default(),
+        pixmap.as_mut(),
+    )?;
+
+    let width = pixmap.width();
+    let height = pixmap.height();
+    let pixels = rgba_to_bgra(pixmap.take(), width, height);
+
+    Some(pixels)
+
+    //let img = image::RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.take())?;
+    //Some(image::DynamicImage::ImageRgba8(img))
+}
+
+pub fn rgba_to_bgra(mut pixels: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
+    let mut offset = 0;
+    for _y in 0..height {
+        for _x in 0..width {
+            let temp = pixels[offset];
+            pixels[offset] = pixels[offset + 2];
+            pixels[offset + 2] = temp;
+
+            // g and a are in the same position.
+            //pixels[offset + 1] = pixels[offset + 1];
+            //pixels[offset + 3] = pixels[offset + 3];
+
+            offset += 4;
+        }
+    }
+
+    pixels
+}
+
 // For serde defaults.  Annoying that we need a function for this.
 // Issue been open since 2018, so I guess it's never getting fixed.
 pub fn val_true() -> bool {

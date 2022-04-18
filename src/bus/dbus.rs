@@ -1,5 +1,4 @@
 use std::collections::{HashMap, VecDeque};
-use std::path::Path;
 use std::sync::atomic::AtomicU32;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::{self, JoinHandle};
@@ -19,12 +18,13 @@ use image::{self, DynamicImage, ImageBuffer};
 use chrono::{offset::Local, DateTime};
 use serde::Serialize;
 
+use tiny_skia;
+
 use crate::bus::dbus_codegen::{self, OrgFreedesktopNotifications};
 use crate::maths_utility;
 use crate::Config;
 
 static ID_COUNT: AtomicU32 = AtomicU32::new(1);
-
 pub fn fetch_id() -> u32 {
     ID_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
@@ -206,6 +206,12 @@ pub enum Message {
     Notify(Notification),
 }
 
+#[derive(Clone)]
+pub enum ImageData {
+    SVG(Vec<u8>),
+    Dynamic(DynamicImage),
+}
+
 #[derive(Clone, Serialize)]
 pub struct Notification {
     pub id: u32,
@@ -217,9 +223,9 @@ pub struct Notification {
     pub body: String,
     pub actions: HashMap<String, String>,
     #[serde(skip)]
-    pub app_image: Option<DynamicImage>,
+    pub app_image: Option<ImageData>,
     #[serde(skip)]
-    pub hint_image: Option<DynamicImage>,
+    pub hint_image: Option<ImageData>,
     pub percentage: Option<f32>,
 
     pub urgency: Urgency,
@@ -298,21 +304,43 @@ impl Notification {
             i += 2;
         }
 
-        fn image_from_path(path: &str) -> Option<DynamicImage> {
-            //let _start = std::time::Instant::now();
+        fn image_from_path(path: &str) -> Option<ImageData> {
+            //let start = std::time::Instant::now();
             //dbg!("Loading image from path...");
 
-            // @TODO: this path shouldn't be active if app_icon is empty?
-            let img_path = Path::new(path);
-            let x = image::open(img_path).ok();
+            let parts: Vec<&str> = path.split('.').collect();
+            let maybe_image = match parts.last() {
+                // tiny_skia can load pngs and svgs, so we use that where we can, otherwise we
+                // try to load with the image-rs crate.  Hopefully we can move away from that
+                // eventually.
+                Some(ext) => match ext.to_lowercase().as_str() {
+                    "svg" => {
+                        let svg_data = std::fs::read(path).ok()?;
+                        Some(ImageData::SVG(svg_data))
+                    },
+                    "png" => {
+                        tiny_skia::Pixmap::load_png(path)
+                            .ok()
+                            .map(|p| image::RgbaImage::from_raw(p.width(), p.height(), p.take()))
+                            .map(|i| ImageData::Dynamic(DynamicImage::ImageRgba8(i.unwrap())))
+                    },
+                    _ => None,
+                },
+                None => return None,
+            };
 
-            //let _end = std::time::Instant::now();
+            //let end = std::time::Instant::now();
             //dbg!(end - start);
 
-            x
+            // Fall back to trying to open with image-rs.
+            maybe_image
+                .or(
+                    image::open(path).ok()
+                        .map(|d| ImageData::Dynamic(d))
+                )
         }
 
-        fn image_from_data(data: &VecDeque<Box<dyn RefArg>>) -> Option<DynamicImage> {
+        fn image_from_data(data: &VecDeque<Box<dyn RefArg>>) -> Option<ImageData> {
             //let start = std::time::Instant::now();
             //dbg!("Loading image from data...");
 
@@ -343,11 +371,11 @@ impl Notification {
             let x = match channels {
                 3 => {
                     ImageBuffer::from_raw(width as u32, height as u32, bytes)
-                        .map(DynamicImage::ImageRgb8)
+                        .map(|buf| ImageData::Dynamic(DynamicImage::ImageRgb8(buf)))
                 }
                 4 => {
                     ImageBuffer::from_raw(width as u32, height as u32, bytes)
-                        .map(DynamicImage::ImageRgba8)
+                        .map(|buf| ImageData::Dynamic(DynamicImage::ImageRgba8(buf)))
                 }
                 _ => {
                     eprintln!("Unsupported hint image format!  Couldn't load hint image.");
@@ -363,12 +391,11 @@ impl Notification {
 
         let app_image = image_from_path(&app_icon);
 
-
         // Structs are stored internally in the rust dbus implementation as VecDeque.
         // https://github.com/diwic/dbus-rs/issues/363
         type DBusStruct = VecDeque<Box<dyn RefArg>>;
         // According to the spec, we should do these in this order.
-        let hint_image: Option<DynamicImage>;
+        let hint_image: Option<ImageData>;
         if let Some(img_data) = arg::prop_cast::<DBusStruct>(&hints, "image-data") {
             hint_image = image_from_data(img_data);
         } else if let Some(img_data) = arg::prop_cast::<DBusStruct>(&hints, "image_data") {

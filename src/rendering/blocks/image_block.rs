@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use crate::bus::dbus::ImageData;
 use crate::config::Padding;
 use crate::maths_utility::{self, Rect, Vec2};
 use crate::rendering::layout::{DrawableLayoutElement, Hook, LayoutBlock};
@@ -24,6 +25,7 @@ pub enum FilterMode {
     Gaussian,
     Lanczos3,
 }
+
 impl FilterMode {
     // Convert our filter_mode to `FilterType`.  We need our own type because `FilterType`
     // is not serializable.
@@ -111,7 +113,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
         parent_rect: &Rect,
         window: &NotifyWindow,
     ) -> Rect {
-        let maybe_image = match self.image_type {
+        let maybe_image_data = match self.image_type {
             ImageType::App => window.notification.app_image.as_ref(),
             ImageType::Hint => window.notification.hint_image.as_ref(),
             ImageType::AppThenHint => window
@@ -126,7 +128,29 @@ impl DrawableLayoutElement for ImageBlockParameters {
                 .or_else(|| window.notification.app_image.as_ref()),
         };
 
-        if let Some(img) = maybe_image {
+        let maybe_pixels = if let Some(data) = maybe_image_data {
+            match data {
+                ImageData::Dynamic(img) => {
+                    let filter_type = self.filter_mode.to_image_mode();
+                    let px = img
+                        .resize_exact(self.scale_width as u32, self.scale_height as u32, filter_type)
+                        .to_bgra() // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
+                        .into_raw();
+                    Some(px)
+                }
+                ImageData::SVG(data) => {
+                    maths_utility::svg_to_pixels(
+                        data,
+                        self.scale_width as u32,
+                        self.scale_height as u32,
+                    )
+                }
+            }
+        } else {
+            None
+        };
+
+        if let Some(pixels) = maybe_pixels {
             let mut rect = Rect::new(
                 0.0,
                 0.0,
@@ -135,13 +159,6 @@ impl DrawableLayoutElement for ImageBlockParameters {
             );
 
             let pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
-
-            let filter_type = self.filter_mode.to_image_mode();
-            let pixels = img
-                .resize_exact(self.scale_width as u32, self.scale_height as u32, filter_type)
-                .to_bgra() // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
-                .into_raw();
-
             let stride = cairo::Format::stride_for_width(Format::ARgb32, self.scale_width as u32)
                 .expect("Failed to calculate image stride.");
 
