@@ -42,7 +42,7 @@ pub enum RenderCriteria {
     Body,
     HintImage,
     AppImage,
-    AppName,
+    AppName(Vec<String>),
     Progress,
     ActionDefault,
     ActionOther(usize),
@@ -87,7 +87,16 @@ impl LayoutBlock {
                 RenderCriteria::Body => if n.body.is_empty() { should_draw = false },
                 RenderCriteria::AppImage => if n.app_image.is_none() { should_draw = false },
                 RenderCriteria::HintImage => if n.hint_image.is_none() { should_draw = false },
-                RenderCriteria::AppName => if n.app_name.is_empty() { should_draw = false },
+                RenderCriteria::AppName(apps) => {
+                    should_draw = false;
+                    let mut to = IntoIterator::into_iter(apps);
+                    while let Some(s) = to.next() {
+                        if n.app_name.eq(s) {
+                            should_draw = true;
+                            break;
+                        }
+                    }
+                },
                 RenderCriteria::Progress => if n.percentage.is_none() { should_draw = false },
                 RenderCriteria::ActionDefault => if n.get_default_action().is_none() { should_draw = false },
                 RenderCriteria::ActionOther(i) => if n.get_other_action(*i).is_none() { should_draw = false },
@@ -100,7 +109,15 @@ impl LayoutBlock {
                 RenderCriteria::Body => if !n.body.is_empty() { should_draw = false },
                 RenderCriteria::AppImage => if !n.app_image.is_none() { should_draw = false },
                 RenderCriteria::HintImage => if !n.hint_image.is_none() { should_draw = false },
-                RenderCriteria::AppName => if !n.app_name.is_empty() { should_draw = false },
+                RenderCriteria::AppName(apps) => {
+                    let mut to = IntoIterator::into_iter(apps);
+                    while let Some(s) = to.next() {
+                        if n.app_name.eq(s) {
+                            should_draw = false;
+                            break;
+                        }
+                    }
+                },
                 RenderCriteria::Progress => if !n.percentage.is_none() { should_draw = false },
                 RenderCriteria::ActionDefault => if !n.get_default_action().is_none() { should_draw = false },
                 RenderCriteria::ActionOther(i) => if !n.get_other_action(*i).is_none() { should_draw = false },
