@@ -2,10 +2,16 @@
   description = "Lightweight notification daemon with highly customizable layout blocks, written in Rust.";
 
   inputs = {
-    nixpkgs.url = github:nixos/nixpkgs/release-21.11;
+    nixpkgs.url = github:nixos/nixpkgs/nixpkgs-unstable;
     utils.url = github:numtide/flake-utils;
-    naersk.url = github:nix-community/naersk;
-    alejandra.url = github:kamadorueda/alejandra;
+    naersk = {
+      url = github:nix-community/naersk;
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    alejandra = {
+      url = github:kamadorueda/alejandra;
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
