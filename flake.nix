@@ -21,6 +21,9 @@
         # `nix fmt` (added in Nix 2.8)
         # (generating this outside of `eachDefaultSystem` because alejandra's supported systems may not match ours)
         formatter = std.mapAttrs (system: pkgs: pkgs.default) alejandra.packages;
+
+        # consumed by github:nix-community/home-manager
+        homeManagerModules.default = import ./home-manager.nix;
       }
       // (
         utils.lib.eachDefaultSystem (system: let
