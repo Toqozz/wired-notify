@@ -66,6 +66,7 @@ nix run 'github:Toqozz/wired-notify'
 
 To install Wired to your user profile:
 ```sh
+# note: the systemd service will not be available if installed with this method
 nix profile install 'github:Toqozz/wired-notify'
 ```
 
@@ -97,6 +98,25 @@ For example, to install it for all users in NixOS:
           environment.systemPackages = [ wired.packages.${system}.wired ];
         }
       ];
+    };
+  };
+}
+```
+
+This flake also provides a module for [home-manager](https://github.com/nix-community/home-manager). To use it in your configuration:
+```nix
+{
+  # ...
+  outputs = { self, home-manager, wired, ... }: {
+    homeConfigurations.alice = home-manager.lib.homeManagerConfiguration {
+      # ...
+      extraModules = [ wired.homeManagerModules.default ];
+      configuration = { pkgs, ... }: {
+        services.wired = {
+          enable = true;
+          config = ./wired.ron;
+        };
+      };
     };
   };
 }
