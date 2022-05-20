@@ -30,6 +30,6 @@ in {
     # through home-manager is to define `systemd.user.<unit name>`,
     # which only allows unit configuration directly from Nix (i.e. you
     # can't just give it a raw file). So, this just installs the existing service.
-    xdg.configFile."systemd/user/wired.service".source = "${cfg.package}/usr/lib/systemd/system/wired.service";
+    xdg.dataFile."systemd/user/wired.service".source = "${cfg.package}/usr/lib/systemd/system/wired.service";
   };
 }
