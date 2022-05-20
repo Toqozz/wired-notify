@@ -63,7 +63,7 @@
               # Without this wired_derive build would fail
               singleStep = true;
               # install extra files (i.e. the systemd service)
-              postInstall =''
+              postInstall = ''
                 # /usr/bin/wired doesn't exist, here, because the binary will be somewhere in /nix/store,
                 # so this fixes the bin path in the systemd service and writes the updated file to the output dir.
                 mkdir -p $out/usr/lib/systemd/system
