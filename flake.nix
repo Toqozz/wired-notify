@@ -1,50 +1,86 @@
 {
-  description =
-    "Lightweight notification daemon with highly customizable layout blocks, written in Rust.";
+  description = "Lightweight notification daemon with highly customizable layout blocks, written in Rust.";
 
   inputs = {
-    utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nmattia/naersk";
+    nixpkgs.url = github:nixos/nixpkgs/release-21.11;
+    utils.url = github:numtide/flake-utils;
+    naersk.url = github:nix-community/naersk;
+    alejandra.url = github:kamadorueda/alejandra;
   };
 
-  outputs = { self, nixpkgs, utils, naersk }:
-    utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages."${system}";
-        naersk-lib = naersk.lib."${system}";
-        # Requires dbus cairo and pango
-        # pkgconfig, glib and xorg is required for x11-crate
-        buildInputs = with pkgs; [
-          dbus
-          dlib
-          cairo
-          pango
-          pkgconfig
-          xorg.libX11
-          xorg.libXi
-          xorg.libXrandr
-          xorg.libXcursor
-          xorg.libXScrnSaver
-        ];
-      in rec {
-        # `nix build`
-        packages.wired = naersk-lib.buildPackage {
-          pname = "wired";
-          root = ./.;
-          inherit buildInputs;
-          # Without this wired_derive build would fail
-          singleStep = true;
-        };
-        defaultPackage = packages.wired;
+  outputs = {
+    self,
+    nixpkgs,
+    utils,
+    naersk,
+    alejandra,
+  }:
+    with builtins; let
+      std = nixpkgs.lib;
+    in ({
+        # `nix fmt` (added in Nix 2.8)
+        # (generating this outside of `eachDefaultSystem` because alejandra's supported systems may not match ours)
+        formatter = std.mapAttrs (system: pkgs: pkgs.default) alejandra.packages;
+      }
+      // (
+        utils.lib.eachDefaultSystem (system: let
+          pkgs = import nixpkgs {
+            # `builtins.currentSystem` isn't actually provided when building a flake;
+            # flakes don't yet have a standard pipeline for cross-compilation, so
+            # this is just here to try to convey intent
+            localSystem = builtins.currentSystem or system;
+            crossSystem = system;
+            overlays = [self.overlays.${system}];
+          };
+          naersk-lib = naersk.lib."${system}";
+        in {
+          overlays = final: prev: {
+            wired = naersk-lib.buildPackage {
+              pname = "wired";
+              src = ./.;
+              meta = {
+                description = self.description;
+                homepage = "https://github.com/Toqozz/wired-notify";
+                downloadPage = "https://github.com/Toqozz/wired-notify/releases";
+                license = std.licenses.mit;
+              };
+              # Requires dbus cairo and pango
+              # pkgconfig, glib and xorg are required for x11-crate
+              buildInputs = with final; [
+                dbus
+                dlib
+                cairo
+                pango
+                pkgconfig
+                xorg.libX11
+                xorg.libXi
+                xorg.libXrandr
+                xorg.libXcursor
+                xorg.libXScrnSaver
+              ];
+              # Without this wired_derive build would fail
+              singleStep = true;
+            };
+          };
+          # `nix build`
+          packages.wired = pkgs.wired;
+          packages.default = self.packages.${system}.wired;
+          # `defaultPackage` deprecated in Nix 2.7
+          defaultPackage = self.packages.${system}.default;
 
-        # `nix run`
-        apps.wired = utils.lib.mkApp { drv = packages.wired; };
-        defaultApp = apps.wired;
+          # `nix run`
+          apps.wired = utils.lib.mkApp {drv = self.packages.${system}.wired;};
+          apps.default = self.apps.${system}.wired;
+          # `defaultApp` deprecated in Nix 2.7
+          defaultApp = self.apps.${system}.default;
 
-        # `nix develop`
-        devShell = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [ rustc cargo gcc clippy rustfmt ];
-          inherit buildInputs;
-        };
-      });
+          # `nix develop`
+          devShells.default = pkgs.mkShell {
+            nativeBuildInputs = with pkgs; [rustc cargo gcc clippy rustfmt];
+            inherit (self.packages.${system}.wired) buildInputs;
+          };
+          # `devShell` deprecated in Nix 2.7
+          devShell = self.devShells.${system}.default;
+        })
+      ));
 }
