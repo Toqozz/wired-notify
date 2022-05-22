@@ -122,6 +122,9 @@ impl NotifyWindow {
                                     // window for now.
                                     // NOTE: you (apparently) can't draw to a window that is not
                                     // visible!  So we need to make sure we set this to true before drawing.
+            // As an alternative to `with_visible(false)`, we can instead spawn the window really far away.
+            // Hopefully nobody has a >100k resolution.
+            .with_position(PhysicalPosition { x: 999_999.0, y: 999_999.0 })
             .with_override_redirect(true)
             .build(el)
             .expect("Couldn't build winit window.");
