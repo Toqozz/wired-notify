@@ -107,9 +107,13 @@ This flake also provides a module for [home-manager](https://github.com/nix-comm
 ```nix
 {
   # ...
-  outputs = { self, home-manager, wired, ... }: {
-    homeConfigurations.alice = home-manager.lib.homeManagerConfiguration {
+  outputs = { self, nixpkgs, home-manager, wired, ... }: {
+    homeConfigurations.alice = let
+      system = "x86_64-linux";
+    in home-manager.lib.homeManagerConfiguration {
       # ...
+      inherit system;
+      pkgs = import nixpkgs { inherit system; overlays = [ wired.overlays.${system} ]; };
       extraModules = [ wired.homeManagerModules.default ];
       configuration = { pkgs, ... }: {
         services.wired = {
