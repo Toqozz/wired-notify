@@ -25,11 +25,22 @@ in {
   config = lib.mkMerge [
     (lib.mkIf cfg.enable {
       home.packages = [cfg.package];
-      # As far as I know, the only "official" way to install systemd units
-      # through home-manager is to define `systemd.user.<unit name>`,
-      # which only allows unit configuration directly from Nix (i.e. you
-      # can't just give it a raw file). So, this just installs the existing service.
-      xdg.dataFile."systemd/user/wired.service".source = "${cfg.package}/usr/lib/systemd/system/wired.service";
+      # Ideally this would just install the service unit already provided in this repo,
+      # but Home Manager doesn't have an idiomatic way to do that as of 2022-05-22
+      systemd.user.services."wired" = {
+        Unit = {
+          Description = "Wired Notification Daemon";
+          PartOf = "graphical-session.target";
+        };
+        Service = {
+          Type = "dbus";
+          BusName = "org.freedesktop.Notifications";
+          ExecStart = "${cfg.package}/bin/wired";
+        };
+        Install = {
+          WantedBy = [ "graphical-session.target" ];
+        };
+      };
     })
     (lib.mkIf (cfg.enable && cfg.config != null) {
       # Ideally, we could generate the config from a Nix expression,
