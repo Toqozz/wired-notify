@@ -103,9 +103,9 @@ The recommended way to start Wired is just to put the following in your autostar
 /path/to/wired &
 ```
 
-There is also a `wired.service` file in the root of the repository if you want to use systemd. Just copy it to `/usr/lib/systemd/user/wired.service` (or your distro equivalent) and run:
+There is also a `wired.service` file in the root of the repository if you want to use systemd. Just copy it to `usr/local/lib/systemd/system` (or your distro equivalent) and run:
 ```
-$ systemd --enable --now --user wired.service
+$ systemctl enable --now --user wired.service
 ```
 
 ## Config
