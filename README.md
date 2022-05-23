@@ -57,26 +57,73 @@ $ yay -S wired-git
 ```
 
 ### Nix (Flakes)
-Wired can be either run directly from the cloned repository:
+Flake support was added to Nix in version 2.4. As of Nix 2.8, you must enable the `nix-command` and `flakes` experimental features.
+
+Wired can be run directly from the repository, using:
 ```sh
-$ git clone https://github.com/Toqozz/wired-notify.git
-$ cd wired-notify
-$ nix run
+nix run 'github:Toqozz/wired-notify'
 ```
-Or be installed as a package.  
-Simply add it to the inputs of your system flake
+
+To install Wired to your user profile:
+```sh
+# note: the systemd service will not be available if installed with this method
+nix profile install 'github:Toqozz/wired-notify'
+```
+
+To use it in another flake:
 ```nix
 {
   inputs = {
-    wired-notify.url = "github:toqozz/wired-notify/master";
+    wired.url = github:Toqozz/wired-notify;
   };
 }
 ```
-And install it as a system-wide package
+
+For example, to install it for all users in NixOS:
 ```nix
-# Add this Line i.e. to your environment.systemPackages
-wired-notify.packages.x86_64-linux.wired
-# Do not forget to pass the wired-notify input to where your environment.systemPackages lies
+{
+  inputs = {
+    nixpkgs.url = github:nixos/nixpkgs/nixpkgs-unstable;
+    wired.url = github:Toqozz/wired-notify;
+  };
+  outputs = { self, nixpkgs, wired }: let
+    std = nixpkgs.lib;
+    system = "x86_64-linux";
+  in {
+    nixosConfigurations.alice = std.nixosSystem {
+      inherit system;
+      modules = [
+        ./configuration.nix
+        {
+          environment.systemPackages = [ wired.packages.${system}.wired ];
+        }
+      ];
+    };
+  };
+}
+```
+
+This flake also provides a module for [home-manager](https://github.com/nix-community/home-manager). To use it in your configuration:
+```nix
+{
+  # ...
+  outputs = { self, nixpkgs, home-manager, wired, ... }: {
+    homeConfigurations.alice = let
+      system = "x86_64-linux";
+    in home-manager.lib.homeManagerConfiguration {
+      # ...
+      inherit system;
+      pkgs = import nixpkgs { inherit system; overlays = [ wired.overlays.${system} ]; };
+      extraModules = [ wired.homeManagerModules.default ];
+      configuration = { pkgs, ... }: {
+        services.wired = {
+          enable = true;
+          config = ./wired.ron;
+        };
+      };
+    };
+  };
+}
 ```
 
 ### NetBSD
