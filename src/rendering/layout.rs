@@ -22,9 +22,9 @@ pub struct LayoutBlock {
     // Lets users have the freedom of deciding when blocks should / shouldn't be rendered.
     // Defaults to always none (always rendered).
     #[serde(default)]
-    pub render_criteria: Vec<RenderCriteria>,
+    pub render_criteria: Vec<LogicalCriteria>,
     #[serde(default)]
-    pub render_anti_criteria: Vec<RenderCriteria>,
+    pub render_anti_criteria: Vec<LogicalCriteria>,
     #[serde(skip)]
     pub children: Vec<LayoutBlock>,
 
@@ -37,12 +37,18 @@ pub struct LayoutBlock {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub enum LogicalCriteria {
+    And(Vec<RenderCriteria>),
+    Or(Vec<RenderCriteria>),
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub enum RenderCriteria {
     Summary,
     Body,
     HintImage,
     AppImage,
-    AppName,
+    AppName(String),
     Progress,
     ActionDefault,
     ActionOther(usize),
@@ -53,7 +59,6 @@ pub struct Hook {
     pub parent_anchor: AnchorPosition,
     pub self_anchor: AnchorPosition,
 }
-
 
 // DrawableLayoutElement is implemented via a macro -- see /wired_derive/lib.rs.
 // @IMPORTANT: DO NOT CACHE POSITIONS IN `predict_rect_and_init`! Real drawing uses a `master_offset`
@@ -75,39 +80,65 @@ pub enum LayoutElement {
 
 impl LayoutBlock {
     pub fn should_draw(&self, notification: &Notification) -> bool {
+        fn criteria_matches(criteria: &RenderCriteria, notification: &Notification) -> bool {
+            match criteria {
+                RenderCriteria::Summary =>          !notification.summary.is_empty(),
+                RenderCriteria::Body =>             !notification.body.is_empty(),
+                RenderCriteria::AppImage =>         !notification.app_image.is_none(),
+                RenderCriteria::HintImage =>        !notification.hint_image.is_none(),
+                RenderCriteria::AppName(name) =>     notification.app_name.eq(name),
+                RenderCriteria::Progress =>         !notification.percentage.is_none(),
+                RenderCriteria::ActionDefault =>    !notification.get_default_action().is_none(),
+                RenderCriteria::ActionOther(i) =>   !notification.get_other_action(*i).is_none(),
+            }
+        }
+
+        fn logic_matches(logical_criteria: &LogicalCriteria, notification: &Notification) -> bool {
+            let mut result;
+            match logical_criteria {
+                LogicalCriteria::And(criterion) => {
+                    // ANDs start as true to coalesce properly.
+                    result = true;
+                    for c in criterion {
+                        result &= criteria_matches(c, notification);
+                    }
+                },
+                LogicalCriteria::Or(criterion) => {
+                    // ORs start as false to coalesce properly.
+                    result = false;
+                    for c in criterion {
+                        result |= criteria_matches(c, notification);
+                    }
+                }
+            }
+
+            result
+        }
+
         // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
-        // optionally allow it.
-        // TODO: there should be some way to cache this and not do it every draw operation.
-        // We can't just do it for the whole notification because the notification can be replaced.
-        let mut should_draw = true;
-        let n = notification;
-        for c in &self.render_criteria {
-            match c {
-                RenderCriteria::Summary => if n.summary.is_empty() { should_draw = false },
-                RenderCriteria::Body => if n.body.is_empty() { should_draw = false },
-                RenderCriteria::AppImage => if n.app_image.is_none() { should_draw = false },
-                RenderCriteria::HintImage => if n.hint_image.is_none() { should_draw = false },
-                RenderCriteria::AppName => if n.app_name.is_empty() { should_draw = false },
-                RenderCriteria::Progress => if n.percentage.is_none() { should_draw = false },
-                RenderCriteria::ActionDefault => if n.get_default_action().is_none() { should_draw = false },
-                RenderCriteria::ActionOther(i) => if n.get_other_action(*i).is_none() { should_draw = false },
+        // optionally allow it (in the case that both render_criterias are empty).
+
+        // We assume that we want empty render criteria to draw, but as soon as a criteria is
+        // present, something must match.
+        let mut render_criteria_matches;
+        if self.render_criteria.is_empty() {
+            render_criteria_matches = true;
+        } else {
+            render_criteria_matches = false;
+            for logic in &self.render_criteria {
+                render_criteria_matches |= logic_matches(logic, notification);
             }
         }
 
-        for c in &self.render_anti_criteria {
-            match c {
-                RenderCriteria::Summary => if !n.summary.is_empty() { should_draw = false },
-                RenderCriteria::Body => if !n.body.is_empty() { should_draw = false },
-                RenderCriteria::AppImage => if !n.app_image.is_none() { should_draw = false },
-                RenderCriteria::HintImage => if !n.hint_image.is_none() { should_draw = false },
-                RenderCriteria::AppName => if !n.app_name.is_empty() { should_draw = false },
-                RenderCriteria::Progress => if !n.percentage.is_none() { should_draw = false },
-                RenderCriteria::ActionDefault => if !n.get_default_action().is_none() { should_draw = false },
-                RenderCriteria::ActionOther(i) => if !n.get_other_action(*i).is_none() { should_draw = false },
-            }
+        let mut render_anti_criteria_matches = false;
+        for logic in &self.render_anti_criteria {
+            render_anti_criteria_matches |= logic_matches(logic, notification);
         }
 
-        should_draw
+        // For `render_criteria`, we *do* want to draw if any of the criteria match.
+        // For `render_anti_criteria`, we *don't* want to draw if any of the criteria match.
+        // `render_anti_criteria` takes priority.
+        render_criteria_matches && !render_anti_criteria_matches
     }
 
     pub fn find_anchor_pos(hook: &Hook, offset: &Vec2, parent_rect: &Rect, self_rect: &Rect) -> Vec2 {
