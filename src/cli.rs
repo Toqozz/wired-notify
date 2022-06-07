@@ -116,7 +116,7 @@ pub fn handle_socket_message(
             Err(_) => continue,
         };
 
-        println!("Recived socket message: {}", line);
+        println!("Recieved socket message: {}", line);
         if let Some((command, args)) = line.split_once(":") {
             match command {
                 "drop" => {
