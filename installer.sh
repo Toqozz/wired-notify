@@ -99,8 +99,3 @@ function connectionCheck(){
 
 # Call the first function, to initialize the compilation of Wired-Notify
 connectionCheck
-
-
-
-
- 
