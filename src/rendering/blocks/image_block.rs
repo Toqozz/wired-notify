@@ -7,7 +7,7 @@ use crate::rendering::layout::{DrawableLayoutElement, Hook, LayoutBlock};
 use crate::rendering::window::NotifyWindow;
 use cairo::Format;
 use cairo::ImageSurface;
-use image::FilterType;
+use image::imageops::FilterType;
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum ImageType {
@@ -29,7 +29,7 @@ pub enum FilterMode {
 impl FilterMode {
     // Convert our filter_mode to `FilterType`.  We need our own type because `FilterType`
     // is not serializable.
-    pub fn to_image_mode(&self) -> image::FilterType {
+    pub fn to_image_mode(&self) -> FilterType {
         match self {
             FilterMode::Nearest => FilterType::Nearest,
             FilterMode::Triangle => FilterType::Triangle,

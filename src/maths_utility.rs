@@ -746,7 +746,8 @@ pub fn svg_to_pixels(data: &Vec<u8>, width: u32, height: u32) -> Option<Vec<u8>>
 
     let width = pixmap.width();
     let height = pixmap.height();
-    let pixels = rgba_to_bgra(pixmap.take(), width, height);
+    let mut pixels = pixmap.take();
+    rgba_to_bgra(&mut pixels, width, height);
 
     Some(pixels)
 
@@ -754,7 +755,7 @@ pub fn svg_to_pixels(data: &Vec<u8>, width: u32, height: u32) -> Option<Vec<u8>>
     //Some(image::DynamicImage::ImageRgba8(img))
 }
 
-pub fn rgba_to_bgra(mut pixels: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
+pub fn rgba_to_bgra(pixels: &mut Vec<u8>, width: u32, height: u32) {
     let mut offset = 0;
     for _y in 0..height {
         for _x in 0..width {
@@ -769,8 +770,6 @@ pub fn rgba_to_bgra(mut pixels: Vec<u8>, width: u32, height: u32) -> Vec<u8> {
             offset += 4;
         }
     }
-
-    pixels
 }
 
 // For serde defaults.  Annoying that we need a function for this.
