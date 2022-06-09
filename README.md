@@ -28,6 +28,12 @@ tools.
 ## Showcase
 [Check out what other people have made with Wired!](https://github.com/Toqozz/wired-notify/issues/63)
 
+## Config
+See the [Config](https://github.com/Toqozz/wired-notify/wiki/Config) wiki page for configuration settings.
+
+## Wiki
+See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else you need to know about using Wired.
+
 ## Making your own elements
 Making your own layout elements is designed to be as easy as possible.
 Anybody who knows basic Rust should be able to make a layout element.
@@ -154,9 +160,3 @@ There is also a `wired.service` file in the root of the repository if you want t
 ```
 $ systemctl enable --now --user wired.service
 ```
-
-## Config
-See the [Config](https://github.com/Toqozz/wired-notify/wiki/Config) wiki page for configuration settings.
-
-## Wiki
-See [the wiki](https://github.com/Toqozz/wired-notify/wiki) for everything else you need to know about using Wired.
