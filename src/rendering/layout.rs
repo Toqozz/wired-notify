@@ -21,10 +21,12 @@ pub struct LayoutBlock {
     // Used for deciding when a block should or shouldn't be rendered.
     // Lets users have the freedom of deciding when blocks should / shouldn't be rendered.
     // Defaults to always none (always rendered).
+    //#[serde(default)]
+    //#[deserialize_with(parse_criteria)]
     #[serde(default)]
-    pub render_criteria: Vec<LogicalCriteria>,
+    pub render_criteria: Vec<RenderCriteria>,
     #[serde(default)]
-    pub render_anti_criteria: Vec<LogicalCriteria>,
+    pub render_anti_criteria: Vec<RenderCriteria>,
     #[serde(skip)]
     pub children: Vec<LayoutBlock>,
 
@@ -37,12 +39,6 @@ pub struct LayoutBlock {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub enum LogicalCriteria {
-    And(Vec<RenderCriteria>),
-    Or(Vec<RenderCriteria>),
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub enum RenderCriteria {
     Summary,
     Body,
@@ -52,6 +48,14 @@ pub enum RenderCriteria {
     Progress,
     ActionDefault,
     ActionOther(usize),
+
+    And(Vec<RenderCriteria>),
+    Or(Vec<RenderCriteria>),
+}
+
+enum Logic {
+    And,
+    Or
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -90,20 +94,23 @@ impl LayoutBlock {
                 RenderCriteria::Progress =>         !notification.percentage.is_none(),
                 RenderCriteria::ActionDefault =>    !notification.get_default_action().is_none(),
                 RenderCriteria::ActionOther(i) =>   !notification.get_other_action(*i).is_none(),
+
+                RenderCriteria::And(criterion) =>   logic_matches(Logic::And, criterion, notification),
+                RenderCriteria::Or(criterion) =>    logic_matches(Logic::Or, criterion, notification),
             }
         }
 
-        fn logic_matches(logical_criteria: &LogicalCriteria, notification: &Notification) -> bool {
+        fn logic_matches(logic: Logic, criterion: &Vec<RenderCriteria>, notification: &Notification) -> bool {
             let mut result;
-            match logical_criteria {
-                LogicalCriteria::And(criterion) => {
+            match logic {
+                Logic::And => {
                     // ANDs start as true to coalesce properly.
                     result = true;
                     for c in criterion {
                         result &= criteria_matches(c, notification);
                     }
                 },
-                LogicalCriteria::Or(criterion) => {
+                Logic::Or => {
                     // ORs start as false to coalesce properly.
                     result = false;
                     for c in criterion {
@@ -125,14 +132,14 @@ impl LayoutBlock {
             render_criteria_matches = true;
         } else {
             render_criteria_matches = false;
-            for logic in &self.render_criteria {
-                render_criteria_matches |= logic_matches(logic, notification);
+            for criteria in &self.render_criteria {
+                render_criteria_matches |= criteria_matches(criteria, notification);
             }
         }
 
         let mut render_anti_criteria_matches = false;
-        for logic in &self.render_anti_criteria {
-            render_anti_criteria_matches |= logic_matches(logic, notification);
+        for criteria in &self.render_anti_criteria {
+            render_anti_criteria_matches |= criteria_matches(criteria, notification);
         }
 
         // For `render_criteria`, we *do* want to draw if any of the criteria match.
