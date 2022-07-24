@@ -134,7 +134,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
                     let filter_type = self.filter_mode.to_image_mode();
                     let px = img
                         .resize_exact(self.scale_width as u32, self.scale_height as u32, filter_type)
-                        .to_bgra() // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
+                        .to_bgra8() // Cairo reads pixels back-to-front, so ARgb32 is actually BgrA32.
                         .into_raw();
                     Some(px)
                 }
