@@ -8,7 +8,7 @@ use crate::config::{Padding, Color, Config};
 use crate::rendering::window::NotifyWindow;
 use crate::bus::dbus::Notification;
 use crate::rendering::layout::{LayoutBlock, DrawableLayoutElement, Hook};
-use crate::rendering::text::EllipsizeMode;
+use crate::rendering::text::{EllipsizeMode, AlignMode};
 
 
 #[derive(Debug, Deserialize, Clone)]
@@ -73,11 +73,11 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         // We could cache this rect, but haven't yet.
         // We need to set some ellipsize mode, or the text size will be forced larger despite our
         // max width/height.
-        window.text.set_text(&self.real_text, &self.font, width.max, 0, &EllipsizeMode::Middle);
+        window.text.set_text(&self.real_text, &self.font, width.max, 0, &EllipsizeMode::Middle, &AlignMode::Left);
         let mut rect = window.text.get_sized_padded_rect(&self.padding, width.min, 0);
 
         // Set the text to the real (scrolling) string.
-        window.text.set_text(&self.real_text, &self.font, -1, 0, &EllipsizeMode::NoEllipsize);
+        window.text.set_text(&self.real_text, &self.font, -1, 0, &EllipsizeMode::NoEllipsize, &AlignMode::Left);
 
         let mut pos = LayoutBlock::find_anchor_pos(hook, offset, parent_rect, &rect);
         pos.x += self.padding.left;
@@ -130,14 +130,14 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         self.real_width = self.get_width(&window.notification).clone();
 
         // Max height of 0 = one line of text.
-        window.text.set_text(&text, &self.font, self.real_width.max, 0, &EllipsizeMode::Middle);
+        window.text.set_text(&text, &self.font, self.real_width.max, 0, &EllipsizeMode::Middle, &AlignMode::Left);
 
         // `rect`      -- Padded rect, for calculating bounding box.
         // `clip_rect` -- Unpadded rect, used for clipping.
         // `text_rect` -- Real text rect, with infinite length.
         let mut rect = window.text.get_sized_padded_rect(&self.padding, self.real_width.min, 0);
         let clip_rect = window.text.get_sized_padded_rect(&Padding::new(0.0, 0.0, 0.0, 0.0), 0, 0);
-        window.text.set_text(&text, &self.font, -1, 0, &EllipsizeMode::NoEllipsize);
+        window.text.set_text(&text, &self.font, -1, 0, &EllipsizeMode::NoEllipsize, &AlignMode::Left);
         let text_rect = window.text.get_sized_padded_rect(&self.padding, 0, 0);
 
         if text_rect.width() > self.real_width.max as f64 {

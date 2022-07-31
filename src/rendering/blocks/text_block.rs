@@ -7,6 +7,7 @@ use crate::rendering::{
     window::NotifyWindow,
     layout::{DrawableLayoutElement, LayoutBlock, Hook},
     text::EllipsizeMode,
+    text::AlignMode,
 };
 use crate::maths_utility;
 
@@ -32,6 +33,8 @@ pub struct TextBlockParameters {
     pub dimensions_image_both: Option<Dimensions>,
     #[serde(default)]
     pub ellipsize: EllipsizeMode,
+    #[serde(default)]
+    pub align: AlignMode,
 
     // -- Runtime fields
     #[serde(skip)]
@@ -59,7 +62,7 @@ impl DrawableLayoutElement for TextBlockParameters {
         let dimensions = self.get_dimensions(&window.notification);
 
         window.text
-            .set_text(&self.real_text, &self.font, dimensions.width.max, dimensions.height.max, &self.ellipsize);
+            .set_text(&self.real_text, &self.font, dimensions.width.max, dimensions.height.max, &self.ellipsize, &self.align);
         let mut rect =
             window.text.get_sized_padded_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
@@ -82,7 +85,7 @@ impl DrawableLayoutElement for TextBlockParameters {
         let text = maths_utility::format_notification_string(&self.text, &window.notification);
 
         let dimensions = self.get_dimensions(&window.notification);
-        window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max, &self.ellipsize);
+        window.text.set_text(&text, &self.font, dimensions.width.max, dimensions.height.max, &self.ellipsize, &self.align);
         let mut rect = window.text.get_sized_padded_rect(&self.padding, dimensions.width.min, dimensions.height.min);
 
         self.real_text = text;

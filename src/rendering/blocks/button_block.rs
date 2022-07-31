@@ -11,6 +11,7 @@ use crate::maths_utility::{MinMax, Rect, Vec2};
 use crate::rendering::{
     layout::{DrawableLayoutElement, Hook, LayoutBlock},
     text::EllipsizeMode,
+    text::AlignMode,
     window::NotifyWindow,
 };
 
@@ -45,6 +46,8 @@ pub struct ButtonBlockParameters {
     pub background_color_hovered: Option<Color>,
     #[serde(default)]
     pub ellipsize: EllipsizeMode,
+    #[serde(default)]
+    pub align: AlignMode,
 
     // -- Runtime fields
     #[serde(skip)]
@@ -95,6 +98,7 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             self.dimensions.width.max,
             self.dimensions.height.max,
             &self.ellipsize,
+            &self.align,
         );
         let mut rect = window.text.get_sized_padded_rect(
             &self.padding,
@@ -163,6 +167,7 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             self.dimensions.width.max,
             self.dimensions.height.max,
             &self.ellipsize,
+            &self.align,
         );
         let mut rect = window.text.get_sized_padded_rect(
             &self.padding,

@@ -31,6 +31,28 @@ impl EllipsizeMode {
     }
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub enum AlignMode {
+    Left,
+    Center,
+    Right,
+}
+impl Default for AlignMode {
+    fn default() -> Self {
+        AlignMode::Left
+    }
+}
+
+impl AlignMode {
+    pub fn to_pango_mode(&self) -> pango::Alignment {
+        match self {
+            AlignMode::Left => pango::Alignment::Left,
+            AlignMode::Center => pango::Alignment::Center,
+            AlignMode::Right => pango::Alignment::Right,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TextRenderer {
     //config: &'a Config,
@@ -50,7 +72,7 @@ impl TextRenderer {
 
     // Sets the current text of the renderer, applying markup and ellipsizing according to
     // ellipsize mode and `max_width` / `max_height`.
-    pub fn set_text(&self, text: &str, font: &str, max_width: i32, max_height: i32, ellipsize: &EllipsizeMode) {
+    pub fn set_text(&self, text: &str, font: &str, max_width: i32, max_height: i32, ellipsize: &EllipsizeMode, alignment: &AlignMode) {
         let font_dsc = FontDescription::from_string(font);
         self.pctx.set_font_description(&font_dsc);
 
@@ -60,6 +82,7 @@ impl TextRenderer {
         let height = if max_height < 0 { -1 } else { pango::SCALE * max_height };
 
         self.layout.set_ellipsize(ellipsize.to_pango_mode());
+        self.layout.set_alignment(alignment.to_pango_mode());
         self.layout.set_markup(text);
         self.layout.set_height(height);
         self.layout.set_width(width);
