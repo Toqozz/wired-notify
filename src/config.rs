@@ -110,8 +110,13 @@ pub struct Config {
 
     // Optional Properties
 
-    // The threshold before pausing notifications due to being idle.  0 = ignore.
+    // The threshold before pausing notifications due to being idle.  Unspecified = ignore.
     pub idle_threshold: Option<u64>,
+    pub notifications_spawn_paused: bool,
+    // When notifications have been paused due to idle threshold, should we unpause when we get
+    // input or require the user to manually dismiss them?
+    #[serde(default)]
+    pub unpause_on_input: bool,
 
     // Enable/disable notification replace functionality.  I don't like how some apps do it.
     #[serde(default = "maths_utility::val_true")]

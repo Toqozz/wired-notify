@@ -159,6 +159,22 @@ impl NotifyWindow {
         let text = TextRenderer::new(&context);
         let fuse = notification.timeout;
 
+        // If notifications should spawn paused, we check against threshold and against
+        // `unpause_on_input`.
+        // The reason we don't just pause always and let the other system take care of it
+        // is because we don't want notifications to do a pause flicker when we're actually
+        // active.
+        let mut update_mode = UpdateModes::all();
+        if let Some(threshold) = cfg.idle_threshold {
+            if manager.is_idle_for(threshold) {
+                update_mode = UpdateModes::DRAW;
+            }
+        }
+        if cfg.notifications_spawn_paused &&
+            !(!manager.is_idle_1s() && cfg.unpause_on_input) {
+            update_mode = UpdateModes::DRAW;
+        }
+
         let mut window = Self {
             context,
             surface,
@@ -169,7 +185,7 @@ impl NotifyWindow {
             marked_for_destroy: false,
             master_offset: Vec2::default(),
             fuse,
-            update_mode: UpdateModes::all(),
+            update_mode,
             dirty: true, // New windows are dirty -- no drawing has happened yet.
             creation_timestamp: Local::now(),
             last_mouse_pos: Vec2::new(0.0, 0.0),

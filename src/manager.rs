@@ -32,6 +32,8 @@ pub struct NotifyWindowManager {
 
     // For "expensive" updates that don't have to happen every frame.
     slow_update_timer: f32,
+    // The idle timer last frame, from xss.
+    last_idle_time: u64,
     active_monitor: Option<MonitorHandle>,
 }
 
@@ -61,6 +63,7 @@ impl NotifyWindowManager {
             dirty: false,
 
             slow_update_timer: 0.0,
+            last_idle_time: 0,
             active_monitor,
         }
     }
@@ -140,15 +143,31 @@ impl NotifyWindowManager {
                 self.dirty = true;
             }
 
-            if let Some(threshold) = Config::get().idle_threshold {
+            let cfg = Config::get();
+            if let Some(threshold) = cfg.idle_threshold {
                 match maths_utility::query_screensaver_info(&self.base_window) {
                     Ok(info) => {
+                        // 1s to be considered idle.
+                        let idle_last_frame = self.is_idle_1s();
+                        let is_idle = info.idle / 1000 >= 1;
+
+                        // If we "woke up" this frame.
+                        if cfg.unpause_on_input && idle_last_frame && !is_idle {
+                            self.layout_windows
+                                .values_mut()
+                                .flatten()
+                                .for_each(|w| w.update_mode = UpdateModes::all());
+                        }
+
+                        // Just pause them every "frame", it's ok.
                         if info.idle / 1000 >= threshold {
                             self.layout_windows
                                 .values_mut()
                                 .flatten()
                                 .for_each(|w| w.update_mode = UpdateModes::DRAW);
                         }
+
+                        self.last_idle_time = info.idle;
                     },
                     Err(e) => eprintln!("{}", e),
                 }
@@ -503,6 +522,15 @@ impl NotifyWindowManager {
 
     pub fn has_windows(&self) -> bool {
         self.layout_windows.values().any(|m| m.len() > 0)
+    }
+
+    pub fn is_idle_1s(&self) -> bool {
+        // >=1s considered idle.
+        self.last_idle_time / 1000 >= 1
+    }
+
+    pub fn is_idle_for(&self, threshold: u64) -> bool {
+        self.last_idle_time / 1000 >= threshold
     }
 }
 

@@ -16,9 +16,18 @@
     // Wired will pause notifications if you are idle (no mouse or keyboard input) for longer than
     // `idle_threshold` seconds.
     // Note that notifications will not be automatically unpaused on wake, and will need to be manually
-    // cleared.  Let me know if you think this should be different.
+    // cleared, unless `unpause_on_input` is set to true.
+    // Also note that no distinction is made between manually paused and idle paused notifications.
     // If `idle_threshold` is not specified, the behavior will be disabled entirely.
     //idle_threshold: 3600,
+
+    // Notifications will spawn paused, and have to be manually unpaused or cleared by the user,
+    // unless `unpause_on_input` is also set.
+    //notifications_spawn_paused: false,
+
+    // Unpause notifications when we receive any input after being idle for longer than 1 second.
+    // Note that no distinction is made between manually paused notifications and idle paused/spawned notifications.
+    //unpause_on_input: false,
 
     // Enable/disable replacement functionality.
     // If this is disabled, replacement requests will just send a new notification.
