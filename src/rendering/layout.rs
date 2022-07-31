@@ -166,7 +166,7 @@ impl LayoutBlock {
     }
 
     // Call draw on each block in tree.
-    pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
+    pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect, parent_is_root: bool) -> Rect {
         // This is so dirty but OK.  Eventually it would be better to just build a buffer of things
         // to draw instead of recursing here.
         // If this is a root node, (the first one) we want to surround all following drawing
@@ -178,13 +178,35 @@ impl LayoutBlock {
             window.context.push_group();
         }
 
+        let is_root = self.parent.is_empty();
+
+        // When we read the config and predict the rect size for the window, the root size/anchors that
+        // we're using are different from the ones produced at draw time.
+        // E.g. when we have a min_window_width/height of 1.0/1.0, the root window basically acts
+        // as a point when we're predicting the layout, so TR,BL,BR, and TR will all be the same.
+        // But once we figure out the root size, later we will get a totally different answer for
+        // those anchors, because we pass in the predicted size.
+        // We still want people to be able to anchor in different positions on the root block
+        // because we support setting min size to whatever you want, in which case manual layout
+        // would be perfectly fine.
+        // @TODO: This isn't really the place to be resolving this issue.  It should probably
+        // happen earlier instead of last-minute, or we should have a better distinction between
+        // anchoring to a root block and anchoring to a child block.
+        let cfg = Config::get();
+        let fixed = &Rect::new(parent_rect.x(), parent_rect.y(), cfg.min_window_width.into(), cfg.min_window_height.into());
+        let parent_rect_fixed = if parent_is_root {
+            fixed
+        } else {
+            parent_rect
+        };
+
         // This block is just to separate things conceptually and hopefully make it easier to see
         // the distinction between the root push group and everything else...  Ideally this won't
         // be kept around because we're going to move away from something recursive eventually...
         // right?
         let (rect, acc_rect) = {
             let rect = if self.should_draw(&window.notification) {
-                let rect = self.params.draw(&self.hook, &self.offset, parent_rect, window)
+                let rect = self.params.draw(&self.hook, &self.offset, parent_rect_fixed, window)
                     .expect("Invalid cairo surface state.");
                 rect
             } else {
@@ -192,7 +214,7 @@ impl LayoutBlock {
                 // empty rect.
                 // We still need to set the position correctly, because other layout elements may be
                 // depending on its position (e.g. in the center), even if it may not be being rendered.
-                let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
+                let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect_fixed, &Rect::EMPTY);
                 Rect::new(pos.x, pos.y, 0.0, 0.0)
             };
             let mut acc_rect = accum_rect.union(&rect);
@@ -207,7 +229,7 @@ impl LayoutBlock {
             }
 
             for child in &mut self.children {
-                acc_rect = child.draw_tree(window, &rect, acc_rect);
+                acc_rect = child.draw_tree(window, &rect, acc_rect, is_root);
             }
 
             (rect, acc_rect)

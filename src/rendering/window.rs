@@ -288,7 +288,7 @@ impl NotifyWindow {
         // canvas.
         inner_rect.set_xy(self.master_offset.x, self.master_offset.y);
         let mut layout = self.layout_take();
-        layout.draw_tree(self, &inner_rect, Rect::empty());
+        layout.draw_tree(self, &inner_rect, Rect::empty(), false);  // The criteria is parent_is_root, not is_root.  Bad but yeah.
         self.layout = Some(layout);
     }
 

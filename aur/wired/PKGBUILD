@@ -2,7 +2,7 @@
 
 pkgname=wired
 _pkgname=wired-notify
-pkgver=0.10.1
+pkgver=0.10.2
 pkgrel=1
 pkgdesc="Lightweight notification daemon with highly customizable layout blocks, written in Rust."
 arch=('x86_64' 'i686')
@@ -13,7 +13,8 @@ makedepends=('rust' 'cargo')
 provides=('wired')
 conflicts=('wired')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/Toqozz/wired-notify/archive/${pkgver}.tar.gz")
-sha256sums=('3a7527da4e1fd571759156671b4577018706d0c86d9d15e9070c33ca9168999d')
+sha256sums=('7e1c522451887af67f76ddc3022ef26be918e01c44cec10c09d39cfa04b9785e')
+
 
 build() {
     cd  "${srcdir}/${_pkgname}-${pkgver}"
