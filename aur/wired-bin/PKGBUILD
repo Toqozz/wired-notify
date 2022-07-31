@@ -1,0 +1,24 @@
+# Maintainer: Toqoz <https://github.com/Toqozz/wired-notify>
+
+pkgname=wired-bin
+pkgver=0.10.3
+pkgrel=1
+pkgdesc="Lightweight notification daemon with highly customizable layout blocks, written in Rust."
+arch=('x86_64')
+url="https://github.com/Toqozz/wired-notify"
+license=('MIT')
+depends=('dbus' 'cairo' 'pango' 'glib2' 'libx11' 'libxss')
+provides=('wired')
+conflicts=('wired')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/Toqozz/wired-notify/releases/download/${pkgver}/wired_${pkgver}_x86_64.tar.gz")
+sha256sums=('3de75596b13ba3950ddafbb95b8575a38664b19ce9a6592dda59d458c13e4834')
+
+package() {
+    cd "${srcdir}"
+
+    # Install binary.
+    install -Dm 755 "bin/wired" "${pkgdir}/usr/bin/wired"
+
+    # Install MIT license
+    install -Dm 644 LICENSE "${pkgdir}/usr/share/licenses/wired/LICENSE-MIT"
+}
