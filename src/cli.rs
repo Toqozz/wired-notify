@@ -28,6 +28,9 @@ pub struct CLIListener {
     pub listener: UnixListener,
 }
 
+static ON_VALS: [&str; 6] = ["on", "true", "1", "enable", "activate", "zzz"];
+static OFF_VALS: [&str; 5] = ["off", "false", "0", "disable", "deactivate"];
+
 impl CLIListener {
     pub fn init() -> Result<Self, CLIError> {
         // Socket, for listening to CLI calls to ourselves.
@@ -148,6 +151,14 @@ pub fn handle_socket_message(
                         }
                     }
                 }
+                "dnd" => {
+
+                    if ON_VALS.contains(&args) {
+                        manager.set_dnd(true);
+                    } else if OFF_VALS.contains(&args) {
+                        manager.set_dnd(false);
+                    }
+                }
                 _ => return Err(CLIError::InvalidCommand),
             }
         } else {
@@ -211,6 +222,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     // Initialization
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
+    opts.optopt("z", "dnd", "enable/disable do not disturb mode", "[on|off]");
     opts.optopt("d", "drop", "drop/close a notification", "[latest|all|IDX]");
     opts.optopt(
         "a",
@@ -242,7 +254,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     }
 
     // All these options use a socket.
-    if matches.opt_present("d") || matches.opt_present("a") || matches.opt_present("s") {
+    if matches.opt_present("d") || matches.opt_present("a") || matches.opt_present("s") || matches.opt_present("z") {
         let mut sock = match UnixStream::connect(SOCKET_PATH) {
             Ok(s) => s,
             Err(e) => {
@@ -274,6 +286,17 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
             validate_identifier(notification, false)?;
             validate_action(action)?;
             sock.write(format!("action:{},{}", notification, action).as_bytes())
+                .map_err(|e| e.to_string())?;
+        }
+
+        if let Some(on_off) = matches.opt_str("z") {
+            if !(ON_VALS.contains(&on_off.as_str()) || OFF_VALS.contains(&on_off.as_str())) {
+                return Err("The DND flag takes a bool argument, but I didn't recognize any.\n\
+                        Allowed values are: on|off true|false 1|0 enable|disable"
+                    .to_owned());
+            }
+
+            sock.write(format!("dnd:{}", on_off).as_bytes())
                 .map_err(|e| e.to_string())?;
         }
 

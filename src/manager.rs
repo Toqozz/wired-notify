@@ -30,6 +30,8 @@ pub struct NotifyWindowManager {
     pub history: VecDeque<Notification>,
     pub dirty: bool,
 
+    // Do not disturb.
+    dnd: bool,
     // For "expensive" updates that don't have to happen every frame.
     slow_update_timer: f32,
     // The idle timer last frame, from xss.
@@ -62,6 +64,7 @@ impl NotifyWindowManager {
             history: VecDeque::with_capacity(Config::get().history_length),
             dirty: false,
 
+            dnd: false,
             slow_update_timer: 0.0,
             last_idle_time: 0,
             active_monitor,
@@ -97,7 +100,12 @@ impl NotifyWindowManager {
     pub fn replace_or_spawn(&mut self, notification: Notification, el: &EventLoopWindowTarget<()>) {
         let cfg = Config::get();
         if cfg.debug {
-            dbg!(&notification);
+            dbg!(self.dnd, &notification);
+        }
+
+        // Right now we just book it if dnd is enabled.
+        if self.dnd {
+            return;
         }
 
         // Find any windows that have the same id, or the same app name and tag.
@@ -531,6 +539,10 @@ impl NotifyWindowManager {
 
     pub fn is_idle_for(&self, threshold: u64) -> bool {
         self.last_idle_time / 1000 >= threshold
+    }
+
+    pub fn set_dnd(&mut self, val: bool) {
+        self.dnd = val;
     }
 }
 
