@@ -112,6 +112,7 @@ pub struct Config {
 
     // The threshold before pausing notifications due to being idle.  Unspecified = ignore.
     pub idle_threshold: Option<u64>,
+    #[serde(default)]
     pub notifications_spawn_paused: bool,
     // When notifications have been paused due to idle threshold, should we unpause when we get
     // input or require the user to manually dismiss them?
