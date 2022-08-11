@@ -545,11 +545,11 @@ impl NotifyWindowManager {
 fn get_active_monitor(base_window: &winit::window::Window) -> Option<MonitorHandle> {
     let cfg = Config::get();
     if cfg.is_auto_active_monitor {
- match cfg.focus_follows {
+        match cfg.focus_follows {
             FollowMode::Mouse => maths_utility::get_active_monitor_mouse(&base_window),
             FollowMode::Window => maths_utility::get_active_monitor_keyboard(&base_window),
         }
-  } else {
+    } else {
         None
     }
 }
