@@ -136,11 +136,17 @@ pub fn init_dbus_thread() -> (JoinHandle<()>, Receiver<Message>) {
         RequestNameReply::InQueue => {
             println!("In queue for notification bus name -- is another notification daemon running?")
         }
-        _ => {}
-        //RequestNameReply::PrimaryOwner => {}, // this happens if there are no other notification daemons.
-        // we should get the NameAcquired signal shortly.
-        //RequestNameReply::Exists => {}  // should never happen, since `do_not_queue` is false.
+        RequestNameReply::PrimaryOwner => {
+            // noop:
+            // this happens if there are no other notification daemons.
+            // we should get the NameAcquired signal shortly.
+        }
+        RequestNameReply::Exists => {
+            // noop:
+            // should never happen, since `do_not_queue` is false.
+        }
         //RequestNameReply::AlreadyOwner => {}
+        _ => {}
     };
 
     let match_rule = MatchRule::new()
