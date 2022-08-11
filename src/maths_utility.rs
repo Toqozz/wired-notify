@@ -590,7 +590,7 @@ pub fn query_screensaver_info(base_window: &Window) -> Result<XScreenSaverInfo, 
     }
 }
 
-pub fn get_mouse_pos(base_window: &Window) -> (i32, i32) {
+fn get_mouse_pos(base_window: &Window) -> (i32, i32) {
     // Christ this feels expensive, but it's probably fine.
     let display = base_window.xlib_display().unwrap();
 
@@ -641,7 +641,7 @@ pub fn get_active_monitor_mouse(base_window: &Window) -> Option<MonitorHandle> {
     None
 }
 
-pub fn get_active_window_rect(base_window: &Window) -> Option<Rect> {
+fn get_active_window_rect(base_window: &Window) -> Option<Rect> {
     let display = base_window.xlib_display().unwrap();
     let mut focus_win: x11::xlib::Window = 0;
 

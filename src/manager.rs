@@ -558,7 +558,7 @@ fn get_active_monitor(base_window: &winit::window::Window) -> Option<MonitorHand
 // The root block is handled differently.
 // If the root block doesn't meet criteria, then don't draw at all.
 // If the root block does meet criteria, but no child blocks do, then don't draw.
-pub fn notification_meets_layout_criteria(root: &LayoutBlock, notification: &Notification) -> bool {
+fn notification_meets_layout_criteria(root: &LayoutBlock, notification: &Notification) -> bool {
     // Root block handled differently to be more intuitive.
     if !root.should_draw(notification) {
         return false;
