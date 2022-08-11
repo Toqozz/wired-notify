@@ -1,6 +1,6 @@
+use dbus::channel::Sender;
 use dbus::message::SignalArgs;
 use dbus::strings::Path;
-use dbus::channel::Sender;
 use serde::Deserialize;
 
 use crate::bus;
@@ -10,8 +10,8 @@ use crate::maths_utility;
 use crate::maths_utility::{MinMax, Rect, Vec2};
 use crate::rendering::{
     layout::{DrawableLayoutElement, Hook, LayoutBlock},
-    text::EllipsizeMode,
     text::AlignMode,
+    text::EllipsizeMode,
     window::NotifyWindow,
 };
 
@@ -86,7 +86,13 @@ impl ButtonBlockParameters {
 
 // Much of this is the same as TextBlock, see there for documentation.
 impl DrawableLayoutElement for ButtonBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
+    fn draw(
+        &self,
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        window: &NotifyWindow,
+    ) -> Result<Rect, cairo::Error> {
         let text_col = self.text_color();
         let border_col = self.border_color();
         let background_col = self.background_color();

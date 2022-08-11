@@ -1,4 +1,4 @@
-use std::io::{self, Write, BufRead, BufReader, ErrorKind};
+use std::io::{self, BufRead, BufReader, ErrorKind, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::panic::panic_any;
 use std::path::Path;
@@ -55,21 +55,15 @@ impl CLIListener {
         Ok(CLIListener { listener })
     }
 
-    pub fn process_messages(
-        &self,
-        mut manager: &mut NotifyWindowManager,
-        el: &EventLoopWindowTarget<()>
-    ) {
+    pub fn process_messages(&self, mut manager: &mut NotifyWindowManager, el: &EventLoopWindowTarget<()>) {
         // Since we're non-blocking, mostly this is just std::io::ErrorKind::WouldBlock.
         // For other errors, we should probably inform users to aide debugging.
         // I don't love the idea of spamming stderr here, however.
         match self.listener.accept() {
-            Ok((socket, _addr)) => {
-                match handle_socket_message(&mut manager, el, socket) {
-                    Ok(_) => (),
-                    Err(e) => eprintln!("Error while handling socket message: {:?}", e),
-                }
-            }
+            Ok((socket, _addr)) => match handle_socket_message(&mut manager, el, socket) {
+                Ok(_) => (),
+                Err(e) => eprintln!("Error while handling socket message: {:?}", e),
+            },
             Err(e) => {
                 if e.kind() != ErrorKind::WouldBlock {
                     eprintln!("{}", e);
@@ -82,10 +76,7 @@ impl CLIListener {
 // Socket stuff:
 fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, CLIError> {
     if arg == "latest" {
-        let count = manager.layout_windows
-            .values()
-            .flatten()
-            .count();
+        let count = manager.layout_windows.values().flatten().count();
 
         if count > 0 {
             manager
@@ -101,9 +92,13 @@ fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, C
             Err(CLIError::Parse("ID is not of type u32."))
         }
     } else if let Ok(idx) = arg.parse::<usize>() {
-        manager.find_window_ordered(idx).ok_or(CLIError::NotificationNotFound)
+        manager
+            .find_window_ordered(idx)
+            .ok_or(CLIError::NotificationNotFound)
     } else {
-        Err(CLIError::Parse("Value must be one of latest, id<u32>, or <usize>."))
+        Err(CLIError::Parse(
+            "Value must be one of latest, id<u32>, or <usize>.",
+        ))
     }
 }
 
@@ -152,7 +147,6 @@ pub fn handle_socket_message(
                     }
                 }
                 "dnd" => {
-
                     if ON_VALS.contains(&args) {
                         manager.set_dnd(true);
                     } else if OFF_VALS.contains(&args) {
@@ -173,11 +167,13 @@ pub fn handle_socket_message(
 fn print_usage(opts: Options) {
     print!(
         "{}",
-        opts.usage("Usage:\twired [options]\n\t\
+        opts.usage(
+            "Usage:\twired [options]\n\t\
                             IDX refers to the Nth most recent notification, \
                             unless it is prefixed\n\tby 'id', in which case it \
                             refers to a notification via its ID.\n\t\
-                            E.g.: `wired --drop 0` vs `wired --drop id2589`")
+                            E.g.: `wired --drop 0` vs `wired --drop id2589`"
+        )
     );
 }
 
@@ -254,7 +250,11 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     }
 
     // All these options use a socket.
-    if matches.opt_present("d") || matches.opt_present("a") || matches.opt_present("s") || matches.opt_present("z") {
+    if matches.opt_present("d")
+        || matches.opt_present("a")
+        || matches.opt_present("s")
+        || matches.opt_present("z")
+    {
         let mut sock = match UnixStream::connect(SOCKET_PATH) {
             Ok(s) => s,
             Err(e) => {
@@ -291,9 +291,11 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
 
         if let Some(on_off) = matches.opt_str("z") {
             if !(ON_VALS.contains(&on_off.as_str()) || OFF_VALS.contains(&on_off.as_str())) {
-                return Err("The DND flag takes a bool argument, but I didn't recognize any.\n\
+                return Err(
+                    "The DND flag takes a bool argument, but I didn't recognize any.\n\
                         Allowed values are: on|off true|false 1|0 enable|disable"
-                    .to_owned());
+                        .to_owned(),
+                );
             }
 
             sock.write(format!("dnd:{}", on_off).as_bytes())

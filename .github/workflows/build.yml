@@ -1,6 +1,6 @@
 name: build
 
-on: [ push ]
+on: [push]
 
 jobs:
   wired:
@@ -25,6 +25,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libdbus-1-dev libcairo-dev libpango1.0-dev libglib2.0-dev \
             libx11-dev libxss-dev rustc cargo pkg-config
+
+      - name: Check code style
+        run: cargo fmt --all -- --check
 
       - name: Build wired-notify
         run: cargo build --release

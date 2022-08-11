@@ -3,10 +3,11 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use crate::{
+    bus::dbus::Notification,
+    config::{AnchorPosition, Config},
+    maths_utility::{Rect, Vec2},
     rendering::blocks::*,
-    maths_utility::{Vec2, Rect},
-    config::{Config, AnchorPosition},
-    rendering::window::NotifyWindow, bus::dbus::Notification,
+    rendering::window::NotifyWindow,
 };
 
 use wired_derive::DrawableLayoutElement;
@@ -55,7 +56,7 @@ pub enum RenderCriteria {
 
 enum Logic {
     And,
-    Or
+    Or,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -86,17 +87,17 @@ impl LayoutBlock {
     pub fn should_draw(&self, notification: &Notification) -> bool {
         fn criteria_matches(criteria: &RenderCriteria, notification: &Notification) -> bool {
             match criteria {
-                RenderCriteria::Summary =>          !notification.summary.is_empty(),
-                RenderCriteria::Body =>             !notification.body.is_empty(),
-                RenderCriteria::AppImage =>         !notification.app_image.is_none(),
-                RenderCriteria::HintImage =>        !notification.hint_image.is_none(),
-                RenderCriteria::AppName(name) =>     notification.app_name.eq(name),
-                RenderCriteria::Progress =>         !notification.percentage.is_none(),
-                RenderCriteria::ActionDefault =>    !notification.get_default_action().is_none(),
-                RenderCriteria::ActionOther(i) =>   !notification.get_other_action(*i).is_none(),
+                RenderCriteria::Summary => !notification.summary.is_empty(),
+                RenderCriteria::Body => !notification.body.is_empty(),
+                RenderCriteria::AppImage => !notification.app_image.is_none(),
+                RenderCriteria::HintImage => !notification.hint_image.is_none(),
+                RenderCriteria::AppName(name) => notification.app_name.eq(name),
+                RenderCriteria::Progress => !notification.percentage.is_none(),
+                RenderCriteria::ActionDefault => !notification.get_default_action().is_none(),
+                RenderCriteria::ActionOther(i) => !notification.get_other_action(*i).is_none(),
 
-                RenderCriteria::And(criterion) =>   logic_matches(Logic::And, criterion, notification),
-                RenderCriteria::Or(criterion) =>    logic_matches(Logic::Or, criterion, notification),
+                RenderCriteria::And(criterion) => logic_matches(Logic::And, criterion, notification),
+                RenderCriteria::Or(criterion) => logic_matches(Logic::Or, criterion, notification),
             }
         }
 
@@ -109,7 +110,7 @@ impl LayoutBlock {
                     for c in criterion {
                         result &= criteria_matches(c, notification);
                     }
-                },
+                }
                 Logic::Or => {
                     // ORs start as false to coalesce properly.
                     result = false;
@@ -166,7 +167,13 @@ impl LayoutBlock {
     }
 
     // Call draw on each block in tree.
-    pub fn draw_tree(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect, parent_is_root: bool) -> Rect {
+    pub fn draw_tree(
+        &mut self,
+        window: &NotifyWindow,
+        parent_rect: &Rect,
+        accum_rect: Rect,
+        parent_is_root: bool,
+    ) -> Rect {
         // This is so dirty but OK.  Eventually it would be better to just build a buffer of things
         // to draw instead of recursing here.
         // If this is a root node, (the first one) we want to surround all following drawing
@@ -193,12 +200,13 @@ impl LayoutBlock {
         // happen earlier instead of last-minute, or we should have a better distinction between
         // anchoring to a root block and anchoring to a child block.
         let cfg = Config::get();
-        let fixed = &Rect::new(parent_rect.x(), parent_rect.y(), cfg.min_window_width.into(), cfg.min_window_height.into());
-        let parent_rect_fixed = if parent_is_root {
-            fixed
-        } else {
-            parent_rect
-        };
+        let fixed = &Rect::new(
+            parent_rect.x(),
+            parent_rect.y(),
+            cfg.min_window_width.into(),
+            cfg.min_window_height.into(),
+        );
+        let parent_rect_fixed = if parent_is_root { fixed } else { parent_rect };
 
         // This block is just to separate things conceptually and hopefully make it easier to see
         // the distinction between the root push group and everything else...  Ideally this won't
@@ -206,7 +214,9 @@ impl LayoutBlock {
         // right?
         let (rect, acc_rect) = {
             let rect = if self.should_draw(&window.notification) {
-                let rect = self.params.draw(&self.hook, &self.offset, parent_rect_fixed, window)
+                let rect = self
+                    .params
+                    .draw(&self.hook, &self.offset, parent_rect_fixed, window)
                     .expect("Invalid cairo surface state.");
                 rect
             } else {
@@ -214,7 +224,8 @@ impl LayoutBlock {
                 // empty rect.
                 // We still need to set the position correctly, because other layout elements may be
                 // depending on its position (e.g. in the center), even if it may not be being rendered.
-                let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect_fixed, &Rect::EMPTY);
+                let pos =
+                    LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect_fixed, &Rect::EMPTY);
                 Rect::new(pos.x, pos.y, 0.0, 0.0)
             };
             let mut acc_rect = accum_rect.union(&rect);
@@ -224,7 +235,9 @@ impl LayoutBlock {
                 let c = &Config::get().debug_color;
                 window.context.set_source_rgba(c.r, c.g, c.b, c.a);
                 window.context.set_line_width(1.0);
-                window.context.rectangle(rect.x(), rect.y(), rect.width(), rect.height());
+                window
+                    .context
+                    .rectangle(rect.x(), rect.y(), rect.width(), rect.height());
                 window.context.stroke().expect("Invalid cairo surface state.");
             }
 
@@ -237,7 +250,10 @@ impl LayoutBlock {
 
         // The push group from earlier gets popped and all the drawing is done at once.
         if self.parent.is_empty() {
-            window.context.pop_group_to_source().expect("Failed to pop group to source.");
+            window
+                .context
+                .pop_group_to_source()
+                .expect("Failed to pop group to source.");
             window.context.set_operator(cairo::Operator::Source);
             window.context.paint().expect("Invalid cairo surface state.");
             window.context.set_operator(cairo::Operator::Over);
@@ -248,14 +264,20 @@ impl LayoutBlock {
     }
 
     // Predict the size of an entire layout, and initialize elements.
-    pub fn predict_rect_tree_and_init(&mut self, window: &NotifyWindow, parent_rect: &Rect, accum_rect: Rect) -> Rect {
+    pub fn predict_rect_tree_and_init(
+        &mut self,
+        window: &NotifyWindow,
+        parent_rect: &Rect,
+        accum_rect: Rect,
+    ) -> Rect {
         // Predict size is supposed to be relatively cheap and lets us predict the size of elements,
         // so we can set window size and other stuff ahead of time.  We also initialize some stuff in
         // here to save performance.
         // `predict_rect_and_init` finds the bounding box of an individual element -- children are not
         // involved.
         let rect = if self.should_draw(&window.notification) {
-            self.params.predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
+            self.params
+                .predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
         } else {
             let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
             Rect::new(pos.x, pos.y, 0.0, 0.0)
@@ -322,10 +344,27 @@ impl LayoutBlock {
 }
 
 pub trait DrawableLayoutElement {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error>;
-    fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect;
-    fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool { false }
-    fn clicked(&mut self, _window: &NotifyWindow) -> bool { false }
-    fn hovered(&mut self, _entered: bool, _window: &NotifyWindow) -> bool { false }
+    fn draw(
+        &self,
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        window: &NotifyWindow,
+    ) -> Result<Rect, cairo::Error>;
+    fn predict_rect_and_init(
+        &mut self,
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        window: &NotifyWindow,
+    ) -> Rect;
+    fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool {
+        false
+    }
+    fn clicked(&mut self, _window: &NotifyWindow) -> bool {
+        false
+    }
+    fn hovered(&mut self, _entered: bool, _window: &NotifyWindow) -> bool {
+        false
+    }
 }
-

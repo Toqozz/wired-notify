@@ -22,8 +22,16 @@ use crate::{
 
 // Workaround for rust not allowing contcatenations of str constants yet:
 // https://github.com/rust-lang/rust/issues/31383
-macro_rules! CONFIG_DIR {() => {".config/wired/"}}
-macro_rules! CONFIG_FILENAME {() => {"wired.ron"}}
+macro_rules! CONFIG_DIR {
+    () => {
+        ".config/wired/"
+    };
+}
+macro_rules! CONFIG_FILENAME {
+    () => {
+        "wired.ron"
+    };
+}
 static mut CONFIG: Option<Config> = None;
 
 #[derive(Debug)]
@@ -80,9 +88,7 @@ impl ConfigWatcher {
     pub fn check_and_update_config(&self) -> bool {
         if let Ok(ev) = self.receiver.try_recv() {
             match ev {
-                DebouncedEvent::Write(p)
-                | DebouncedEvent::Create(p)
-                | DebouncedEvent::Chmod(p) => {
+                DebouncedEvent::Write(p) | DebouncedEvent::Create(p) | DebouncedEvent::Chmod(p) => {
                     if let Some(file_name) = p.file_name() {
                         // Make sure the file that was changed is our file, since we watch the
                         // entire directory.
@@ -104,8 +110,8 @@ impl ConfigWatcher {
 pub struct Config {
     // Maximum number of notifications to show on screen at once.
     pub max_notifications: usize,
-    pub timeout: i32,                  // Default timeout, in milliseconds.
-    pub poll_interval: u64,            // Time between checking for updates, new notifications, events, drawing, etc.
+    pub timeout: i32,       // Default timeout, in milliseconds.
+    pub poll_interval: u64, // Time between checking for updates, new notifications, events, drawing, etc.
     pub layout_blocks: Vec<LayoutBlock>,
 
     // Optional Properties
@@ -392,9 +398,11 @@ impl Config {
                 LayoutElement::NotificationBlock(_) => {
                     config.layouts.push(root);
                 }
-                _ => return Err(Error::Validate(
-                    "Root LayoutBlock params must be of type NotificationBlock!",
-                )),
+                _ => {
+                    return Err(Error::Validate(
+                        "Root LayoutBlock params must be of type NotificationBlock!",
+                    ))
+                }
             }
         }
 
@@ -427,8 +435,12 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Config::load_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/", CONFIG_FILENAME!())))
-            .expect("Failed to load default config.  Maintainer fucked something up.\n")
+        Config::load_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/",
+            CONFIG_FILENAME!()
+        )))
+        .expect("Failed to load default config.  Maintainer fucked something up.\n")
     }
 }
 
@@ -502,14 +514,22 @@ pub struct Offset {
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum AnchorPosition {
-    TL, LT,
-    TM, MT,
-    TR, RT,
-    MR, RM,
-    BR, RB,
-    BM, MB,
-    BL, LB,
-    ML, LM,
+    TL,
+    LT,
+    TM,
+    MT,
+    TR,
+    RT,
+    MR,
+    RM,
+    BR,
+    RB,
+    BM,
+    MB,
+    BL,
+    LB,
+    ML,
+    LM,
     MM,
 }
 
