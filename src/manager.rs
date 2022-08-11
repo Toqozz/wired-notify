@@ -53,10 +53,7 @@ impl NotifyWindowManager {
             .build(el)
             .expect("Failed to create base window.");
 
-        let active_monitor = match Config::get().focus_follows {
-            FollowMode::Mouse => maths_utility::get_active_monitor_mouse(&base_window),
-            FollowMode::Window => maths_utility::get_active_monitor_keyboard(&base_window),
-        };
+        let active_monitor = get_active_monitor(&base_window);
 
         Self {
             base_window,
@@ -134,24 +131,21 @@ impl NotifyWindowManager {
     }
 
     pub fn update(&mut self, delta_time: Duration) {
-        // Idle threshold granularity is 1s, but I want to update active monitor faster than
-        // that.
+        let cfg = Config::get();
+
+        // Idle threshold granularity is 1s,
+        // but I want to update active monitor faster than that.
+        let max_slow_update = if cfg.is_auto_active_monitor { 0.33 } else { 1.0 };
         self.slow_update_timer += delta_time.as_secs_f32();
-        if self.slow_update_timer > 0.33 {
+        if self.slow_update_timer > max_slow_update {
             self.slow_update_timer = 0.0;
 
-            // Could probably only update this if we're actually configured to follow a monitor,
-            // but it's not really worth it.
-            let active_monitor = match Config::get().focus_follows {
-                FollowMode::Mouse => maths_utility::get_active_monitor_mouse(&self.base_window),
-                FollowMode::Window => maths_utility::get_active_monitor_keyboard(&self.base_window),
-            };
+            let active_monitor = get_active_monitor(&self.base_window);
             if active_monitor != self.active_monitor {
                 self.active_monitor = active_monitor;
                 self.dirty = true;
             }
 
-            let cfg = Config::get();
             if let Some(threshold) = cfg.idle_threshold {
                 match maths_utility::query_screensaver_info(&self.base_window) {
                     Ok(info) => {
@@ -543,6 +537,20 @@ impl NotifyWindowManager {
 
     pub fn set_dnd(&mut self, val: bool) {
         self.dnd = val;
+    }
+}
+
+// Could probably only update this if we're actually configured to follow a monitor,
+// but it's not really worth it.
+fn get_active_monitor(base_window: &winit::window::Window) -> Option<MonitorHandle> {
+    let cfg = Config::get();
+    if cfg.is_auto_active_monitor {
+ match cfg.focus_follows {
+            FollowMode::Mouse => maths_utility::get_active_monitor_mouse(&base_window),
+            FollowMode::Window => maths_utility::get_active_monitor_keyboard(&base_window),
+        }
+  } else {
+        None
     }
 }
 
