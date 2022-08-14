@@ -52,7 +52,7 @@ impl NotifyWindowManager {
             .build(el)
             .expect("Failed to create base window.");
 
-        let active_monitor = get_active_monitor(&base_window);
+        let active_monitor = maybe_get_active_monitor(&base_window);
 
         Self {
             base_window,
