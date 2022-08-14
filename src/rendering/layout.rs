@@ -92,10 +92,10 @@ impl LayoutBlock {
             match criteria {
                 RenderCriteria::Summary => !notification.summary.is_empty(),
                 RenderCriteria::Body => !notification.body.is_empty(),
-                RenderCriteria::AppImage => !notification.app_image.is_none(),
-                RenderCriteria::HintImage => !notification.hint_image.is_none(),
+                RenderCriteria::AppImage => notification.app_image.is_some(),
+                RenderCriteria::HintImage => notification.hint_image.is_some(),
                 RenderCriteria::AppName(name) => notification.app_name.eq(name),
-                RenderCriteria::Progress => !notification.percentage.is_none(),
+                RenderCriteria::Progress => notification.percentage.is_some(),
                 RenderCriteria::Urgency(u) => match notification.urgency {
                     Urgency::Low => u.eq("low"),
                     Urgency::Normal => u.eq("normal"),
@@ -103,8 +103,8 @@ impl LayoutBlock {
                 },
                 RenderCriteria::Tag(t) => notification.tag.as_ref().eq(&Some(t)),
                 RenderCriteria::Note(n) => notification.note.as_ref().eq(&Some(n)),
-                RenderCriteria::ActionDefault => !notification.get_default_action().is_none(),
-                RenderCriteria::ActionOther(i) => !notification.get_other_action(*i).is_none(),
+                RenderCriteria::ActionDefault => notification.get_default_action().is_some(),
+                RenderCriteria::ActionOther(i) => notification.get_other_action(*i).is_some(),
 
                 RenderCriteria::And(criterion) => logic_matches(Logic::And, criterion, notification),
                 RenderCriteria::Or(criterion) => logic_matches(Logic::Or, criterion, notification),
@@ -224,11 +224,9 @@ impl LayoutBlock {
         // right?
         let (rect, acc_rect) = {
             let rect = if self.should_draw(&window.notification) {
-                let rect = self
-                    .params
+                self.params
                     .draw(&self.hook, &self.offset, parent_rect_fixed, window)
-                    .expect("Invalid cairo surface state.");
-                rect
+                    .expect("Invalid cairo surface state.")
             } else {
                 // If block shouldn't be rendered, then we should be safe to just return an
                 // empty rect.
@@ -346,7 +344,7 @@ impl LayoutBlock {
 
     pub fn as_notification_block(&self) -> &NotificationBlockParameters {
         if let LayoutElement::NotificationBlock(p) = &self.params {
-            return p;
+            p
         } else {
             panic!("Tried to cast a LayoutBlock as type NotificationBlock when it was something else.");
         }

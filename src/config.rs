@@ -362,7 +362,7 @@ impl Config {
         let mut roots: Vec<LayoutBlock> = vec![];
         let mut i = 0;
         while i < blocks.len() {
-            if blocks[i].parent == "" {
+            if blocks[i].parent.is_empty() {
                 roots.push(blocks.swap_remove(i));
             } else {
                 i += 1;

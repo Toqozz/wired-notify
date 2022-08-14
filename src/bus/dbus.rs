@@ -226,6 +226,7 @@ pub enum Message {
     Notify(Notification),
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone)]
 pub enum ImageData {
     SVG(Vec<u8>),
@@ -354,7 +355,7 @@ impl Notification {
             //dbg!(end - start);
 
             // Fall back to trying to open with image-rs.
-            maybe_image.or(image::open(path).ok().map(|d| ImageData::Dynamic(d)))
+            maybe_image.or_else(|| image::open(path).ok().map(ImageData::Dynamic))
         }
 
         fn image_from_data(data: &VecDeque<Box<dyn RefArg>>) -> Option<ImageData> {
@@ -384,7 +385,7 @@ impl Notification {
                 return None;
             }
 
-            let x = match channels {
+            match channels {
                 3 => ImageBuffer::from_raw(width as u32, height as u32, bytes)
                     .map(|buf| ImageData::Dynamic(DynamicImage::ImageRgb8(buf))),
                 4 => ImageBuffer::from_raw(width as u32, height as u32, bytes)
@@ -393,12 +394,7 @@ impl Notification {
                     eprintln!("Unsupported hint image format!  Couldn't load hint image.");
                     None
                 }
-            };
-
-            //let end = std::time::Instant::now();
-            //dbg!(end - start);
-
-            x
+            }
         }
 
         let app_image = image_from_path(&app_icon);
@@ -461,7 +457,7 @@ impl Notification {
             id,
             tag,
             note,
-            app_name: app_name.to_owned(),
+            app_name,
             summary,
             body,
             actions: actions_map,
