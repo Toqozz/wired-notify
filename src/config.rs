@@ -168,8 +168,11 @@ pub struct Config {
     #[serde(default)]
     pub shortcuts: ShortcutsConfig,
 
-    #[serde(skip)]
-    pub layouts: Vec<LayoutBlock>,
+    #[serde(skip)] // derived from user settings
+    pub(crate) layouts: Vec<LayoutBlock>,
+
+    #[serde(skip)] // derived from user settings
+    pub(crate) is_auto_active_monitor: bool,
 }
 
 impl Config {
@@ -409,6 +412,8 @@ impl Config {
         if !blocks.is_empty() && config.debug {
             eprintln!("There were {} blocks remaining after creating the layout tree.  Something must be wrong here.", blocks.len());
         }
+
+        config.is_auto_active_monitor = config.layouts.iter().any(|layout| layout.as_notification_block().monitor < 0);
 
         Ok(config)
     }
