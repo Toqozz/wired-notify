@@ -119,12 +119,15 @@ impl NotifyWindow {
             // This was originally here for the below reason, but it causes issues and I haven't
             // been able to observe any actual issue, so we leave it out.
             //.with_visible(false)  // We don't draw/position stuff until later, so best not to show the
-                                    // window for now.
-                                    // NOTE: you (apparently) can't draw to a window that is not
-                                    // visible!  So we need to make sure we set this to true before drawing.
+            // window for now.
+            // NOTE: you (apparently) can't draw to a window that is not
+            // visible!  So we need to make sure we set this to true before drawing.
             // As an alternative to `with_visible(false)`, we can instead spawn the window really far away.
             // Hopefully nobody has a >100k resolution.
-            .with_position(PhysicalPosition { x: 999_999.0, y: 999_999.0 })
+            .with_position(PhysicalPosition {
+                x: 999_999.0,
+                y: 999_999.0,
+            })
             .with_override_redirect(true)
             .build(el)
             .expect("Couldn't build winit window.");
@@ -153,7 +156,8 @@ impl NotifyWindow {
             );
 
             Surface::from_raw_full(sfc_raw)
-        }.expect("Failed to create cairo surface.");
+        }
+        .expect("Failed to create cairo surface.");
 
         let context = cairo::Context::new(&surface).expect("Failed to create cairo context.");
         let text = TextRenderer::new(&context);
@@ -170,8 +174,7 @@ impl NotifyWindow {
                 update_mode = UpdateModes::DRAW;
             }
         }
-        if cfg.notifications_spawn_paused &&
-            !(!manager.is_idle_1s() && cfg.unpause_on_input) {
+        if cfg.notifications_spawn_paused && !(!manager.is_idle_1s() && cfg.unpause_on_input) {
             update_mode = UpdateModes::DRAW;
         }
 
@@ -231,7 +234,11 @@ impl NotifyWindow {
         // As above.  May be valuable to put this into a function like `prepare_notification` or
         // something if we keep changing stuff.
         let mut layout = self.layout_take();
-        let rect = layout.predict_rect_tree_and_init(self, &Rect::new(0.0, 0.0, width, height), Rect::new(0.0, 0.0, width, height));
+        let rect = layout.predict_rect_tree_and_init(
+            self,
+            &Rect::new(0.0, 0.0, width, height),
+            Rect::new(0.0, 0.0, width, height),
+        );
         let delta = Vec2::new(-rect.x(), -rect.y());
 
         self.layout = Some(layout);
@@ -304,7 +311,7 @@ impl NotifyWindow {
         // canvas.
         inner_rect.set_xy(self.master_offset.x, self.master_offset.y);
         let mut layout = self.layout_take();
-        layout.draw_tree(self, &inner_rect, Rect::empty(), false);  // The criteria is parent_is_root, not is_root.  Bad but yeah.
+        layout.draw_tree(self, &inner_rect, Rect::empty(), false); // The criteria is parent_is_root, not is_root.  Bad but yeah.
         self.layout = Some(layout);
     }
 

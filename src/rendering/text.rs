@@ -72,14 +72,30 @@ impl TextRenderer {
 
     // Sets the current text of the renderer, applying markup and ellipsizing according to
     // ellipsize mode and `max_width` / `max_height`.
-    pub fn set_text(&self, text: &str, font: &str, max_width: i32, max_height: i32, ellipsize: &EllipsizeMode, alignment: &AlignMode) {
+    pub fn set_text(
+        &self,
+        text: &str,
+        font: &str,
+        max_width: i32,
+        max_height: i32,
+        ellipsize: &EllipsizeMode,
+        alignment: &AlignMode,
+    ) {
         let font_dsc = FontDescription::from_string(font);
         self.pctx.set_font_description(&font_dsc);
 
         // Applying scale when `max_width`/`max_height` is < 0 seems to work, but let's not take
         // chances.
-        let width = if max_width < 0 { -1 } else { pango::SCALE * max_width };
-        let height = if max_height < 0 { -1 } else { pango::SCALE * max_height };
+        let width = if max_width < 0 {
+            -1
+        } else {
+            pango::SCALE * max_width
+        };
+        let height = if max_height < 0 {
+            -1
+        } else {
+            pango::SCALE * max_height
+        };
 
         self.layout.set_ellipsize(ellipsize.to_pango_mode());
         self.layout.set_alignment(alignment.to_pango_mode());

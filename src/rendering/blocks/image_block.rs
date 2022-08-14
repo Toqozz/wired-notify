@@ -62,7 +62,13 @@ pub struct ImageBlockParameters {
 }
 
 impl DrawableLayoutElement for ImageBlockParameters {
-    fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
+    fn draw(
+        &self,
+        hook: &Hook,
+        offset: &Vec2,
+        parent_rect: &Rect,
+        window: &NotifyWindow,
+    ) -> Result<Rect, cairo::Error> {
         // `cached_surface` should always exist on notifications with images, because we always
         // cache it.  If-let is just a precaution here.
         if let Some(ref img_sfc) = self.cached_surface {
@@ -139,11 +145,7 @@ impl DrawableLayoutElement for ImageBlockParameters {
                     Some(px)
                 }
                 ImageData::SVG(data) => {
-                    maths_utility::svg_to_pixels(
-                        data,
-                        self.scale_width as u32,
-                        self.scale_height as u32,
-                    )
+                    maths_utility::svg_to_pixels(data, self.scale_width as u32, self.scale_height as u32)
                 }
             }
         } else {

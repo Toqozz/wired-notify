@@ -46,7 +46,11 @@ fn try_print_to_file(notification: &Notification, file: &mut File) {
 
 fn open_print_file() -> Option<File> {
     if let Some(filename) = Config::get().print_to_file.as_ref() {
-        let maybe_file = OpenOptions::new().write(true).create(true).truncate(true).open(filename);
+        let maybe_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(filename);
         match maybe_file {
             Ok(f) => return Some(f),
             Err(e) => {
@@ -68,7 +72,6 @@ fn main() {
         std::process::exit(1);
     }));
 
-
     let args: Vec<String> = env::args().collect();
     match cli::process_cli(args) {
         Ok(should_run) => match should_run {
@@ -89,7 +92,7 @@ fn main() {
             eprintln!("Couldn't init CLIListener: {:?}", e);
             None
         },
-        Some
+        Some,
     );
 
     // Allows us to receive messages from dbus.
@@ -103,9 +106,7 @@ fn main() {
 
     event_loop.run_return(|event, event_loop, control_flow| {
         match event {
-            Event::NewEvents(StartCause::Init) => {
-                *control_flow = ControlFlow::WaitUntil(Instant::now())
-            }
+            Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now()),
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
                 let now = Instant::now();
 
@@ -168,7 +169,7 @@ fn main() {
                 // Sometimes this causes double draws (we draw on spawn organically), but it's better
                 // to listen anyway.
                 manager.request_redraw(window_id);
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..

@@ -56,7 +56,6 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
         }
     });
 
-
     let gen = quote! {
         impl DrawableLayoutElement for #name {
             fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
@@ -82,19 +81,19 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
                 rect
             }
 
-            fn update(&mut self, delta_time: Duration, window: &NotifyWindow) -> bool { 
+            fn update(&mut self, delta_time: Duration, window: &NotifyWindow) -> bool {
                 match self {
                     #(#traverse_update),*
                 }
             }
 
-            fn clicked(&mut self, window: &NotifyWindow) -> bool { 
+            fn clicked(&mut self, window: &NotifyWindow) -> bool {
                 match self {
                     #(#traverse_clicked),*
                 }
             }
 
-            fn hovered(&mut self, entered: bool, window: &NotifyWindow) -> bool { 
+            fn hovered(&mut self, entered: bool, window: &NotifyWindow) -> bool {
                 match self {
                     #(#traverse_hovered),*
                 }
@@ -104,5 +103,3 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
 
     gen.into()
 }
-
-
