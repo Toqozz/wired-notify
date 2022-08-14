@@ -413,7 +413,10 @@ impl Config {
             eprintln!("There were {} blocks remaining after creating the layout tree.  Something must be wrong here.", blocks.len());
         }
 
-        config.is_auto_active_monitor = config.layouts.iter().any(|layout| layout.as_notification_block().monitor < 0);
+        config.is_auto_active_monitor = config
+            .layouts
+            .iter()
+            .any(|layout| layout.as_notification_block().monitor < 0);
 
         Ok(config)
     }

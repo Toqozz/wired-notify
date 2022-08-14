@@ -142,7 +142,7 @@ impl NotifyWindowManager {
         if self.slow_update_timer > max_slow_update {
             self.slow_update_timer = 0.0;
 
-            let active_monitor = get_active_monitor(&self.base_window);
+            let active_monitor = maybe_get_active_monitor(&self.base_window);
             if active_monitor != self.active_monitor {
                 self.active_monitor = active_monitor;
                 self.dirty = true;
@@ -559,9 +559,7 @@ impl NotifyWindowManager {
     }
 }
 
-// Could probably only update this if we're actually configured to follow a monitor,
-// but it's not really worth it.
-fn get_active_monitor(base_window: &winit::window::Window) -> Option<MonitorHandle> {
+fn maybe_get_active_monitor(base_window: &winit::window::Window) -> Option<MonitorHandle> {
     let cfg = Config::get();
     if cfg.is_auto_active_monitor {
         match cfg.focus_follows {
