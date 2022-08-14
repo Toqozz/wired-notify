@@ -633,7 +633,7 @@ pub fn get_active_monitor_mouse(base_window: &Window) -> Option<MonitorHandle> {
             pos.x.into(), pos.y.into(), size.width.into(), size.height.into()
         );
 
-        if rect.contains_point(&mouse_pos) {
+        if rect.contains_point(mouse_pos) {
             return Some(monitor);
         }
     }
@@ -723,7 +723,7 @@ pub fn get_active_monitor_keyboard(base_window: &Window) -> Option<MonitorHandle
     handle
 }
 
-pub fn svg_to_pixels(data: &Vec<u8>, width: u32, height: u32) -> Option<Vec<u8>> {
+pub fn svg_to_pixels(data: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
     use usvg::{Tree, Options, FitTo};
     use tiny_skia::{Pixmap, Transform};
 
@@ -735,7 +735,7 @@ pub fn svg_to_pixels(data: &Vec<u8>, width: u32, height: u32) -> Option<Vec<u8>>
     */
 
     let opt = Options::default();
-    let tree = Tree::from_data(&data, &opt.to_ref()).ok()?;
+    let tree = Tree::from_data(data, &opt.to_ref()).ok()?;
     let mut pixmap = Pixmap::new(width, height)?;
     resvg::render(
         &tree,
@@ -755,13 +755,11 @@ pub fn svg_to_pixels(data: &Vec<u8>, width: u32, height: u32) -> Option<Vec<u8>>
     //Some(image::DynamicImage::ImageRgba8(img))
 }
 
-pub fn rgba_to_bgra(pixels: &mut Vec<u8>, width: u32, height: u32) {
+pub fn rgba_to_bgra(pixels: &mut [u8], width: u32, height: u32) {
     let mut offset = 0;
     for _y in 0..height {
         for _x in 0..width {
-            let temp = pixels[offset];
-            pixels[offset] = pixels[offset + 2];
-            pixels[offset + 2] = temp;
+            pixels.swap(offset, offset + 2);
 
             // g and a are in the same position.
             //pixels[offset + 1] = pixels[offset + 1];

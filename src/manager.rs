@@ -123,7 +123,7 @@ impl NotifyWindowManager {
             }
         }
 
-        if maybe_windows.len() > 0 {
+        if !maybe_windows.is_empty() {
             for w in maybe_windows {
                 w.replace_notification(notification.clone());
             }
@@ -542,7 +542,7 @@ impl NotifyWindowManager {
     }
 
     pub fn has_windows(&self) -> bool {
-        self.layout_windows.values().any(|m| m.len() > 0)
+        self.layout_windows.values().any(|m| !m.is_empty())
     }
 
     pub fn is_idle_1s(&self) -> bool {
@@ -563,8 +563,8 @@ fn maybe_get_active_monitor(base_window: &winit::window::Window) -> Option<Monit
     let cfg = Config::get();
     if cfg.is_auto_active_monitor {
         match cfg.focus_follows {
-            FollowMode::Mouse => maths_utility::get_active_monitor_mouse(&base_window),
-            FollowMode::Window => maths_utility::get_active_monitor_keyboard(&base_window),
+            FollowMode::Mouse => maths_utility::get_active_monitor_mouse(base_window),
+            FollowMode::Window => maths_utility::get_active_monitor_keyboard(base_window),
         }
     } else {
         None

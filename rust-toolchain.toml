@@ -1,0 +1,5 @@
+# https://github.com/rust-lang/rustup/blob/master/doc/src/overrides.md#the-toolchain-file
+
+[toolchain]
+channel = "stable"
+components = ["clippy", "rustfmt"]

@@ -174,7 +174,7 @@ impl NotifyWindow {
                 update_mode = UpdateModes::DRAW;
             }
         }
-        if cfg.notifications_spawn_paused && !(!manager.is_idle_1s() && cfg.unpause_on_input) {
+        if (!cfg.unpause_on_input || manager.is_idle_1s()) && cfg.notifications_spawn_paused {
             update_mode = UpdateModes::DRAW;
         }
 

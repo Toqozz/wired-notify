@@ -6,6 +6,7 @@ use dbus_crossroads as crossroads;
 
 pub trait OrgFreedesktopNotifications {
     fn get_capabilities(&mut self) -> Result<Vec<String>, dbus::MethodErr>;
+    #[allow(clippy::too_many_arguments)]
     fn notify(
         &mut self,
         app_name: String,
