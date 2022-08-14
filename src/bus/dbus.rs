@@ -236,6 +236,7 @@ pub enum ImageData {
 pub struct Notification {
     pub id: u32,
     pub tag: Option<String>,
+    pub note: Option<String>,
 
     pub app_name: String,
 
@@ -280,6 +281,7 @@ impl Notification {
         Self {
             id,
             tag: None,
+            note: None,
             app_name: "Wired".to_owned(),
             summary: summary.to_owned(),
             body: body.to_owned(),
@@ -433,7 +435,12 @@ impl Notification {
             urgency = Urgency::Normal;
         }
 
+        // What's the difference between tag and note?
+        // A tag defines a certain type of notification, and allows it to be easily overriden using that tag.
+        // A note is supplemental data passed to the notification.  It's purely used for render
+        // criteria stuff right now.
         let tag = arg::prop_cast::<String>(&hints, "wired-tag").cloned();
+        let note = arg::prop_cast::<String>(&hints, "wired-note").cloned();
 
         let percentage: Option<f32>;
         if let Some(value) = arg::prop_cast::<i32>(&hints, "value") {
@@ -453,6 +460,7 @@ impl Notification {
         Self {
             id,
             tag,
+            note,
             app_name: app_name.to_owned(),
             summary,
             body,

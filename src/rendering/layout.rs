@@ -3,7 +3,7 @@ use std::time::Duration;
 use serde::Deserialize;
 
 use crate::{
-    bus::dbus::Notification,
+    bus::dbus::{Notification, Urgency},
     config::{AnchorPosition, Config},
     maths_utility::{Rect, Vec2},
     rendering::blocks::*,
@@ -47,6 +47,9 @@ pub enum RenderCriteria {
     AppImage,
     AppName(String),
     Progress,
+    Urgency(String),
+    Tag(String),
+    Note(String),
     ActionDefault,
     ActionOther(usize),
 
@@ -93,6 +96,13 @@ impl LayoutBlock {
                 RenderCriteria::HintImage => !notification.hint_image.is_none(),
                 RenderCriteria::AppName(name) => notification.app_name.eq(name),
                 RenderCriteria::Progress => !notification.percentage.is_none(),
+                RenderCriteria::Urgency(u) => match notification.urgency {
+                    Urgency::Low => u.eq("low"),
+                    Urgency::Normal => u.eq("normal"),
+                    Urgency::Critical => u.eq("critical"),
+                },
+                RenderCriteria::Tag(t) => notification.tag.as_ref().eq(&Some(t)),
+                RenderCriteria::Note(n) => notification.note.as_ref().eq(&Some(n)),
                 RenderCriteria::ActionDefault => !notification.get_default_action().is_none(),
                 RenderCriteria::ActionOther(i) => !notification.get_other_action(*i).is_none(),
 
