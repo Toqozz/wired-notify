@@ -5,7 +5,6 @@
   ...
 }:
 with builtins; let
-  std = pkgs.lib;
   cfg = config.services.wired;
 in {
   options.services.wired = with lib; {
@@ -38,7 +37,7 @@ in {
           ExecStart = "${cfg.package}/bin/wired";
         };
         Install = {
-          WantedBy = [ "graphical-session.target" ];
+          WantedBy = ["graphical-session.target"];
         };
       };
     })

@@ -80,7 +80,7 @@ To use it in another flake:
 ```nix
 {
   inputs = {
-    wired.url = github:Toqozz/wired-notify;
+    wired.url = "github:Toqozz/wired-notify";
   };
 }
 ```
@@ -89,8 +89,8 @@ For example, to install it for all users in NixOS:
 ```nix
 {
   inputs = {
-    nixpkgs.url = github:nixos/nixpkgs/nixpkgs-unstable;
-    wired.url = github:Toqozz/wired-notify;
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    wired.url = "github:Toqozz/wired-notify";
   };
   outputs = { self, nixpkgs, wired }: let
     std = nixpkgs.lib;
