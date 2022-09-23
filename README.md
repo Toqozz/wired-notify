@@ -117,16 +117,20 @@ This flake also provides a module for [home-manager](https://github.com/nix-comm
     homeConfigurations.alice = let
       system = "x86_64-linux";
     in home-manager.lib.homeManagerConfiguration {
-      # ...
-      inherit system;
-      pkgs = import nixpkgs { inherit system; overlays = [ wired.overlays.${system} ]; };
-      extraModules = [ wired.homeManagerModules.default ];
-      configuration = { pkgs, ... }: {
-        services.wired = {
-          enable = true;
-          config = ./wired.ron;
-        };
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ wired.overlays.${system} ];
       };
+
+      modules = [
+        wired.homeManagerModules.default
+        ({ ... }: {
+          services.wired = {
+            enable = true;
+            config = ./wired.ron;
+          };
+        })
+      ];
     };
   };
 }
