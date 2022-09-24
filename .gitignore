@@ -1,3 +1,6 @@
+.envrc
+.direnv/
+
 target/*
 
 wired_derive/target/*
