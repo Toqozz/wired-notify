@@ -5,10 +5,7 @@ on: [pull_request, push]
 jobs:
   nix-flake:
     name: Nix packaging (flake)
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -21,10 +18,7 @@ jobs:
 
   nix-legacy:
     name: Nix packaging (legacy)
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
