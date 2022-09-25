@@ -19,6 +19,13 @@
   }: let
     inherit (builtins) fromTOML readFile substring mapAttrs;
 
+    supportedSystems = [
+      "aarch64-linux"
+      "i686-linux"
+      "x86_64-linux"
+    ];
+    eachSupportedSystems = utils.lib.eachSystem supportedSystems;
+
     cargoToml = fromTOML (readFile ./Cargo.toml);
     version = "${cargoToml.package.version}_${substring 0 8 self.lastModifiedDate}_${self.shortRev or "dirty"}";
 
@@ -85,7 +92,7 @@
       };
     }
     // (
-      utils.lib.eachDefaultSystem (system: let
+      eachSupportedSystems (system: let
         pkgs = import nixpkgs {inherit system;};
         wired = pkgs.callPackage mkWired {};
       in {
