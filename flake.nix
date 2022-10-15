@@ -36,7 +36,7 @@
       dlib,
       cairo,
       pango,
-      pkgconfig,
+      pkg-config,
       xorg,
       ...
     }:
@@ -48,7 +48,7 @@
 
         # Requires dbus cairo and pango
         # pkgconfig, glib and xorg are required for x11-crate
-        nativeBuildInputs = [pkgconfig];
+        nativeBuildInputs = [pkg-config];
         buildInputs = [
           dbus
           dlib
