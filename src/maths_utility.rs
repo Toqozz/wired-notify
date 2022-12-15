@@ -393,6 +393,14 @@ pub fn escape_decode(to_escape: String) -> String {
             b'<' => escaped.extend_from_slice(b"&lt;"),
             b'>' => escaped.extend_from_slice(b"&gt;"),
             b'&' => {
+                // If next char is a space, this is actually an ampersand
+                if i + 1 <= to_escape.len() {
+                    match &to_escape[i..i+2] {
+                        "& " => { escaped.extend_from_slice(b"&amp;"); i += 1; continue },
+                        _ => (),
+                    }
+                }
+
                 // TODO: not really happy with this, should clean it up.
                 if i + 4 <= to_escape.len() {
                     match &to_escape[i..i+4] {
