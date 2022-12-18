@@ -390,51 +390,77 @@ pub fn escape_decode(to_escape: String) -> String {
     while i < bytes.len() {
         let byte = bytes[i];
         match byte {
-            b'<' => escaped.extend_from_slice(b"&lt;"),
-            b'>' => escaped.extend_from_slice(b"&gt;"),
+            b'<' => { escaped.extend_from_slice(b"&lt;"); i += 1; },
+            b'>' => { escaped.extend_from_slice(b"&gt;"); i += 1; },
+            b'\'' => { escaped.extend_from_slice(b"&apos;"); i += 1; },
+            b'"' => { escaped.extend_from_slice(b"&quot;"); i += 1; },
             b'&' => {
-                // TODO: not really happy with this, should clean it up.
-                if i + 4 <= to_escape.len() {
-                    match &to_escape[i..i+4] {
-                        // If we're trying to write these, leave them be.
-                        "&gt;" => { escaped.push(byte); i += 1; continue },
-                        "&lt;" => { escaped.push(byte); i += 1; continue },
-                        _ => (),
+                let mut count = 1;
+                let mut found = false;
+                while count <= 10 {
+                    // XML entities don't contain non-ascii characters.
+                    if i + count >= bytes.len() || !bytes[i + count].is_ascii() {
+                        break;
                     }
+
+                    if bytes[i+count] == b';' {
+                        // Pango doesn't support all XML entities, so we we just want to match the
+                        // ones we know it does.
+                        match &to_escape[i..i+count+1] {
+                            "&gt;" => found = true,
+                            "&lt;" => found = true,
+                            "&amp;" => found = true,
+                            "&apos;" => found = true,
+                            "&quot;" => found = true,
+
+                            _ => (),
+                        }
+
+                        // We make a last ditch effort to match a digit entity
+                        // (too many to hardcode).
+                        if check_valid_digit_entity(i, count, &bytes) {
+                            found = true;
+                        }
+
+                        break;
+                    }
+
+                    count += 1;
                 }
 
-                if i + 5 <= to_escape.len() {
-                    // The end of the slice range is exclusive, so we need to go one higher.
-                    match &to_escape[i..i+5] {
-                        // If we're trying to write "&amp;" then we should allow it.
-                        "&amp;" => { escaped.push(byte); i += 1; continue },
-                        "&#39;" => { escaped.push(b'\''); i += 5; continue },
-                        "&#34;" => { escaped.push(b'"'); i += 5; continue },
-                        _ => (),
-                    }
+                if found {
+                    escaped.extend_from_slice(to_escape[i..i+count].as_bytes());
+                    i += count;
+                } else {
+                    escaped.extend_from_slice(b"&amp;");
+                    i += 1;
                 }
-
-                if i + 6 <= to_escape.len() {
-                    match &to_escape[i..i+6] {
-                        "&apos;" => { escaped.push(b'\''); i += 6; continue },
-                        "&quot;" => { escaped.push(b'\"'); i += 6; continue },
-                        _ => (),
-                    }
-                }
-
-                escaped.extend_from_slice(b"&amp;");
             }
 
-            _ => escaped.push(byte),
+            _ => { escaped.push(byte); i += 1 },
         }
-
-        i += 1;
     }
 
     //println!("String: {}, Elapsed time: {:.2?}", to_escape, before.elapsed());
 
     // We should be safe to use `from_utf8_unchecked` here, but let's be safe.
     String::from_utf8(escaped).expect("Invalid unicode after escape_decode.")
+}
+
+// Check if a specified byte sequence is a valid XML numeric entity (e.g. "&#39;").
+// Does not match hex entities (e.g. "&#x03C0").
+fn check_valid_digit_entity(start: usize, count: usize, bytes: &[u8]) -> bool {
+    if count < 4 || bytes[start + 1] != b'#' {
+        return false;
+    }
+
+    for b in &bytes[start + 2..start + count - 1] {
+        if !(*b as char).is_digit(10) {
+            return false;
+        }
+    }
+
+    true
 }
 
 // str.replace() won't work for this because we'd have to do it twice: once for the summary and
