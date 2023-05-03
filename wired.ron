@@ -7,11 +7,14 @@
     // 1000ms = 1s.
     timeout: 10000,
 
-    // `poll_interval` decides decides how often (in milliseconds) Wired checks for new notifications, events,
-    // draws notifications (if necessary), etc.
-    // Note that when no notifications are present, Wired always polls at 500ms.
+    // `poll_interval` decides decides how often (in milliseconds) Wired checks events,
+    // draws notifications (if necessary) -- the update loop while any notification is present.
+    // Note that when no notifications are present, Wired polls at `idle_poll_interval` instead.
     // 16ms ~= 60hz / 7ms ~= 144hz.
     poll_interval: 16,
+
+    // The interval at which wired updates when no notifications/windows are present.
+    //idle_poll_interval: 500,
 
     // Wired will pause notifications if you are idle (no mouse or keyboard input) for longer than
     // `idle_threshold` seconds.

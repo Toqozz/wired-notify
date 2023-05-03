@@ -805,3 +805,7 @@ pub fn val_true() -> bool {
 pub fn val_10() -> usize {
     10
 }
+
+pub fn val_500() -> u64 {
+    500
+}
