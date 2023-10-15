@@ -55,6 +55,7 @@ pub enum RenderCriteria {
 
     And(Vec<RenderCriteria>),
     Or(Vec<RenderCriteria>),
+    Not(Box<RenderCriteria>),
 }
 
 enum Logic {
@@ -108,6 +109,7 @@ impl LayoutBlock {
 
                 RenderCriteria::And(criterion) => logic_matches(Logic::And, criterion, notification),
                 RenderCriteria::Or(criterion) => logic_matches(Logic::Or, criterion, notification),
+                RenderCriteria::Not(criterion) => !criteria_matches(criterion, notification),
             }
         }
 
