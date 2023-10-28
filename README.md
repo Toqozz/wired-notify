@@ -119,7 +119,7 @@ This flake also provides a module for [home-manager](https://github.com/nix-comm
     in home-manager.lib.homeManagerConfiguration {
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [ wired.overlays.${system} ];
+        overlays = [ wired.overlays.default ];
       };
 
       modules = [
