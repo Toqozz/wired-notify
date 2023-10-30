@@ -85,7 +85,7 @@ To use it in another flake:
 }
 ```
 
-For example, to install it for all users in NixOS:
+#### Install for all users in NixOS
 ```nix
 {
   inputs = {
@@ -109,7 +109,11 @@ For example, to install it for all users in NixOS:
 }
 ```
 
-This flake also provides a module for [home-manager](https://github.com/nix-community/home-manager). To use it in your configuration:
+#### Home-Manager
+##### Standalone
+This flake also provides a module for [home-manager] if you installed it
+[standalone](https://nix-community.github.io/home-manager/index.html#sec-install-standalone).
+To use it in your configuration:
 ```nix
 {
   # ...
@@ -135,6 +139,24 @@ This flake also provides a module for [home-manager](https://github.com/nix-comm
   };
 }
 ```
+
+##### Home-Manager - NixOS-Module
+If you're using [home-manager] as a NixOS-Module, then you simply need to add
+the provided overlay and home-manager-module to
+[nixpkgs.overlays](https://search.nixos.org/options?channel=23.05&show=nixpkgs.overlays&from=0&size=50&sort=relevance&type=packages&query=nixpkgs.overlays)
+and [home-manager.sharedModules](https://nix-community.github.io/home-manager/nixos-options.html#nixos-opt-home-manager.sharedModules):
+
+```nix
+nixpkgs.overlays = [
+  inputs.wired-notify.overlays.default
+];
+
+home-manager.sharedModules = [
+    inputs.wired-notify.homeManagerModules.default
+];
+```
+
+then you'll have `services.wired` in your home-manager config.
 
 ### NetBSD
 Wired is available from the official repositories,
@@ -164,3 +186,5 @@ There is also a `wired.service` file in the root of the repository if you want t
 ```
 $ systemctl enable --now --user wired.service
 ```
+
+[home-manager]: https://github.com/nix-community/home-manager
