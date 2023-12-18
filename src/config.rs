@@ -110,10 +110,10 @@ impl ConfigWatcher {
 pub struct Config {
     // Maximum number of notifications to show on screen at once.
     pub max_notifications: usize,
-    pub timeout: i32,               // Default timeout, in milliseconds.
-    pub poll_interval: u64,         // Time between checking for updates, events, drawing, etc.
+    pub timeout: i32,       // Default timeout, in milliseconds.
+    pub poll_interval: u64, // Time between checking for updates, events, drawing, etc.
     #[serde(default = "maths_utility::val_500")]
-    pub idle_poll_interval: u64,    // Same as above, but when no notifications are present.
+    pub idle_poll_interval: u64, // Same as above, but when no notifications are present.
     pub layout_blocks: Vec<LayoutBlock>,
 
     // Optional Properties

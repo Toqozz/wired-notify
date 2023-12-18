@@ -161,7 +161,8 @@ fn main() {
                 if manager.has_windows() {
                     *control_flow = ControlFlow::WaitUntil(now + poll_interval);
                 } else {
-                    *control_flow = ControlFlow::WaitUntil(now + Duration::from_millis(Config::get().idle_poll_interval));
+                    *control_flow =
+                        ControlFlow::WaitUntil(now + Duration::from_millis(Config::get().idle_poll_interval));
                 }
             }
 
