@@ -47,7 +47,13 @@ impl CLIListener {
             println!(
                 "A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls."
             );
-            std::fs::remove_file(SOCKET_PATH).unwrap();
+            
+            if std::fs::remove_file(SOCKET_PATH).is_err_and(|e| e.kind() == ErrorKind::PermissionDenied) {
+                return Err(CLIError::Socket(io::Error::new(
+                    ErrorKind::PermissionDenied,
+                    "Could not remove existing wired socket. Please stop all wired instances, remove /tmp/wired.sock and try again.",
+                )));
+            }
         }
 
         let listener = UnixListener::bind(socket_path).map_err(CLIError::Socket)?;
