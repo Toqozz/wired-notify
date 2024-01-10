@@ -83,6 +83,8 @@
             ];
           };
 
+          formatter = pkgs.nixpkgs-fmt;
+
           apps = {
             default = self'.apps.wired;
 
