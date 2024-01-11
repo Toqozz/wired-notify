@@ -1,12 +1,12 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
+{ config
+, pkgs
+, lib
+, ...
 }:
 with builtins; let
   cfg = config.services.wired;
-in {
+in
+{
   options.services.wired = with lib; {
     enable = mkEnableOption "wired notification daemon";
     package = mkOption {
@@ -23,7 +23,7 @@ in {
   };
   config = lib.mkMerge [
     (lib.mkIf cfg.enable {
-      home.packages = [cfg.package];
+      home.packages = [ cfg.package ];
       # Ideally this would just install the service unit already provided in this repo,
       # but Home Manager doesn't have an idiomatic way to do that as of 2022-05-22
       systemd.user.services."wired" = {
@@ -37,7 +37,7 @@ in {
           ExecStart = "${cfg.package}/bin/wired";
         };
         Install = {
-          WantedBy = ["graphical-session.target"];
+          WantedBy = [ "graphical-session.target" ];
         };
       };
     })
