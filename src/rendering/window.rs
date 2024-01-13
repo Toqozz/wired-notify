@@ -64,6 +64,8 @@ pub struct NotifyWindow {
 
     // Last mouse pos, relative to top left of window.
     last_mouse_pos: Vec2,
+    // We cache the inner rect, since our windows don't resize, and X11 is slow to reply.
+    cached_inner_rect: Option<Rect>,
 }
 
 impl NotifyWindow {
@@ -192,6 +194,7 @@ impl NotifyWindow {
             dirty: true, // New windows are dirty -- no drawing has happened yet.
             creation_timestamp: Local::now(),
             last_mouse_pos: Vec2::new(0.0, 0.0),
+            cached_inner_rect: None,
         };
 
         // When we spawn a window, we get a `RedrawRequested` event which we draw from, so we don't
@@ -210,6 +213,7 @@ impl NotifyWindow {
         window.layout = Some(layout);
         window.set_size(rect.width(), rect.height());
         window.master_offset = delta;
+        window.cached_inner_rect = Some(Rect::new(0.0, 0.0, rect.width(), rect.height()));
         window
     }
 
@@ -280,9 +284,15 @@ impl NotifyWindow {
 
     // Pure rectangle, ignoring the window's position.
     pub fn get_inner_rect(&self) -> Rect {
-        let size = self.winit.inner_size();
-
-        Rect::new(0.0, 0.0, size.width.into(), size.height.into())
+        if let Some(rect) = &self.cached_inner_rect {
+            //assert!((r.width() - rr.width()).abs() < 0.001);
+            //assert!((r.height() - rr.height()).abs() < 0.001);
+            rect.clone()
+        } else {
+            let size = self.winit.inner_size();
+            let rect = Rect::new(0.0, 0.0, size.width.into(), size.height.into());
+            rect
+        }
     }
 
     /*
