@@ -51,8 +51,8 @@
 
     // How many notifications are kept in history.
     // Each notification is roughly 256 bytes (excluding buffers!), so there's some math to do here.
-    // Default: 10
-    //history_length: 10,
+    // Default: 100
+    //history_length: 100,
 
     // When a `NotificationBlock` has monitorr: -1 (i.e. should follow active monitor), then what input
     // should we use to determine the active monitor?

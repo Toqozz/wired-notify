@@ -141,14 +141,28 @@ pub fn handle_socket_message(
                     manager.trigger_action_idx(id, action);
                 }
                 "show" => {
-                    let num = args
-                        .parse::<usize>()
-                        .map_err(|_| CLIError::Parse("Value is not of type usize."))?;
-                    for _ in 0..num {
-                        if let Some(n) = manager.history.pop_back() {
+                    if let Some(arg) = args.strip_prefix("id") {
+                        let id = arg
+                            .parse::<u32>()
+                            .map_err(|_| CLIError::Parse("Value is not of type u32."))?;
+
+                        // Try to find a notification with that id.
+                        if let Some(n) = manager.history.pop(id) {
                             manager.new_notification(n, el);
+                        } else {
+                            return Err(CLIError::NotificationNotFound)
                         }
-                    }
+                    } else {
+                        let num = args
+                            .parse::<usize>()
+                            .map_err(|_| CLIError::Parse("Value is not of type usize."))?;
+
+                        for _ in 0..num {
+                            if let Some(n) = manager.history.pop_back() {
+                                manager.new_notification(n, el);
+                            }
+                        }
+                    };
                 }
                 "dnd" => {
                     if ON_VALS.contains(&args) {

@@ -23,11 +23,53 @@ use crate::{
     rendering::window::{NotifyWindow, UpdateModes},
 };
 
+// Note that this history represents the history of *destroyed* notifications.  Notifications that
+// are currently visible are not visible here.  Instead, consider them "current".
+pub struct NotifyHistory {
+    pub map: HashMap<u32, Notification>,
+    pub history: VecDeque<u32>,  // Ids of a history of notifications.  Mutated when we pop history.
+                                 // There should only ever be 1 of each id in here.
+}
+
+impl NotifyHistory {
+    pub fn new(capacity: usize) -> Self {
+        let map = HashMap::with_capacity(capacity);
+        let history = VecDeque::with_capacity(capacity);
+        Self {
+            map,
+            history,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.history.len()
+    }
+
+    pub fn push(&mut self, notification: Notification) {
+        let id = notification.id;
+        let _ = self.map.insert(id, notification);
+        self.history.push_back(id);
+    }
+
+    pub fn pop(&mut self, id: u32) -> Option<Notification> {
+        self.map.remove(&id)
+    }
+
+    pub fn pop_back(&mut self) -> Option<Notification> {
+        self.history.pop_back().and_then(|id| self.pop(id))
+    }
+
+    pub fn pop_front(&mut self) -> Option<Notification> {
+        self.history.pop_front().and_then(|id| self.pop(id))
+    }
+}
+
 pub struct NotifyWindowManager {
     pub base_window: winit::window::Window,
     pub layout_windows: HashMap<String, Vec<NotifyWindow>>,
-    pub history: VecDeque<Notification>,
+    pub history: NotifyHistory,
     pub dirty: bool,
+    pub should_exit: bool,
 
     // Do not disturb.
     dnd: bool,
@@ -57,13 +99,15 @@ impl NotifyWindowManager {
         Self {
             base_window,
             layout_windows,
-            history: VecDeque::with_capacity(Config::get().history_length),
+            history: NotifyHistory::new(Config::get().history_length),
             dirty: false,
 
             dnd: false,
             slow_update_timer: 0.0,
             last_idle_time: 0,
             active_monitor,
+
+            should_exit: false,
         }
     }
 
@@ -198,16 +242,16 @@ impl NotifyWindowManager {
                     let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
                     let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
 
-                    // Window, dying push notification to history.
+                    // Window is dying, push notification to history.
                     // NOTE: if window dies in some other way (which we don't support), we won't
-                    // have a history of it.  I think this might cause a bug anyway, since the
+                    // have a history of it.  This is likely to cause a bug anyway, since the
                     // window would still be in the array here.
                     // A fix may be to write notifications to history as soon as we receive them,
                     // but then we need to keep track of which notifications are active and stuff.
                     if self.history.len() + 1 > Config::get().history_length {
-                        self.history.pop_front();
+                        let _ = self.history.pop_front();
                     }
-                    self.history.push_back(window.notification.clone());
+                    self.history.push(window.notification.clone());
                 }
 
                 windows.retain(|w| !w.marked_for_destroy);

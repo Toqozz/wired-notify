@@ -140,7 +140,7 @@ pub struct Config {
 
     // How many notifications are kept in history.  Older notifications will be removed first.
     // Each notification is roughly 256 bytes (excluding buffers), so do the math there.
-    #[serde(default = "maths_utility::val_10")]
+    #[serde(default = "maths_utility::val_100")]
     pub history_length: usize,
     // Which input should we follow when follow active monitor is set?
     #[serde(default)]

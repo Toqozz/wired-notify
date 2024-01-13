@@ -806,6 +806,10 @@ pub fn val_10() -> usize {
     10
 }
 
+pub fn val_100() -> usize {
+    100
+}
+
 pub fn val_500() -> u64 {
     500
 }

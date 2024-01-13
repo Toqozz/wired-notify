@@ -126,7 +126,7 @@ impl OrgFreedesktopNotifications for Notify {
 pub fn init_dbus_thread() -> (JoinHandle<()>, Receiver<Message>) {
     let (sender, receiver) = mpsc::channel();
 
-    let c = Connection::new_session().expect("Failed to get a session bus.");
+    let c = Connection::new_session().expect("Failed to get a session bus");
     let reply = c
         .request_name("org.freedesktop.Notifications", false, true, false)
         .expect("Failed to register name.");
