@@ -2,6 +2,7 @@
 Description=Wired Notification Daemon
 Documentation=https://github.com/Toqozz/wired-notify
 After=graphical.target
+ConditionEnvironment=DISPLAY
 
 [Service]
 Type=dbus
