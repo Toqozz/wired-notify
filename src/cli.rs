@@ -157,6 +157,9 @@ pub fn handle_socket_message(
                         manager.set_dnd(false);
                     }
                 }
+                "kill" => {
+                    manager.should_exit = true;
+                }
                 _ => return Err(CLIError::InvalidCommand),
             }
         } else {
@@ -232,6 +235,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     );
     opts.optopt("s", "show", "show the last N notifications", "N");
     opts.optflag("r", "run", "run the wired daemon");
+    opts.optflag("x", "kill", "kill the wired process");
     opts.optflag("v", "version", "print the version of wired and leave");
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -258,6 +262,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
         || matches.opt_present("a")
         || matches.opt_present("s")
         || matches.opt_present("z")
+        || matches.opt_present("x")
     {
         let mut sock = match UnixStream::connect(SOCKET_PATH) {
             Ok(s) => s,
@@ -269,6 +274,11 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
                 ))
             }
         };
+
+        if matches.opt_present("x") {
+            sock.write("kill:".as_bytes())
+                .map_err(|e| e.to_string())?;
+        }
 
         if let Some(to_drop) = matches.opt_str("d") {
             validate_identifier(to_drop.as_str(), true)?;

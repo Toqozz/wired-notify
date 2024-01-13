@@ -164,6 +164,10 @@ fn main() {
                     *control_flow =
                         ControlFlow::WaitUntil(now + Duration::from_millis(Config::get().idle_poll_interval));
                 }
+
+                if manager.should_exit {
+                    *control_flow = ControlFlow::Exit;
+                }
             }
 
             Event::RedrawRequested(window_id) => {
