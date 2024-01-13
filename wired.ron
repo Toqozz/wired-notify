@@ -75,6 +75,9 @@
     //min_window_width: 1,
     //min_window_height: 1,
 
+    // Trim whitespace in received notification text, since some clients like to send whitespace, which we usually don't actually want.
+    //trim_whitespace: true,
+
     // Enable/disable debug rendering.
     debug: false,
     debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0), // Primary color for debug rectangles.

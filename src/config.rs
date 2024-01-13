@@ -159,6 +159,9 @@ pub struct Config {
     #[serde(default)]
     pub min_window_height: u32,
 
+    #[serde(default = "maths_utility::val_true")]
+    pub trim_whitespace: bool,
+
     // Draws rectangles around elements.
     #[serde(default)]
     pub debug: bool,

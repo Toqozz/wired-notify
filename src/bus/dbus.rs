@@ -316,8 +316,12 @@ impl Notification {
 
         // Pango is a bitch about ampersands, and also doesn't decode html entities for us, which
         // applications /love/ to send -- we need to escape ampersands and decode html entities.
-        let summary = maths_utility::escape_decode(summary);
-        let body = maths_utility::escape_decode(body);
+        let mut summary = maths_utility::escape_decode(summary);
+        let mut body = maths_utility::escape_decode(body);
+        if Config::get().trim_whitespace {
+            summary = summary.trim().to_string();
+            body = body.trim().to_string();
+        }
 
         let mut i = 0;
         let mut actions_map = HashMap::new();
