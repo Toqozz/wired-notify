@@ -45,14 +45,12 @@ impl CLIListener {
         let socket_path = Path::new(SOCKET_PATH);
         if socket_path.exists() {
             println!(
-                "A wired socket exists; taking ownership.  Existing wired processes will not receive CLI calls."
+                "A wired socket exists; taking ownership."
             );
-            
-            if std::fs::remove_file(SOCKET_PATH).is_err_and(|e| e.kind() == ErrorKind::PermissionDenied) {
-                return Err(CLIError::Socket(io::Error::new(
-                    ErrorKind::PermissionDenied,
-                    "Could not remove existing wired socket. Please stop all wired instances, remove /tmp/wired.sock and try again.",
-                )));
+
+            if let Err(err) = std::fs::remove_file(SOCKET_PATH) {
+                eprintln!("Could not remove existing wired socket -- CLI tool will not work! Please remove {SOCKET_PATH} manually.");
+                return Err(CLIError::Socket(err));
             }
         }
 
