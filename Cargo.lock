@@ -2081,7 +2081,7 @@ dependencies = [
 
 [[package]]
 name = "wired"
-version = "0.10.2"
+version = "0.10.4"
 dependencies = [
  "bitflags",
  "cairo-rs",
