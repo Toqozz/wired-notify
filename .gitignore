@@ -8,3 +8,4 @@ wired_derive/target/*
 **/result*
 
 .SRCINFO
+PROFILE
