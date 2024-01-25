@@ -198,6 +198,7 @@ impl NotifyWindowManager {
                         // 1s to be considered idle.
                         let idle_last_frame = self.is_idle_1s();
                         let is_idle = info.idle / 1000 >= 1;
+                        let info_idle = u64::from(info.idle);
 
                         // If we "woke up" this frame.
                         if cfg.unpause_on_input && idle_last_frame && !is_idle {
@@ -208,14 +209,14 @@ impl NotifyWindowManager {
                         }
 
                         // Just pause them every "frame", it's ok.
-                        if info.idle / 1000 >= threshold {
+                        if info_idle / 1000 >= threshold {
                             self.layout_windows
                                 .values_mut()
                                 .flatten()
                                 .for_each(|w| w.update_mode = UpdateModes::DRAW);
                         }
 
-                        self.last_idle_time = info.idle;
+                        self.last_idle_time = info_idle;
                     }
                     Err(e) => eprintln!("{}", e),
                 }
