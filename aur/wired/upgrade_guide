@@ -1,4 +1,4 @@
-- Make sure you update the version in Cargo.toml!
+- Make sure you update the version in Cargo.toml, and you've built Cargo.lock!
 - Edit PKGBUILD version.
 - Download version using link in PKGBUILD and get the sha256 hash.
 - Update hash in PKGBUILD.
