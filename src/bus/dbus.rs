@@ -452,10 +452,16 @@ impl Notification {
             percentage = None;
         }
 
-        let mut timeout = expire_timeout;
-        if timeout <= 0 {
-            timeout = Config::get().timeout;
-        }
+        // This comes from the spec, see https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
+        let timeout = if expire_timeout < 0 {
+            // Use the default
+            Config::get().timeout
+        } else if expire_timeout == 0 {
+            // Never expire
+            i32::MAX
+        } else {
+            expire_timeout
+        };
 
         Self {
             id,
