@@ -116,6 +116,10 @@ pub struct Config {
     pub idle_poll_interval: u64, // Same as above, but when no notifications are present.
     pub layout_blocks: Vec<LayoutBlock>,
 
+    // How to handle various DBus expire_timeout values
+    #[serde(default)]
+    pub timeout_behavior: TimeoutBehavior,
+
     // Optional Properties
 
     // The threshold before pausing notifications due to being idle.  Unspecified = ignore.
@@ -496,6 +500,20 @@ impl Default for ShortcutsConfig {
             notification_action4_and_close: None,
             notification_interact_and_close: None,
         }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum TimeoutBehavior {
+    // Legacy treats zero as 'use config default'
+    Legacy,
+    // DBusSpec treats zero as 'never expire'
+    DBusSpec,
+}
+
+impl Default for TimeoutBehavior {
+    fn default() -> Self {
+        Self::DBusSpec
     }
 }
 

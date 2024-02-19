@@ -13,7 +13,7 @@ use cairo::{Context, Surface};
 use cairo_sys;
 
 use crate::{
-    bus::dbus::Notification,
+    bus::dbus::{Notification, Timeout},
     config::Config,
     manager::NotifyWindowManager,
     maths_utility::{Rect, Vec2},
@@ -51,7 +51,7 @@ pub struct NotifyWindow {
     // Master offset is used to offset all *elements* when drawing.
     // It is useful when the notification expands in either left or top direction.
     pub master_offset: Vec2,
-    pub fuse: i32,
+    pub fuse: Timeout,
 
     // `update_enabled` is primarily used for pause functionality right now.
     //pub update_enabled: bool,
@@ -163,7 +163,7 @@ impl NotifyWindow {
 
         let context = cairo::Context::new(&surface).expect("Failed to create cairo context.");
         let text = TextRenderer::new(&context);
-        let fuse = notification.timeout;
+        let fuse = notification.timeout.clone();
 
         // If notifications should spawn paused, we check against threshold and against
         // `unpause_on_input`.
@@ -224,7 +224,7 @@ impl NotifyWindow {
 
         // Refresh timeout if configured
         if cfg.replacing_resets_timeout {
-            self.fuse = self.notification.timeout;
+            self.fuse = self.notification.timeout.clone();
         }
 
         // The minimum window width and height is 1.0.  We need this size to generate an initial window.
@@ -327,12 +327,15 @@ impl NotifyWindow {
 
     pub fn update(&mut self, delta_time: Duration) -> bool {
         if self.update_mode.contains(UpdateModes::FUSE) {
-            self.fuse -= delta_time.as_millis() as i32;
-            if self.fuse <= 0 {
-                // Window will be destroyed after others have been repositioned to replace it.
-                // We can return early because drawing will be discarded anyway.
-                self.marked_for_destroy = true;
-                return true;
+            if let Timeout::Milliseconds(fuse) = self.fuse {
+                let new_fuse = fuse - delta_time.as_millis() as i32;
+                self.fuse = Timeout::Milliseconds(new_fuse);
+                if new_fuse <= 0 {
+                    // Window will be destroyed after others have been repositioned to replace it.
+                    // We can return early because drawing will be discarded anyway.
+                    self.marked_for_destroy = true;
+                    return true;
+                }
             }
         }
 

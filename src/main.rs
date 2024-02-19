@@ -24,7 +24,7 @@ use winit::{
     platform::unix::EventLoopExtUnix,
 };
 
-use bus::dbus::{Message, Notification};
+use bus::dbus::{Message, Notification, Timeout};
 use cli::ShouldRun;
 use config::Config;
 use manager::NotifyWindowManager;
@@ -149,7 +149,11 @@ fn main() {
                         poll_interval = Duration::from_millis(Config::get().poll_interval);
                         maybe_print_file = open_print_file();
                         manager.replace_or_spawn(
-                            Notification::from_self("Wired", "Config was reloaded.", 5000),
+                            Notification::from_self(
+                                "Wired",
+                                "Config was reloaded.",
+                                Timeout::Milliseconds(5000),
+                            ),
                             event_loop,
                         );
                     }

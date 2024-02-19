@@ -21,6 +21,7 @@ use serde::Serialize;
 use tiny_skia;
 
 use crate::bus::dbus_codegen::{self, OrgFreedesktopNotifications};
+use crate::config::TimeoutBehavior;
 use crate::maths_utility;
 use crate::Config;
 
@@ -254,7 +255,7 @@ pub struct Notification {
 
     #[serde(serialize_with = "serialize_datetime")]
     pub time: DateTime<Local>,
-    pub timeout: i32,
+    pub timeout: Timeout,
 }
 
 use serde::Serializer;
@@ -270,14 +271,14 @@ impl std::fmt::Debug for Notification {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\turgency: {:?},\n\tpercentage: {:?},\n\ttime: {},\n\ttimeout: {}\n}}",
+            "Notification: {{\n\tid: {},\n\tapp_name: {},\n\tsummary: {},\n\tbody: {},\n\tactions: {:?},\n\tapp_image: {},\n\thint_image: {},\n\turgency: {:?},\n\tpercentage: {:?},\n\ttime: {},\n\ttimeout: {:?}\n}}",
             self.id, self.app_name, self.summary, self.body, self.actions, self.app_image.is_some(), self.hint_image.is_some(), self.urgency, self.percentage, self.time, self.timeout,
         )
     }
 }
 
 impl Notification {
-    pub fn from_self(summary: &str, body: &str, timeout: i32) -> Self {
+    pub fn from_self(summary: &str, body: &str, timeout: Timeout) -> Self {
         let id = fetch_id();
         Self {
             id,
@@ -452,15 +453,10 @@ impl Notification {
             percentage = None;
         }
 
-        // This comes from the spec, see https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
-        let timeout = if expire_timeout < 0 {
-            // Use the default
-            Config::get().timeout
-        } else if expire_timeout == 0 {
-            // Never expire
-            i32::MAX
-        } else {
-            expire_timeout
+        let cfg = Config::get();
+        let timeout = match cfg.timeout_behavior {
+            TimeoutBehavior::Legacy => legacy_timeout_behavior(expire_timeout, cfg.timeout),
+            TimeoutBehavior::DBusSpec => dbus_spec_timeout_behavior(expire_timeout, cfg.timeout),
         };
 
         Self {
@@ -497,5 +493,26 @@ impl Notification {
         } else {
             None
         }
+    }
+}
+
+#[derive(Clone, Serialize, Debug)]
+pub enum Timeout {
+    Milliseconds(i32),
+    NeverExpire,
+}
+
+fn legacy_timeout_behavior(timeout: i32, default: i32) -> Timeout {
+    Timeout::Milliseconds(if timeout <= 0 { default } else { timeout })
+}
+
+// This comes from the spec, see https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
+fn dbus_spec_timeout_behavior(timeout: i32, default: i32) -> Timeout {
+    if timeout < 0 {
+        Timeout::Milliseconds(default)
+    } else if timeout == 0 {
+        Timeout::NeverExpire
+    } else {
+        Timeout::Milliseconds(timeout)
     }
 }
