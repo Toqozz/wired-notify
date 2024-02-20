@@ -327,10 +327,9 @@ impl NotifyWindow {
 
     pub fn update(&mut self, delta_time: Duration) -> bool {
         if self.update_mode.contains(UpdateModes::FUSE) {
-            if let Timeout::Milliseconds(fuse) = self.fuse {
-                let new_fuse = fuse - delta_time.as_millis() as i32;
-                self.fuse = Timeout::Milliseconds(new_fuse);
-                if new_fuse <= 0 {
+            if let Timeout::Milliseconds(ref mut fuse) = self.fuse {
+                *fuse -= delta_time.as_millis() as i32;
+                if *fuse <= 0 {
                     // Window will be destroyed after others have been repositioned to replace it.
                     // We can return early because drawing will be discarded anyway.
                     self.marked_for_destroy = true;
