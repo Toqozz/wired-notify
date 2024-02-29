@@ -21,7 +21,7 @@ use serde::Serialize;
 use tiny_skia;
 
 use crate::bus::dbus_codegen::{self, OrgFreedesktopNotifications};
-use crate::config::TimeoutBehavior;
+use crate::config::ZeroTimeoutBehavior;
 use crate::maths_utility;
 use crate::Config;
 
@@ -232,6 +232,12 @@ pub enum Message {
 pub enum ImageData {
     SVG(Vec<u8>),
     Dynamic(DynamicImage),
+}
+
+#[derive(Clone, Serialize, Debug)]
+pub enum Timeout {
+    Milliseconds(i32),
+    NeverExpire,
 }
 
 #[derive(Clone, Serialize)]
@@ -454,9 +460,18 @@ impl Notification {
         }
 
         let cfg = Config::get();
-        let timeout = match cfg.timeout_behavior {
-            TimeoutBehavior::Legacy => legacy_timeout_behavior(expire_timeout, cfg.timeout),
-            TimeoutBehavior::DBusSpec => dbus_spec_timeout_behavior(expire_timeout, cfg.timeout),
+        let timeout = match cfg.zero_timeout_behavior {
+            ZeroTimeoutBehavior::UseDefault => Timeout::Milliseconds(if expire_timeout <= 0 { cfg.timeout } else { expire_timeout }),
+            ZeroTimeoutBehavior::NeverExpire => {
+                // From the spec: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
+                if expire_timeout < 0 {
+                    Timeout::Milliseconds(cfg.timeout)
+                } else if expire_timeout == 0 {
+                    Timeout::NeverExpire
+                } else {
+                    Timeout::Milliseconds(expire_timeout)
+                }
+            }
         };
 
         Self {
@@ -493,26 +508,5 @@ impl Notification {
         } else {
             None
         }
-    }
-}
-
-#[derive(Clone, Serialize, Debug)]
-pub enum Timeout {
-    Milliseconds(i32),
-    NeverExpire,
-}
-
-fn legacy_timeout_behavior(timeout: i32, default: i32) -> Timeout {
-    Timeout::Milliseconds(if timeout <= 0 { default } else { timeout })
-}
-
-// This comes from the spec, see https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
-fn dbus_spec_timeout_behavior(timeout: i32, default: i32) -> Timeout {
-    if timeout < 0 {
-        Timeout::Milliseconds(default)
-    } else if timeout == 0 {
-        Timeout::NeverExpire
-    } else {
-        Timeout::Milliseconds(timeout)
     }
 }

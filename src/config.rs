@@ -118,7 +118,7 @@ pub struct Config {
 
     // How to handle various DBus expire_timeout values
     #[serde(default)]
-    pub timeout_behavior: TimeoutBehavior,
+    pub zero_timeout_behavior: ZeroTimeoutBehavior,
 
     // Optional Properties
 
@@ -504,16 +504,16 @@ impl Default for ShortcutsConfig {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub enum TimeoutBehavior {
-    // Legacy treats zero as 'use config default'
-    Legacy,
-    // DBusSpec treats zero as 'never expire'
-    DBusSpec,
+pub enum ZeroTimeoutBehavior {
+    // Uses `expire_time`.
+    UseDefault,
+    // Treats zero as 'never expire'.
+    NeverExpire,
 }
 
-impl Default for TimeoutBehavior {
+impl Default for ZeroTimeoutBehavior {
     fn default() -> Self {
-        Self::DBusSpec
+        Self::NeverExpire
     }
 }
 

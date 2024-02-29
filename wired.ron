@@ -7,10 +7,11 @@
     // 1000ms = 1s.
     timeout: 10000,
 
-    // Treats expire_timeout values of zero as 'never expire', see
-    // https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html for details.
-    // For the original behavior of giving notifications with 'expire_timeout: 0' the default 'timeout' value, use 'Legacy'.
-    timeout_behavior: DBusSpec,
+    // How should we handle `expire_timeout` values of zero?
+    // `UseDefault`: use `timeout`.
+    // `NeverExpire`: show this notification forever.
+    // The latter is technically correct according to the notification spec: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
+    zero_timeout_behavior: NeverExpire,
 
     // `poll_interval` decides decides how often (in milliseconds) Wired checks events,
     // draws notifications (if necessary) -- the update loop while any notification is present.
