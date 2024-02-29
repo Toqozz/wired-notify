@@ -248,6 +248,7 @@ impl NotifyWindow {
         self.layout = Some(layout);
         self.set_size(rect.width(), rect.height());
         self.master_offset = delta;
+        self.cached_inner_rect = Some(Rect::new(0.0, 0.0, rect.width(), rect.height()));
         self.dirty = true;
     }
 
