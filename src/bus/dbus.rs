@@ -246,6 +246,8 @@ pub struct Notification {
     pub tag: Option<String>,
     pub note: Option<String>,
 
+    pub monitor: Option<String>,
+
     pub app_name: String,
 
     pub summary: String,
@@ -290,6 +292,7 @@ impl Notification {
             id,
             tag: None,
             note: None,
+            monitor: None,
             app_name: "Wired".to_owned(),
             summary: summary.to_owned(),
             body: body.to_owned(),
@@ -449,6 +452,9 @@ impl Notification {
         let tag = arg::prop_cast::<String>(&hints, "wired-tag").cloned();
         let note = arg::prop_cast::<String>(&hints, "wired-note").cloned();
 
+        // Allow overriding the monitor through a hint, used for scripts.
+        let monitor = arg::prop_cast::<String>(&hints, "wired-monitor").cloned();
+
         let percentage: Option<f32>;
         if let Some(value) = arg::prop_cast::<i32>(&hints, "value") {
             // This should be ok since we only support values from 0 to 100.
@@ -478,6 +484,7 @@ impl Notification {
             id,
             tag,
             note,
+            monitor,
             app_name,
             summary,
             body,
