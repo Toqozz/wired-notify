@@ -151,28 +151,30 @@ impl NotifyWindowManager {
             return;
         }
 
-        // Find any windows that have the same id, or the same app name and tag.
-        // If one exists then we should replace that (if replacing is enabled).
-        let mut maybe_windows = vec![];
-        //let mut maybe_window = None;
-        for w in self.layout_windows.values_mut().flatten() {
-            if notification_meets_layout_criteria(w.layout.as_ref().unwrap(), &notification)
-                && ((w.notification.id == notification.id && cfg.replacing_enabled)
-                    || (w.notification.app_name == notification.app_name
+        // We need to match a layout at least to be able to show anything -- new or otherwise.
+        if let Some(layout) = find_matching_layout(&notification) {
+            // Find any windows that have the same id, or the same app name and tag.
+            // If one exists then we should replace that (if replacing is enabled).
+            let mut maybe_windows = vec![];
+            for w in self.layout_windows.values_mut().flatten() {
+                let id_matches = (w.notification.id == notification.id) && cfg.replacing_enabled;
+                let tag_matches =
+                        w.notification.app_name == notification.app_name
                         && w.notification.tag.is_some()
-                        && w.notification.tag == notification.tag))
-            {
-                maybe_windows.push(w);
-                //maybe_window = Some(w)
-            }
-        }
+                        && w.notification.tag == notification.tag;
 
-        if !maybe_windows.is_empty() {
-            for w in maybe_windows {
-                w.replace_notification(notification.clone());
+                if id_matches || tag_matches {
+                    maybe_windows.push(w);
+                }
             }
-        } else {
-            self.new_notification(notification, el);
+
+            if !maybe_windows.is_empty() {
+                for w in maybe_windows{
+                    w.replace_notification(notification.clone(), layout.clone());
+                }
+            } else {
+                self.new_notification(notification, el);
+            }
         }
     }
 
@@ -633,6 +635,18 @@ fn notification_meets_layout_criteria(root: &LayoutBlock, notification: &Notific
     }
 
     false
+}
+
+fn find_matching_layout(notification: &Notification) -> Option<&LayoutBlock> {
+    for layout in &Config::get().layouts {
+        // Spawn a new window for each "root" layout that should be drawn.
+        // If this layout doesn't meet any criteria, skip, obviously.
+        if notification_meets_layout_criteria(layout, notification) {
+            return Some(layout)
+        }
+    }
+
+    None
 }
 
 // Checks if this block should be drawn (according to render criteria for each block).

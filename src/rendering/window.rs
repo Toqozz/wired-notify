@@ -217,7 +217,7 @@ impl NotifyWindow {
         window
     }
 
-    pub fn replace_notification(&mut self, new_notification: Notification) {
+    pub fn replace_notification(&mut self, new_notification: Notification, new_layout: LayoutBlock) {
         let cfg = Config::get();
 
         self.notification = new_notification;
@@ -237,7 +237,7 @@ impl NotifyWindow {
 
         // As above.  May be valuable to put this into a function like `prepare_notification` or
         // something if we keep changing stuff.
-        let mut layout = self.layout_take();
+        let mut layout = new_layout;
         let rect = layout.predict_rect_tree_and_init(
             self,
             &Rect::new(0.0, 0.0, width, height),
