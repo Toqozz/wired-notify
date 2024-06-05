@@ -1,7 +1,7 @@
 # Maintainer: Toqoz <https://github.com/Toqozz/wired-notify>
 
 pkgname=wired-bin
-pkgver=0.10.3
+pkgver=0.10.6
 pkgrel=1
 pkgdesc="Lightweight notification daemon with highly customizable layout blocks, written in Rust."
 arch=('x86_64')
@@ -11,7 +11,8 @@ depends=('dbus' 'cairo' 'pango' 'glib2' 'libx11' 'libxss')
 provides=('wired')
 conflicts=('wired')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/Toqozz/wired-notify/releases/download/${pkgver}/wired_${pkgver}_x86_64.tar.gz")
-sha256sums=('3de75596b13ba3950ddafbb95b8575a38664b19ce9a6592dda59d458c13e4834')
+sha256sums=('5d4b1e73af02475d34d4970d40b90160bd420f299343c995471049bf8b683f05')
+
 
 package() {
     cd "${srcdir}"
