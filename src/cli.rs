@@ -137,7 +137,7 @@ pub fn handle_socket_message(
                     let id = get_window_id(notif_id, manager)?;
                     let action = action_id
                         .parse::<usize>()
-                        .map_err(|_| CLIError::Parse("Value is not of type usize."))?;
+                        .unwrap_or(0);
                     manager.trigger_action_idx(id, action);
                 }
                 "show" => {
