@@ -135,9 +135,13 @@ pub fn handle_socket_message(
                         .ok_or(CLIError::Parse("Malformed action request."))?;
 
                     let id = get_window_id(notif_id, manager)?;
-                    let action = action_id
-                        .parse::<usize>()
-                        .unwrap_or(0);
+                    let action = match action_id {
+                        "default" => 0,
+                        _ => { action_id
+                            .parse::<usize>()
+                            .map_err(|_| CLIError::Parse("Value is not of type usize."))?
+                        }
+                    };
                     manager.trigger_action_idx(id, action);
                 }
                 "show" => {
