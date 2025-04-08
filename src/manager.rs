@@ -307,6 +307,7 @@ impl NotifyWindowManager {
             let (pos, size) = (monitor.position(), monitor.size());
             let monitor_rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
             let mut prev_rect = monitor_rect;
+            let mut last_mon = monitor;
 
             let mut real_idx = 0;
             for window in windows {
@@ -314,6 +315,42 @@ impl NotifyWindowManager {
                 // will be less noticeable.
                 if window.marked_for_destroy {
                     continue;
+                }
+
+                // Testing individual notification monitor overrides:
+                // This is not the right way to handle this IMO, but it works.
+                // Ideally, creating a notification with a monitor override would
+                // actually create a new layout/window for that stack of notifications
+                // on that monitor. We could do this statically by defining RenderCriteria
+                // for each monitor, but that wouldn't actually scale dynamically with an
+                // arbitrary number of monitors. It also would mean duplicating entire
+                // layout stacks, at least until templates become an option, which still
+                // wouldn't completely solve the issue, but would make it better.
+                if window.notification.monitor.is_some() {
+                    let maybe_monitor2 = self
+                    .base_window
+                    .available_monitors()
+                    .nth(window
+                        .notification
+                        .monitor
+                        .as_ref()
+                        .unwrap()
+                        .parse::<i8>()
+                        .unwrap() as usize
+                    );
+
+                    if maybe_monitor2.is_some() {
+                        let new_mon = maybe_monitor2.unwrap();
+                        if last_mon != new_mon {
+                            let new_rect = Rect::new(
+                                new_mon.position().x.into(), 
+                                new_mon.position().y.into(), 
+                                new_mon.size().width.into(), 
+                                new_mon.size().height.into());
+                            prev_rect = new_rect;
+                            last_mon = new_mon;
+                        }
+                    }
                 }
 
                 let mut window_rect = window.get_inner_rect();
