@@ -14,6 +14,7 @@ use std::{
     fs::File,
     fs::OpenOptions,
     io::Write,
+    path::PathBuf,
     time::{Duration, Instant},
 };
 
@@ -27,6 +28,7 @@ use winit::{
 use bus::dbus::{Message, Notification, Timeout};
 use cli::ShouldRun;
 use config::Config;
+use home_dir::HomeDirExt;
 use manager::NotifyWindowManager;
 
 fn try_print_to_file(notification: &Notification, file: &mut File) {
@@ -46,11 +48,19 @@ fn try_print_to_file(notification: &Notification, file: &mut File) {
 
 fn open_print_file() -> Option<File> {
     if let Some(filename) = Config::get().print_to_file.as_ref() {
+        let maybe_path = PathBuf::from(filename).expand_home();
+        let expanded_filename = match maybe_path {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Failed tilde expansion: {}", e);
+                return None;
+            }
+        };
         let maybe_file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(filename);
+            .open(expanded_filename);
         match maybe_file {
             Ok(f) => return Some(f),
             Err(e) => {

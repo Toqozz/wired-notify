@@ -48,7 +48,7 @@
     // Default: Mouse
     //focus_follows: Mouse,
 
-    // Enable printing notification data to a file.
+    // Enable printing notification data to a file. Tilde expansion is supported.
     // Useful for scripting purposes.
     // The data is written as JSON.
     // Default: None
