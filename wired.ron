@@ -1,3 +1,4 @@
+// https://github.com/Toqozz/wired-notify/wiki/Config
 (
     // Maximum number of notifications to show at any one time.
     // A value of 0 means that there is no limit.
@@ -29,6 +30,9 @@
     // Also note that no distinction is made between manually paused and idle paused notifications.
     // If `idle_threshold` is not specified, the behavior will be disabled entirely.
     //idle_threshold: 3600,
+
+    // Whether a notification should be sent when the config is reloaded.
+    //notify_on_reload: true,
 
     // Notifications will spawn paused, and have to be manually unpaused or cleared by the user,
     // unless `unpause_on_input` is also set.

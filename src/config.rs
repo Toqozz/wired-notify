@@ -124,6 +124,11 @@ pub struct Config {
 
     // The threshold before pausing notifications due to being idle.  Unspecified = ignore.
     pub idle_threshold: Option<u64>,
+
+    // Whether a notification should be sent when the config is reloaded.
+    #[serde(default = "maths_utility::val_true")]
+    pub notify_on_reload: bool,
+
     #[serde(default)]
     pub notifications_spawn_paused: bool,
     // When notifications have been paused due to idle threshold, should we unpause when we get

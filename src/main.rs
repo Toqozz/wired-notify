@@ -148,14 +148,17 @@ fn main() {
                     if cw.check_and_update_config() {
                         poll_interval = Duration::from_millis(Config::get().poll_interval);
                         maybe_print_file = open_print_file();
-                        manager.replace_or_spawn(
-                            Notification::from_self(
-                                "Wired",
-                                "Config was reloaded.",
-                                Timeout::Milliseconds(5000),
-                            ),
-                            event_loop,
-                        );
+
+                        if Config::get().notify_on_reload {
+                            manager.replace_or_spawn(
+                                Notification::from_self(
+                                    "Wired",
+                                    "Config was reloaded.",
+                                    Timeout::Milliseconds(5000),
+                                ),
+                                event_loop,
+                            );
+                        }
                     }
                 }
 
