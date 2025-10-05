@@ -446,8 +446,19 @@ impl Notification {
         // A tag defines a certain type of notification, and allows it to be easily overriden using that tag.
         // A note is supplemental data passed to the notification.  It's purely used for render
         // criteria stuff right now.
-        let tag = arg::prop_cast::<String>(&hints, "wired-tag").cloned();
+        let mut tag = arg::prop_cast::<String>(&hints, "wired-tag").cloned();
         let note = arg::prop_cast::<String>(&hints, "wired-note").cloned();
+
+        // We convert Canonical's special synchonous tag as if it was one of our own.  The
+        // functionality is the same.  A decent overview: https://gitlab.freedesktop.org/xdg/xdg-specs/-/issues/77
+        let canonical_synchronous = arg::prop_cast::<String>(&hints, "x-canonical-private-synchronous").cloned();
+
+        if tag.is_some() && canonical_synchronous.is_some() {
+            // This is a bit weird.
+            println!("Found both a `wired-tag` hint and a `x-canonical-private-synchronous` hint.  These both do the same thing, so you probably only want one.");
+        } else if canonical_synchronous.is_some() {
+            tag = canonical_synchronous;
+        }
 
         let percentage: Option<f32>;
         if let Some(value) = arg::prop_cast::<i32>(&hints, "value") {
