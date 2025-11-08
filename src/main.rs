@@ -5,6 +5,7 @@ mod bus;
 mod cli;
 mod config;
 mod manager;
+mod icons;
 #[rustfmt::skip]
 mod maths_utility;
 mod rendering;
