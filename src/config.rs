@@ -126,6 +126,9 @@ pub struct Config {
     // The threshold before pausing notifications due to being idle.  Unspecified = ignore.
     pub idle_threshold: Option<u64>,
 
+    #[serde(default = "maths_utility::val_adwaita")]
+    pub icon_theme: String,
+
     // Whether a notification should be sent when the config is reloaded.
     #[serde(default = "maths_utility::val_true")]
     pub notify_on_reload: bool,
@@ -188,6 +191,9 @@ pub struct Config {
 
     #[serde(skip)] // derived from user settings
     pub(crate) is_auto_active_monitor: bool,
+
+    #[serde(skip)] // derived from icon_theme at load time
+    pub(crate) icon_theme_chain: Vec<String>,
 }
 
 impl Config {
@@ -432,6 +438,9 @@ impl Config {
             .layouts
             .iter()
             .any(|layout| layout.as_notification_block().monitor < 0);
+
+        // Cache theme chain to avoid (some) recursive lookup every time we search for an icon.
+        config.icon_theme_chain = crate::icons::build_theme_chain(&config.icon_theme);
 
         Ok(config)
     }

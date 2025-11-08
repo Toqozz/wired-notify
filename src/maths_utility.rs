@@ -994,3 +994,7 @@ pub fn val_100() -> usize {
 pub fn val_500() -> u64 {
     500
 }
+
+pub fn val_adwaita() -> String {
+    "Adwaita".to_owned()
+}

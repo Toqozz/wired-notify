@@ -24,6 +24,7 @@ use tiny_skia;
 
 use crate::bus::dbus_codegen::{self, OrgFreedesktopNotifications};
 use crate::config::ZeroTimeoutBehavior;
+use crate::icons;
 use crate::maths_utility;
 use crate::Config;
 
@@ -410,7 +411,8 @@ impl Notification {
             }
         }
 
-        let app_image = image_from_path(&app_icon);
+        let app_image =
+            icons::resolve_icon_path(&app_icon).and_then(|p| image_from_path(p.to_str().unwrap()));
 
         // Structs are stored internally in the rust dbus implementation as VecDeque.
         // https://github.com/diwic/dbus-rs/issues/363
