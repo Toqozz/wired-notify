@@ -14,6 +14,7 @@ pub struct NotificationBlockParameters {
 
     pub border_width: f64,
     pub border_rounding: f64,
+    pub rounded_border_corners: bool,
     pub background_color: Color,
     pub border_color: Color,
 
@@ -64,7 +65,11 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         let w = parent_rect.width();
         let h = parent_rect.height();
 
-        let outer_radius = radius.min(w.min(h) / 2.0);
+        let outer_radius = if self.rounded_border_corners { 
+            radius.min(w.min(h) / 2.0 )
+        } else {
+            0.0
+        };
         let inner_radius = (radius - bw).max(0.0).min((w - bw * 2.0).min(h - bw * 2.0) / 2.0);
 
         // Draw border

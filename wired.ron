@@ -109,6 +109,7 @@
                 monitor: 0,
                 border_width: 3.0,
                 border_rounding: 3.0,
+                rounded_border_corners: true,
                 //background_color: Color(r: 0.15686, g: 0.15686, b: 0.15686, a: 1.0),
                 background_color: Color(hex: "#282828"),
                 border_color: Color(hex: "#ebdbb2"),
