@@ -4,6 +4,8 @@ use crate::config::Config;
 
 /// Resolve icon path from theme (supports svg, png, xpm, scalable, symbolic, etc.)
 pub fn resolve_icon_path(icon_name: &str) -> Option<PathBuf> {
+    if icon_name.is_empty() { return None }
+
     let path = Path::new(icon_name);
 
     // If already a valid file path
