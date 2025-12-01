@@ -4,7 +4,7 @@
     // A value of 0 means that there is no limit.
     max_notifications: 0,
 
-    // The default timeout, in miliseconds, for notifications that don't have an initial timeout set.
+    // The default timeout, in milliseconds, for notifications that don't have an initial timeout set.
     // 1000ms = 1s.
     timeout: 10000,
 
