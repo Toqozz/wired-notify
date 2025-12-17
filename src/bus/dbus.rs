@@ -83,7 +83,7 @@ impl OrgFreedesktopNotifications for Notify {
         // is effectively assigning its own id, which may interfere with ours.  Not sure how mmuch I can
         // do about this.
         let id = if replaces_id == 0 {
-            // Grab an ID atomically.  This is moreso to allow global access to `ID_COUNT`, but I'm
+            // Grab an ID atomically.  This is more so to allow global access to `ID_COUNT`, but I'm
             // also not sure if `notify` is called in a single-threaded way, so it's best to be safe.
             fetch_id()
         } else {
@@ -443,13 +443,13 @@ impl Notification {
         }
 
         // What's the difference between tag and note?
-        // A tag defines a certain type of notification, and allows it to be easily overriden using that tag.
+        // A tag defines a certain type of notification, and allows it to be easily overridden using that tag.
         // A note is supplemental data passed to the notification.  It's purely used for render
         // criteria stuff right now.
         let mut tag = arg::prop_cast::<String>(&hints, "wired-tag").cloned();
         let note = arg::prop_cast::<String>(&hints, "wired-note").cloned();
 
-        // We convert Canonical's special synchonous tag as if it was one of our own.  The
+        // We convert Canonical's special synchronous tag as if it was one of our own.  The
         // functionality is the same.  A decent overview: https://gitlab.freedesktop.org/xdg/xdg-specs/-/issues/77
         let canonical_synchronous = arg::prop_cast::<String>(&hints, "x-canonical-private-synchronous").cloned();
 

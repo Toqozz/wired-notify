@@ -41,7 +41,7 @@ pub enum Error {
     // Validation error.
     Validate(&'static str),
     // Bad hex string error.
-    Hexidecimal(&'static str),
+    Hexadecimal(&'static str),
     // IO error reading file.
     Io(io::Error),
     // Deserialization error.
@@ -55,7 +55,7 @@ impl std::error::Error for Error {
         match self {
             Error::NotFound => None,
             Error::Validate(_) => None,
-            Error::Hexidecimal(_) => None,
+            Error::Hexadecimal(_) => None,
             Error::Io(err) => err.source(),
             Error::Ron(err) => err.source(),
             Error::Watch(err) => err.source(),
@@ -68,8 +68,8 @@ impl Display for Error {
         match self {
             Error::NotFound => write!(f, "No config found"),
             Error::Validate(problem) => write!(f, "Error validating config file: {}", problem),
-            Error::Hexidecimal(problem) => {
-                write!(f, "Error parsing hexidecimal string: {}", problem)
+            Error::Hexadecimal(problem) => {
+                write!(f, "Error parsing hexadecimal string: {}", problem)
             }
             Error::Io(err) => write!(f, "Error reading config file: {}", err),
             Error::Ron(err) => write!(f, "Problem with config file: {}", err),
@@ -272,7 +272,7 @@ impl Config {
         }
     }
 
-    // Get mutable refernce to global config variable.
+    // Get mutable reference to global config variable.
     pub fn get_mut() -> &'static mut Config {
         unsafe {
             assert!(CONFIG.is_some());
@@ -592,7 +592,7 @@ impl Color {
         let dec = u32::from_str_radix(sanitized, 16);
         let dec = match dec {
             Ok(d) => d,
-            Err(_) => return Err(Error::Hexidecimal("Invalid hexidecimal string.")),
+            Err(_) => return Err(Error::Hexadecimal("Invalid hexadecimal string.")),
         };
 
         // If we have 8 chars, then this is hex string includes alpha, if we have 6, then it
@@ -611,7 +611,7 @@ impl Color {
             let b = (dec & 0xff) as f64 / 255.0;
             Ok(Color::from_rgba(r, g, b, a))
         } else {
-            Err(Error::Hexidecimal("Incorrect hexidecimal string length."))
+            Err(Error::Hexadecimal("Incorrect hexadecimal string length."))
         }
     }
 }
@@ -648,7 +648,7 @@ impl<'de> Deserialize<'de> for Color {
             #[allow(clippy::or_fun_call)]
             return Color::from_hex(&hex).or(Err(de::Error::invalid_value(
                 Unexpected::Str(&hex),
-                &"a valid hexidecimal string",
+                &"a valid hexadecimal string",
             )));
         } else if let (Some(r), Some(g), Some(b), Some(a)) = (col.r, col.g, col.b, col.a) {
             Ok(Color::from_rgba(r, g, b, a))
