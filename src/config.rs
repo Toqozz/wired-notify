@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(static_mut_refs)]
 
 use std::{
     env,

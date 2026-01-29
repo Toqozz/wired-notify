@@ -1,3 +1,5 @@
+#![allow(static_mut_refs)]
+
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::AtomicU32;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -451,7 +453,8 @@ impl Notification {
 
         // We convert Canonical's special synchronous tag as if it was one of our own.  The
         // functionality is the same.  A decent overview: https://gitlab.freedesktop.org/xdg/xdg-specs/-/issues/77
-        let canonical_synchronous = arg::prop_cast::<String>(&hints, "x-canonical-private-synchronous").cloned();
+        let canonical_synchronous =
+            arg::prop_cast::<String>(&hints, "x-canonical-private-synchronous").cloned();
 
         if tag.is_some() && canonical_synchronous.is_some() {
             // This is a bit weird.
@@ -472,7 +475,11 @@ impl Notification {
 
         let cfg = Config::get();
         let timeout = match cfg.zero_timeout_behavior {
-            ZeroTimeoutBehavior::UseDefault => Timeout::Milliseconds(if expire_timeout <= 0 { cfg.timeout } else { expire_timeout }),
+            ZeroTimeoutBehavior::UseDefault => Timeout::Milliseconds(if expire_timeout <= 0 {
+                cfg.timeout
+            } else {
+                expire_timeout
+            }),
             ZeroTimeoutBehavior::NeverExpire => {
                 // From the spec: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
                 if expire_timeout < 0 {

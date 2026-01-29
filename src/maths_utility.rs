@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 use std::process::{Command, Stdio};
 
-use x11::xlib;
-use x11::xss::{XScreenSaverQueryInfo, XScreenSaverInfo};
-use winit::window::Window;
-use winit::platform::unix::WindowExtUnix;
-use winit::monitor::MonitorHandle;
-use serde::Deserialize;
-use crate::config::Color;
 use crate::bus::dbus::Notification;
+use crate::config::Color;
+use serde::Deserialize;
+use winit::monitor::MonitorHandle;
+use winit::platform::unix::WindowExtUnix;
+use winit::window::Window;
+use x11::xlib;
+use x11::xss::{XScreenSaverInfo, XScreenSaverQueryInfo};
 
 #[derive(Default, Debug, Deserialize, Clone)]
 pub struct MinMax {
@@ -39,25 +39,34 @@ pub struct Rect {
 impl Default for Rect {
     fn default() -> Self {
         Self {
-            x: 0.0, y: 0.0, width: 0.0, height: 0.0,
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
         }
     }
 }
 
 // https://github.com/libsdl-org/SDL/blob/d81fee76235a1f13123818815ecebcb27764595d/src/video/SDL_rect_impl.h
 impl Rect {
-    pub const EMPTY: Self = Self { x: 0.0, y: 0.0, width: 0.0, height: 0.0 };
+    pub const EMPTY: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        width: 0.0,
+        height: 0.0,
+    };
 
     pub fn empty() -> Self {
         Self {
-            x: 0.0, y: 0.0, width: 0.0, height: 0.0,
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
         }
     }
 
     pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
-        Self {
-            x, y, width, height,
-        }
+        Self { x, y, width, height }
     }
 
     pub fn x(&self) -> f64 {
@@ -118,41 +127,65 @@ impl Rect {
     }
 
     pub fn top_left(&self) -> Vec2 {
-        Vec2 { x: self.left(), y: self.top() }
+        Vec2 {
+            x: self.left(),
+            y: self.top(),
+        }
     }
 
     pub fn top_right(&self) -> Vec2 {
-        Vec2 { x: self.right(), y: self.top() }
+        Vec2 {
+            x: self.right(),
+            y: self.top(),
+        }
     }
 
     pub fn bottom_left(&self) -> Vec2 {
-        Vec2 { x: self.left(), y: self.bottom() }
+        Vec2 {
+            x: self.left(),
+            y: self.bottom(),
+        }
     }
 
     pub fn bottom_right(&self) -> Vec2 {
-        Vec2 { x: self.right(), y: self.bottom() }
+        Vec2 {
+            x: self.right(),
+            y: self.bottom(),
+        }
     }
 
     pub fn mid_left(&self) -> Vec2 {
-        Vec2 { x: self.left(), y: (self.bottom() + self.top()) / 2.0 }
+        Vec2 {
+            x: self.left(),
+            y: (self.bottom() + self.top()) / 2.0,
+        }
     }
 
     pub fn mid_right(&self) -> Vec2 {
-        Vec2 { x: self.right(), y: (self.bottom() + self.top()) / 2.0 }
+        Vec2 {
+            x: self.right(),
+            y: (self.bottom() + self.top()) / 2.0,
+        }
     }
 
     pub fn mid_top(&self) -> Vec2 {
-        Vec2 { x: (self.left() + self.right()) / 2.0, y: self.top() }
+        Vec2 {
+            x: (self.left() + self.right()) / 2.0,
+            y: self.top(),
+        }
     }
 
     pub fn mid_bottom(&self) -> Vec2 {
-        Vec2 { x: (self.left() + self.right()) / 2.0, y: self.bottom() }
+        Vec2 {
+            x: (self.left() + self.right()) / 2.0,
+            y: self.bottom(),
+        }
     }
 
     pub fn mid_mid(&self) -> Vec2 {
         Vec2 {
             x: (self.left() + self.right()) / 2.0,
-            y: (self.bottom() + self.top()) / 2.0
+            y: (self.bottom() + self.top()) / 2.0,
         }
     }
 
@@ -190,8 +223,10 @@ impl Rect {
     }
 
     pub fn contains_point(&self, point: &Vec2) -> bool {
-        (point.x >= self.x) && (point.x < (self.x + self.width())) &&
-        (point.y >= self.y) && (point.y < (self.y + self.height()))
+        (point.x >= self.x)
+            && (point.x < (self.x + self.width()))
+            && (point.y >= self.y)
+            && (point.y < (self.y + self.height()))
     }
 
     pub fn intersect(&self, other: &Rect) -> Option<Rect> {
@@ -235,15 +270,18 @@ impl Rect {
     }
 }
 
-
 // Non-clamped lerp.
 pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
     (1.0 - t) * a + t * b
 }
 
 pub fn clamp(mut val: f64, min: f64, max: f64) -> f64 {
-    if val < min { val = min }
-    if val > max { val = max }
+    if val < min {
+        val = min
+    }
+    if val > max {
+        val = max
+    }
     val
 }
 
@@ -256,7 +294,14 @@ pub fn distance(x: f64, y: f64) -> f64 {
 }
 
 // http://cairographics.org/samples/rounded_rectangle/
-pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) -> Result<(), cairo::Error> {
+pub fn cairo_path_rounded_rectangle(
+    ctx: &cairo::Context,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    corner_radius: f64,
+) -> Result<(), cairo::Error> {
     ctx.save()?;
 
     // Aspect ratio.
@@ -266,10 +311,28 @@ pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width:
     let degrees = std::f64::consts::PI / 180.0;
 
     ctx.new_sub_path();
-    ctx.arc(x + width - radius, y + radius         , radius         , -90.0 * degrees, 0.0 * degrees);
-    ctx.arc(x + width - radius, y + height - radius, radius         , 0.0 * degrees  , 90.0 * degrees);
-    ctx.arc(x + radius        , y + height - radius, radius         , 90.0 * degrees , 180.0 * degrees);
-    ctx.arc(x + radius        , y + radius         , radius         , 180.0 * degrees, 270.0 * degrees);
+    ctx.arc(
+        x + width - radius,
+        y + radius,
+        radius,
+        -90.0 * degrees,
+        0.0 * degrees,
+    );
+    ctx.arc(
+        x + width - radius,
+        y + height - radius,
+        radius,
+        0.0 * degrees,
+        90.0 * degrees,
+    );
+    ctx.arc(
+        x + radius,
+        y + height - radius,
+        radius,
+        90.0 * degrees,
+        180.0 * degrees,
+    );
+    ctx.arc(x + radius, y + radius, radius, 180.0 * degrees, 270.0 * degrees);
     ctx.close_path();
 
     ctx.restore()?;
@@ -277,7 +340,14 @@ pub fn cairo_path_rounded_rectangle(ctx: &cairo::Context, x: f64, y: f64, width:
     Ok(())
 }
 
-pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64) -> Result<(), cairo::Error> {
+pub fn cairo_path_rounded_rectangle_inverse(
+    ctx: &cairo::Context,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    corner_radius: f64,
+) -> Result<(), cairo::Error> {
     ctx.save()?;
 
     // Aspect ratio.
@@ -287,10 +357,28 @@ pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64
     let degrees = std::f64::consts::PI / 180.0;
 
     ctx.new_sub_path();
-    ctx.arc_negative(x + radius        , y + radius         , radius         , 270.0 * degrees, 180.0 * degrees);
-    ctx.arc_negative(x + radius        , y + height - radius, radius         , 180.0 * degrees , 90.0 * degrees);
-    ctx.arc_negative(x + width - radius, y + height - radius, radius         , 90.0 * degrees  , 0.0 * degrees);
-    ctx.arc_negative(x + width - radius, y + radius         , radius         , 0.0 * degrees, -90.0 * degrees);
+    ctx.arc_negative(x + radius, y + radius, radius, 270.0 * degrees, 180.0 * degrees);
+    ctx.arc_negative(
+        x + radius,
+        y + height - radius,
+        radius,
+        180.0 * degrees,
+        90.0 * degrees,
+    );
+    ctx.arc_negative(
+        x + width - radius,
+        y + height - radius,
+        radius,
+        90.0 * degrees,
+        0.0 * degrees,
+    );
+    ctx.arc_negative(
+        x + width - radius,
+        y + radius,
+        radius,
+        0.0 * degrees,
+        -90.0 * degrees,
+    );
     ctx.close_path();
 
     ctx.restore()?;
@@ -302,7 +390,17 @@ pub fn cairo_path_rounded_rectangle_inverse(ctx: &cairo::Context, x: f64, y: f64
 // Obeys background opacity and such -- border color is not present on the background like it would
 // be with the naive approach.
 #[allow(clippy::too_many_arguments)]
-pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color) -> Result<(), cairo::Error> {
+pub fn cairo_rounded_bordered_rectangle(
+    ctx: &cairo::Context,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    corner_radius: f64,
+    thickness: f64,
+    fg_color: &Color,
+    bg_color: &Color,
+) -> Result<(), cairo::Error> {
     // To my understanding, push group basically lets us write to another texture, which we can
     // then paint on top of stuff later.
     // push_group() calls ctx.save().
@@ -312,7 +410,14 @@ pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, wi
     ctx.set_source_rgba(fg_color.r, fg_color.g, fg_color.b, fg_color.a);
     ctx.fill()?;
 
-    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, corner_radius)?;
+    cairo_path_rounded_rectangle(
+        ctx,
+        x + thickness,
+        y + thickness,
+        width - thickness * 2.0,
+        height - thickness * 2.0,
+        corner_radius,
+    )?;
     ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
     ctx.fill()?;
     ctx.pop_group_to_source()?;
@@ -325,7 +430,20 @@ pub fn cairo_rounded_bordered_rectangle(ctx: &cairo::Context, x: f64, y: f64, wi
 // Obeys background opacity and such -- border color is not present on the background like it would
 // be with the naive approach.
 #[allow(clippy::too_many_arguments)]
-pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: f64, width: f64, height: f64, fill_percent: f64, border_corner_radius: f64, fill_corner_radius: f64, thickness: f64, fg_color: &Color, bg_color: &Color, fill_color: &Color) -> Result<(), cairo::Error> {
+pub fn cairo_rounded_bordered_filled_rectangle(
+    ctx: &cairo::Context,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    fill_percent: f64,
+    border_corner_radius: f64,
+    fill_corner_radius: f64,
+    thickness: f64,
+    fg_color: &Color,
+    bg_color: &Color,
+    fill_color: &Color,
+) -> Result<(), cairo::Error> {
     // To my understanding, push group basically lets us write to another texture, which we can
     // then paint on top of stuff later.
     ctx.push_group();
@@ -335,16 +453,37 @@ pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: 
     ctx.fill()?;
 
     // Background clipping path (to prevent leaks at small fill %s).
-    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, width - thickness * 2.0, height - thickness * 2.0, fill_corner_radius)?;
+    cairo_path_rounded_rectangle(
+        ctx,
+        x + thickness,
+        y + thickness,
+        width - thickness * 2.0,
+        height - thickness * 2.0,
+        fill_corner_radius,
+    )?;
     ctx.clip_preserve();
 
     // Draw background, which subtracts from the clipping area path.
-    cairo_path_rounded_rectangle_inverse(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, fill_corner_radius)?;
+    cairo_path_rounded_rectangle_inverse(
+        ctx,
+        x + thickness,
+        y + thickness,
+        (width - thickness * 2.0) * fill_percent,
+        height - thickness * 2.0,
+        fill_corner_radius,
+    )?;
     ctx.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
     ctx.fill()?;
 
     // Draw fill area, on top of the background.
-    cairo_path_rounded_rectangle(ctx, x + thickness, y + thickness, (width - thickness * 2.0)*fill_percent, height - thickness * 2.0, fill_corner_radius)?;
+    cairo_path_rounded_rectangle(
+        ctx,
+        x + thickness,
+        y + thickness,
+        (width - thickness * 2.0) * fill_percent,
+        height - thickness * 2.0,
+        fill_corner_radius,
+    )?;
     ctx.set_source_rgba(fill_color.r, fill_color.g, fill_color.b, fill_color.a);
     ctx.fill()?;
 
@@ -354,7 +493,14 @@ pub fn cairo_rounded_bordered_filled_rectangle(ctx: &cairo::Context, x: f64, y: 
     Ok(())
 }
 
-pub fn debug_rect(ctx: &cairo::Context, alt: bool, x: f64, y: f64, width: f64, height: f64) -> Result<(), cairo::Error> {
+pub fn debug_rect(
+    ctx: &cairo::Context,
+    alt: bool,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), cairo::Error> {
     use crate::config::Config;
     // Often, modules will check for debug before calling this anyway to save work, but it's good
     // to be sure we never draw any debug rects when debug is turned off.
@@ -390,10 +536,22 @@ pub fn escape_decode(to_escape: String) -> String {
     while i < bytes.len() {
         let byte = bytes[i];
         match byte {
-            b'<' => { escaped.extend_from_slice(b"&lt;"); i += 1; },
-            b'>' => { escaped.extend_from_slice(b"&gt;"); i += 1; },
-            b'\'' => { escaped.extend_from_slice(b"&apos;"); i += 1; },
-            b'"' => { escaped.extend_from_slice(b"&quot;"); i += 1; },
+            b'<' => {
+                escaped.extend_from_slice(b"&lt;");
+                i += 1;
+            }
+            b'>' => {
+                escaped.extend_from_slice(b"&gt;");
+                i += 1;
+            }
+            b'\'' => {
+                escaped.extend_from_slice(b"&apos;");
+                i += 1;
+            }
+            b'"' => {
+                escaped.extend_from_slice(b"&quot;");
+                i += 1;
+            }
             b'&' => {
                 let mut count = 1;
                 let mut found = false;
@@ -403,10 +561,10 @@ pub fn escape_decode(to_escape: String) -> String {
                         break;
                     }
 
-                    if bytes[i+count] == b';' {
+                    if bytes[i + count] == b';' {
                         // Pango doesn't support all XML entities, so we we just want to match the
                         // ones we know it does.
-                        match &to_escape[i..i+count+1] {
+                        match &to_escape[i..i + count + 1] {
                             "&gt;" => found = true,
                             "&lt;" => found = true,
                             "&amp;" => found = true,
@@ -429,7 +587,7 @@ pub fn escape_decode(to_escape: String) -> String {
                 }
 
                 if found {
-                    escaped.extend_from_slice(to_escape[i..i+count].as_bytes());
+                    escaped.extend_from_slice(to_escape[i..i + count].as_bytes());
                     i += count;
                 } else {
                     escaped.extend_from_slice(b"&amp;");
@@ -437,7 +595,10 @@ pub fn escape_decode(to_escape: String) -> String {
                 }
             }
 
-            _ => { escaped.push(byte); i += 1 },
+            _ => {
+                escaped.push(byte);
+                i += 1
+            }
         }
     }
 
@@ -467,7 +628,11 @@ fn check_valid_digit_entity(start: usize, count: usize, bytes: &[u8]) -> bool {
 // once for the body.  The first insertion could insert format strings which would mess up the
 // second insertion.
 // This solution is pretty fast (microseconds in release).
-pub fn format_action_notification_string(format_string: &str, action_name: &str, notification: &Notification) -> String {
+pub fn format_action_notification_string(
+    format_string: &str,
+    action_name: &str,
+    notification: &Notification,
+) -> String {
     let mut formatted: Vec<u8> = vec![];
     let bytes = format_string.as_bytes();
     let mut i = 0;
@@ -475,7 +640,7 @@ pub fn format_action_notification_string(format_string: &str, action_name: &str,
         let byte = bytes[i];
         // We need at least 2 chars to match a format string, so if we only have one, then let's
         // leave.
-        if i == bytes.len()-1 {
+        if i == bytes.len() - 1 {
             formatted.push(byte);
             i += 1;
             continue;
@@ -484,37 +649,59 @@ pub fn format_action_notification_string(format_string: &str, action_name: &str,
         match byte {
             b'%' => {
                 // This range is exclusive on the right hand side, so we go +2.
-                match &format_string[i..i+2] {
+                match &format_string[i..i + 2] {
                     // We need room for at least 2 brackets, so check for that.
-                    "%t" => if i+4 < format_string.len() {
-                        let (time_format, len) =
-                            extract_time_format(&format_string[i+2..]).unwrap_or(("", 0));
+                    "%t" => {
+                        if i + 4 < format_string.len() {
+                            let (time_format, len) =
+                                extract_time_format(&format_string[i + 2..]).unwrap_or(("", 0));
 
-                        formatted.extend_from_slice(
-                            notification.time.format(time_format).to_string().as_bytes()
-                        );
+                            formatted.extend_from_slice(
+                                notification.time.format(time_format).to_string().as_bytes(),
+                            );
 
-                        i += 2 + len;
+                            i += 2 + len;
+                            continue;
+                        }
+                    }
+                    "%p" => {
+                        let percentage_100 = notification.percentage.map(|p| p * 100.0);
+                        let string = if let Some(p) = percentage_100 {
+                            format!("{:.0}", p)
+                        } else {
+                            "None".to_owned()
+                        };
+
+                        formatted.extend_from_slice(string.as_bytes());
+                        i += 2;
+
                         continue;
                     }
-                    "%p" => { 
-                            let percentage_100 = notification.percentage.map(|p| (p * 100.0));
-                            let string = if let Some(p) = percentage_100 {
-                                format!("{:.0}", p)
-                            } else {
-                                "None".to_owned()
-                            };
-
-                            formatted.extend_from_slice(string.as_bytes());
-                            i += 2;
-
-                            continue
+                    "%s" => {
+                        formatted.extend_from_slice(notification.summary.as_bytes());
+                        i += 2;
+                        continue;
                     }
-                    "%s" => { formatted.extend_from_slice(notification.summary.as_bytes()); i += 2; continue },
-                    "%b" => { formatted.extend_from_slice(notification.body.as_bytes()); i += 2; continue },
-                    "%n" => { formatted.extend_from_slice(notification.app_name.as_bytes()); i += 2; continue },
-                    "%a" => { formatted.extend_from_slice(action_name.as_bytes()); i += 2; continue },
-                    "%i" => { formatted.extend_from_slice(notification.id.to_string().as_bytes()); i += 2; continue },
+                    "%b" => {
+                        formatted.extend_from_slice(notification.body.as_bytes());
+                        i += 2;
+                        continue;
+                    }
+                    "%n" => {
+                        formatted.extend_from_slice(notification.app_name.as_bytes());
+                        i += 2;
+                        continue;
+                    }
+                    "%a" => {
+                        formatted.extend_from_slice(action_name.as_bytes());
+                        i += 2;
+                        continue;
+                    }
+                    "%i" => {
+                        formatted.extend_from_slice(notification.id.to_string().as_bytes());
+                        i += 2;
+                        continue;
+                    }
                     _ => (),
                 }
 
@@ -593,7 +780,10 @@ pub fn find_and_open_url(string: String) {
             .spawn();
 
         if child.is_err() {
-            eprintln!("Tried to open a url using xdg-open, but the command failed: {:?}", child);
+            eprintln!(
+                "Tried to open a url using xdg-open, but the command failed: {:?}",
+                child
+            );
         }
     }
 }
@@ -652,12 +842,13 @@ fn get_mouse_pos(base_window: &Window) -> (i32, i32) {
 // enough for most use cases.
 pub fn get_active_monitor_mouse(base_window: &Window) -> Option<MonitorHandle> {
     let (x, y) = get_mouse_pos(base_window);
-    let mouse_pos = &Vec2 { x: x as f64, y: y as f64 };
+    let mouse_pos = &Vec2 {
+        x: x as f64,
+        y: y as f64,
+    };
     for monitor in base_window.available_monitors() {
         let (pos, size) = (monitor.position(), monitor.size());
-        let rect = Rect::new(
-            pos.x.into(), pos.y.into(), size.width.into(), size.height.into()
-        );
+        let rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
 
         if rect.contains_point(mouse_pos) {
             return Some(monitor);
@@ -673,11 +864,7 @@ fn get_active_window_rect(base_window: &Window) -> Option<Rect> {
 
     unsafe {
         let mut _revert_win = 0;
-        x11::xlib::XGetInputFocus(
-            display as _,
-            &mut focus_win,
-            &mut _revert_win,
-        );
+        x11::xlib::XGetInputFocus(display as _, &mut focus_win, &mut _revert_win);
     }
 
     if focus_win as u64 == 0 {
@@ -687,11 +874,7 @@ fn get_active_window_rect(base_window: &Window) -> Option<Rect> {
     // https://stackoverflow.com/questions/3806872/window-position-in-xlib
     unsafe {
         let mut window_attr = std::mem::MaybeUninit::<xlib::XWindowAttributes>::uninit();
-        x11::xlib::XGetWindowAttributes(
-            display as _,
-            focus_win as _,
-            window_attr.as_mut_ptr(),
-        );
+        x11::xlib::XGetWindowAttributes(display as _, focus_win as _, window_attr.as_mut_ptr());
         let window_attr = window_attr.assume_init();
 
         let screen = x11::xlib::XDefaultScreen(display as _);
@@ -708,14 +891,17 @@ fn get_active_window_rect(base_window: &Window) -> Option<Rect> {
             0,
             &mut x,
             &mut y,
-            &mut _child
+            &mut _child,
         );
 
         // If no result, the window is probably on another XScreen, which we don't support for now.
         if result != 0 {
-            Some(
-                Rect::new(x as f64, y as f64, window_attr.width as f64, window_attr.height as f64)
-            )
+            Some(Rect::new(
+                x as f64,
+                y as f64,
+                window_attr.width as f64,
+                window_attr.height as f64,
+            ))
         } else {
             None
         }
@@ -733,9 +919,7 @@ pub fn get_active_monitor_keyboard(base_window: &Window) -> Option<MonitorHandle
 
     for monitor in base_window.available_monitors() {
         let (pos, size) = (monitor.position(), monitor.size());
-        let monitor_rect = Rect::new(
-            pos.x.into(), pos.y.into(), size.width.into(), size.height.into()
-        );
+        let monitor_rect = Rect::new(pos.x.into(), pos.y.into(), size.width.into(), size.height.into());
 
         if let Some(intersection) = monitor_rect.intersect(&window_rect) {
             let area = intersection.area();
@@ -750,8 +934,8 @@ pub fn get_active_monitor_keyboard(base_window: &Window) -> Option<MonitorHandle
 }
 
 pub fn svg_to_pixels(data: &[u8], width: u32, height: u32) -> Option<Vec<u8>> {
-    use usvg::{Tree, Options, FitTo};
     use tiny_skia::{Pixmap, Transform};
+    use usvg::{FitTo, Options, Tree};
 
     /*
     let mut opt = usvg::Options::default();

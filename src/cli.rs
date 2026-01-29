@@ -11,6 +11,7 @@ use crate::NotifyWindowManager;
 
 pub const SOCKET_PATH: &str = "/tmp/wired.sock";
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum CLIError {
     Parse(&'static str),
@@ -44,9 +45,7 @@ impl CLIListener {
         // https://stackoverflow.com/questions/40218416/how-do-i-close-a-unix-socket-in-rust
         let socket_path = Path::new(SOCKET_PATH);
         if socket_path.exists() {
-            println!(
-                "A wired socket exists; taking ownership."
-            );
+            println!("A wired socket exists; taking ownership.");
 
             if let Err(err) = std::fs::remove_file(SOCKET_PATH) {
                 eprintln!("Could not remove existing wired socket -- CLI tool will not work! Please remove {SOCKET_PATH} manually.");
@@ -137,10 +136,9 @@ pub fn handle_socket_message(
                     let id = get_window_id(notif_id, manager)?;
                     let action = match action_id {
                         "default" => 0,
-                        _ => { action_id
+                        _ => action_id
                             .parse::<usize>()
-                            .map_err(|_| CLIError::Parse("Value is not of type usize."))?
-                        }
+                            .map_err(|_| CLIError::Parse("Value is not of type usize."))?,
                     };
                     manager.trigger_action_idx(id, action);
                 }
@@ -154,7 +152,7 @@ pub fn handle_socket_message(
                         if let Some(n) = manager.history.pop(id) {
                             manager.new_notification(n, el);
                         } else {
-                            return Err(CLIError::NotificationNotFound)
+                            return Err(CLIError::NotificationNotFound);
                         }
                     } else {
                         let num = args
@@ -294,8 +292,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
         };
 
         if matches.opt_present("x") {
-            sock.write("kill:".as_bytes())
-                .map_err(|e| e.to_string())?;
+            sock.write("kill:".as_bytes()).map_err(|e| e.to_string())?;
         }
 
         if let Some(to_drop) = matches.opt_str("d") {
