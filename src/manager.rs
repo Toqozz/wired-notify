@@ -27,18 +27,15 @@ use crate::{
 // are currently visible are not visible here.  Instead, consider them "current".
 pub struct NotifyHistory {
     pub map: HashMap<u32, Notification>,
-    pub history: VecDeque<u32>,  // Ids of a history of notifications.  Mutated when we pop history.
-                                 // There should only ever be 1 of each id in here.
+    pub history: VecDeque<u32>, // Ids of a history of notifications.  Mutated when we pop history.
+                                // There should only ever be 1 of each id in here.
 }
 
 impl NotifyHistory {
     pub fn new(capacity: usize) -> Self {
         let map = HashMap::with_capacity(capacity);
         let history = VecDeque::with_capacity(capacity);
-        Self {
-            map,
-            history,
-        }
+        Self { map, history }
     }
 
     pub fn len(&self) -> usize {
@@ -158,10 +155,9 @@ impl NotifyWindowManager {
             let mut maybe_windows = vec![];
             for w in self.layout_windows.values_mut().flatten() {
                 let id_matches = (w.notification.id == notification.id) && cfg.replacing_enabled;
-                let tag_matches =
-                        w.notification.app_name == notification.app_name
-                        && w.notification.tag.is_some()
-                        && w.notification.tag == notification.tag;
+                let tag_matches = w.notification.app_name == notification.app_name
+                    && w.notification.tag.is_some()
+                    && w.notification.tag == notification.tag;
 
                 if id_matches || tag_matches {
                     maybe_windows.push(w);
@@ -169,7 +165,7 @@ impl NotifyWindowManager {
             }
 
             if !maybe_windows.is_empty() {
-                for w in maybe_windows{
+                for w in maybe_windows {
                     w.replace_notification(notification.clone(), layout.clone());
                 }
             } else {
@@ -378,6 +374,8 @@ impl NotifyWindowManager {
                     MouseButton::Left => pressed = Some(1),
                     MouseButton::Right => pressed = Some(2),
                     MouseButton::Middle => pressed = Some(3),
+                    MouseButton::Back => pressed = Some(4),
+                    MouseButton::Forward => pressed = Some(5),
                     MouseButton::Other(u) => pressed = Some(u),
                 };
             }
@@ -642,7 +640,7 @@ fn find_matching_layout(notification: &Notification) -> Option<&LayoutBlock> {
         // Spawn a new window for each "root" layout that should be drawn.
         // If this layout doesn't meet any criteria, skip, obviously.
         if notification_meets_layout_criteria(layout, notification) {
-            return Some(layout)
+            return Some(layout);
         }
     }
 

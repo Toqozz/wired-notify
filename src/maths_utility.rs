@@ -3,9 +3,9 @@ use std::process::{Command, Stdio};
 
 use crate::bus::dbus::Notification;
 use crate::config::Color;
+use crate::rendering::window;
 use serde::Deserialize;
 use winit::monitor::MonitorHandle;
-use winit::platform::unix::WindowExtUnix;
 use winit::window::Window;
 use x11::xlib;
 use x11::xss::{XScreenSaverInfo, XScreenSaverQueryInfo};
@@ -789,14 +789,11 @@ pub fn find_and_open_url(string: String) {
 }
 
 pub fn query_screensaver_info(base_window: &Window) -> Result<XScreenSaverInfo, &'static str> {
-    use winit::platform::unix::WindowExtUnix;
+    let display = window::get_xlib_display(base_window).ok_or("Couldn't get xlib display")?;
+    let xlib_window = window::get_xlib_window(base_window).ok_or("Couldn't get xlib window")?;
     unsafe {
         let mut info = std::mem::MaybeUninit::<XScreenSaverInfo>::uninit();
-        let status = XScreenSaverQueryInfo(
-            base_window.xlib_display().unwrap() as _,
-            base_window.xlib_window().unwrap() as _,
-            info.as_mut_ptr(),
-        );
+        let status = XScreenSaverQueryInfo(display as _, xlib_window as _, info.as_mut_ptr());
 
         if status == 0 {
             Err("Couldn't get a valid XScreenSaverInfo")
@@ -808,7 +805,7 @@ pub fn query_screensaver_info(base_window: &Window) -> Result<XScreenSaverInfo, 
 
 fn get_mouse_pos(base_window: &Window) -> (i32, i32) {
     // Christ this feels expensive, but it's probably fine.
-    let display = base_window.xlib_display().unwrap();
+    let display = window::get_xlib_display(base_window).unwrap();
 
     let mut _root = 0;
     let mut _child = 0;
@@ -859,7 +856,7 @@ pub fn get_active_monitor_mouse(base_window: &Window) -> Option<MonitorHandle> {
 }
 
 fn get_active_window_rect(base_window: &Window) -> Option<Rect> {
-    let display = base_window.xlib_display().unwrap();
+    let display = window::get_xlib_display(base_window)?;
     let mut focus_win: x11::xlib::Window = 0;
 
     unsafe {

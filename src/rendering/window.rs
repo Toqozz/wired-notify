@@ -3,14 +3,36 @@ use std::time::Duration;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
-    platform::unix::{WindowBuilderExtUnix, WindowExtUnix, XWindowType},
+    platform::x11::{WindowBuilderExtX11, XWindowType},
     window::{Window, WindowBuilder},
 };
+
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
 
 use chrono::{DateTime, Local};
 
 use cairo::{Context, Surface};
 use cairo_sys;
+
+use x11::xlib;
+
+pub fn get_xlib_display(window: &Window) -> Option<*mut xlib::Display> {
+    let handle = window.display_handle().ok()?;
+    match handle.as_raw() {
+        RawDisplayHandle::Xlib(xlib_handle) => {
+            xlib_handle.display.map(|ptr| ptr.as_ptr() as *mut xlib::Display)
+        }
+        _ => None,
+    }
+}
+
+pub fn get_xlib_window(window: &Window) -> Option<xlib::Window> {
+    let handle = window.window_handle().ok()?;
+    match handle.as_raw() {
+        RawWindowHandle::Xlib(xlib_handle) => Some(xlib_handle.window),
+        _ => None,
+    }
+}
 
 use crate::{
     bus::dbus::{Notification, Timeout},
@@ -89,10 +111,7 @@ impl NotifyWindow {
         // window.
         // We might consider moving away from winit and just using xlib directly.  The only part
         // we're really using at the moment is the event loop.
-        let xlib_display = manager
-            .base_window
-            .xlib_display()
-            .expect("Couldn't get xlib_display.");
+        let xlib_display = get_xlib_display(&manager.base_window).expect("Couldn't get xlib_display.");
 
         let visual_info = unsafe {
             let mut vinfo = std::mem::MaybeUninit::<x11::xlib::XVisualInfo>::uninit();
@@ -116,7 +135,7 @@ impl NotifyWindow {
             .with_inner_size(PhysicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
             .with_title("wired")
-            .with_x11_visual(&visual_info)
+            .with_x11_visual(visual_info.visualid as u32)
             .with_transparent(true)
             // This was originally here for the below reason, but it causes issues and I haven't
             // been able to observe any actual issue, so we leave it out.
@@ -136,10 +155,8 @@ impl NotifyWindow {
 
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
-        //let xlib_display = winit.xlib_display().expect("Couldn't get xlib display.");
-        let xlib_window = winit
-            .xlib_window()
-            .expect("Couldn't get xlib window, make sure you're running X11.");
+        let xlib_window =
+            get_xlib_window(&winit).expect("Couldn't get xlib window, make sure you're running X11.");
 
         let surface = unsafe {
             /*
@@ -268,8 +285,8 @@ impl NotifyWindow {
         self.winit.set_visible(visible);
     }
 
-    pub fn set_size(&self, width: f64, height: f64) {
-        self.winit.set_inner_size(PhysicalSize { width, height });
+    pub fn set_size(&mut self, width: f64, height: f64) {
+        let _ = self.winit.request_inner_size(PhysicalSize { width, height });
         unsafe {
             cairo_sys::cairo_xlib_surface_set_size(self.surface.to_raw_none(), width as i32, height as i32);
         }

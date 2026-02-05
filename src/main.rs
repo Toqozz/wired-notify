@@ -20,9 +20,9 @@ use std::{
 
 use winit::{
     event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    platform::run_return::EventLoopExtRunReturn,
-    platform::unix::EventLoopExtUnix,
+    event_loop::{ControlFlow, EventLoopBuilder},
+    platform::run_on_demand::EventLoopExtRunOnDemand,
+    platform::x11::EventLoopBuilderExtX11,
 };
 
 use bus::dbus::{Message, Notification, Timeout};
@@ -108,99 +108,111 @@ fn main() {
     // Allows us to receive messages from dbus.
     let (_dbus_thread_handle, receiver) = bus::dbus::init_dbus_thread();
 
-    let mut event_loop = EventLoop::new_x11().expect("Couldn't create an X11 event loop.");
+    let mut event_loop = EventLoopBuilder::new()
+        .with_x11()
+        .build()
+        .expect("Couldn't create an X11 event loop.");
     let mut manager = NotifyWindowManager::new(&event_loop);
 
     let mut poll_interval = Duration::from_millis(Config::get().poll_interval);
     let mut prev_instant = Instant::now();
 
-    event_loop.run_return(|event, event_loop, control_flow| {
-        match event {
-            Event::NewEvents(StartCause::Init) => *control_flow = ControlFlow::WaitUntil(Instant::now()),
-            Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
-                let now = Instant::now();
+    event_loop
+        .run_on_demand(|event, elwt| {
+            match event {
+                Event::NewEvents(StartCause::Init) => {
+                    elwt.set_control_flow(ControlFlow::WaitUntil(Instant::now()))
+                }
+                Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
+                    let now = Instant::now();
 
-                // TODO: be smarter about looping when no notifications are present.
-                // TODO: clean this loop up
+                    // TODO: be smarter about looping when no notifications are present.
+                    // TODO: clean this loop up
 
-                // Time passed since last loop.
-                let time_passed = now - prev_instant;
-                prev_instant = now;
-                manager.update(time_passed);
+                    // Time passed since last loop.
+                    let time_passed = now - prev_instant;
+                    prev_instant = now;
+                    manager.update(time_passed);
 
-                // The polling timer for events is separate to drawing, for efficiency reasons.
-                // Read wired socket signals, for cli stuff.
-                if let Some(listener) = &maybe_listener {
-                    listener.process_messages(&mut manager, event_loop);
-                };
+                    // The polling timer for events is separate to drawing, for efficiency reasons.
+                    // Read wired socket signals, for cli stuff.
+                    if let Some(listener) = &maybe_listener {
+                        listener.process_messages(&mut manager, elwt);
+                    };
 
-                // Receives `Notification`s from dbus.
-                if let Ok(msg) = receiver.try_recv() {
-                    match msg {
-                        Message::Close(id) => {
-                            if Config::get().closing_enabled {
-                                manager.drop_notification(id);
+                    // Receives `Notification`s from dbus.
+                    if let Ok(msg) = receiver.try_recv() {
+                        match msg {
+                            Message::Close(id) => {
+                                if Config::get().closing_enabled {
+                                    manager.drop_notification(id);
+                                }
+                            }
+                            Message::Notify(n) => {
+                                if let Some(print_file) = &mut maybe_print_file {
+                                    try_print_to_file(&n, print_file);
+                                }
+
+                                manager.replace_or_spawn(n, elwt);
                             }
                         }
-                        Message::Notify(n) => {
-                            if let Some(print_file) = &mut maybe_print_file {
-                                try_print_to_file(&n, print_file);
-                            }
+                    }
 
-                            manager.replace_or_spawn(n, event_loop);
+                    // Watch config file for changes.
+                    if let Some(cw) = &maybe_watcher {
+                        // Config was changed, update some internal stuff.
+                        if cw.check_and_update_config() {
+                            poll_interval = Duration::from_millis(Config::get().poll_interval);
+                            maybe_print_file = open_print_file();
+
+                            if Config::get().notify_on_reload {
+                                manager.replace_or_spawn(
+                                    Notification::from_self(
+                                        "Wired",
+                                        "Config was reloaded.",
+                                        Timeout::Milliseconds(5000),
+                                    ),
+                                    elwt,
+                                );
+                            }
                         }
+                    }
+
+                    // Restart timer for next loop.
+                    // If windows are being drawn, we refresh at the draw interval (assuming it is
+                    // lower) to have the most responsiveness.
+                    if manager.has_windows() {
+                        elwt.set_control_flow(ControlFlow::WaitUntil(now + poll_interval));
+                    } else {
+                        elwt.set_control_flow(ControlFlow::WaitUntil(
+                            now + Duration::from_millis(Config::get().idle_poll_interval),
+                        ));
+                    }
+
+                    if manager.should_exit {
+                        elwt.exit();
                     }
                 }
 
-                // Watch config file for changes.
-                if let Some(cw) = &maybe_watcher {
-                    // Config was changed, update some internal stuff.
-                    if cw.check_and_update_config() {
-                        poll_interval = Duration::from_millis(Config::get().poll_interval);
-                        maybe_print_file = open_print_file();
-
-                        if Config::get().notify_on_reload {
-                            manager.replace_or_spawn(
-                                Notification::from_self(
-                                    "Wired",
-                                    "Config was reloaded.",
-                                    Timeout::Milliseconds(5000),
-                                ),
-                                event_loop,
-                            );
-                        }
-                    }
+                Event::WindowEvent {
+                    window_id,
+                    event: WindowEvent::RedrawRequested,
+                    ..
+                } => {
+                    // Sometimes this causes double draws (we draw on spawn organically), but it's better
+                    // to listen anyway.
+                    manager.request_redraw(window_id);
                 }
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => elwt.exit(),
+                Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
 
-                // Restart timer for next loop.
-                // If windows are being drawn, we refresh at the draw interval (assuming it is
-                // lower) to have the most responsiveness.
-                if manager.has_windows() {
-                    *control_flow = ControlFlow::WaitUntil(now + poll_interval);
-                } else {
-                    *control_flow =
-                        ControlFlow::WaitUntil(now + Duration::from_millis(Config::get().idle_poll_interval));
-                }
-
-                if manager.should_exit {
-                    *control_flow = ControlFlow::Exit;
-                }
+                // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
+                // This is ideal for games and similar applications.
+                _ => (), //_ => *control_flow = ControlFlow::Poll,
             }
-
-            Event::RedrawRequested(window_id) => {
-                // Sometimes this causes double draws (we draw on spawn organically), but it's better
-                // to listen anyway.
-                manager.request_redraw(window_id);
-            }
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => *control_flow = ControlFlow::Exit,
-            Event::WindowEvent { window_id, event, .. } => manager.process_event(window_id, event),
-
-            // Poll continuously runs the event loop, even if the os hasn't dispatched any events.
-            // This is ideal for games and similar applications.
-            _ => (), //_ => *control_flow = ControlFlow::Poll,
-        }
-    });
+        })
+        .expect("Event loop error");
 }
