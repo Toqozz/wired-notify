@@ -4,7 +4,7 @@ use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
     platform::x11::{WindowBuilderExtX11, XWindowType},
-    window::{Window, WindowBuilder},
+    window::{Window, WindowBuilder, WindowLevel},
 };
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
@@ -131,27 +131,30 @@ impl NotifyWindow {
             vinfo.assume_init()
         };
 
-        let winit = WindowBuilder::new()
+        // override_redirect bypasses the WM entirely on native X11, keeping us above everything.
+        // On XWayland (WAYLAND_DISPLAY is set) the compositor still controls stacking, so
+        // override_redirect breaks clicks and z-order instead.
+        let on_xwayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+
+        let mut builder = WindowBuilder::new()
             .with_inner_size(PhysicalSize { width, height })
             .with_x11_window_type(vec![XWindowType::Notification, XWindowType::Utility])
             .with_title("wired")
             .with_x11_visual(visual_info.visualid as u32)
             .with_transparent(true)
-            // This was originally here for the below reason, but it causes issues and I haven't
-            // been able to observe any actual issue, so we leave it out.
-            //.with_visible(false)  // We don't draw/position stuff until later, so best not to show the
-            // window for now.
-            // NOTE: you (apparently) can't draw to a window that is not
-            // visible!  So we need to make sure we set this to true before drawing.
-            // As an alternative to `with_visible(false)`, we can instead spawn the window really far away.
-            // Hopefully nobody has a >100k resolution.
+            .with_decorations(false)
+            .with_window_level(WindowLevel::AlwaysOnTop)
+            // Spawn far off-screen instead of hidden — you can't draw to a hidden window.
             .with_position(PhysicalPosition {
                 x: 999_999.0,
                 y: 999_999.0,
-            })
-            .with_override_redirect(true)
-            .build(el)
-            .expect("Couldn't build winit window.");
+            });
+
+        if !on_xwayland {
+            builder = builder.with_override_redirect(true);
+        }
+
+        let winit = builder.build(el).expect("Couldn't build winit window.");
 
         // If these fail, it probably means we aren't on linux.
         // In that case, we should fail before now however (`.with_x11_window_type()`).
