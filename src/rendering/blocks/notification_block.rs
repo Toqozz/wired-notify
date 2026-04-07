@@ -14,6 +14,7 @@ pub struct NotificationBlockParameters {
 
     pub border_width: f64,
     pub border_rounding: f64,
+    #[serde(default)]
     pub rounded_border_corners: bool,
     pub background_color: Color,
     pub border_color: Color,
@@ -61,12 +62,12 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         //let bd_color = &self.border_color;
         let bg_color = &self.background_color;
         let bw = &self.border_width;
-        let radius =  &self.border_rounding;
+        let radius = &self.border_rounding;
         let w = parent_rect.width();
         let h = parent_rect.height();
 
-        let outer_radius = if self.rounded_border_corners { 
-            radius.min(w.min(h) / 2.0 )
+        let outer_radius = if self.rounded_border_corners {
+            radius.min(w.min(h) / 2.0)
         } else {
             0.0
         };
@@ -74,14 +75,7 @@ impl DrawableLayoutElement for NotificationBlockParameters {
 
         // Draw border
         window.context.new_path();
-        maths_utility::cairo_path_rounded_rectangle(
-            &window.context,
-            0.0,
-            0.0,
-            w,
-            h,
-            outer_radius,
-        )?;
+        maths_utility::cairo_path_rounded_rectangle(&window.context, 0.0, 0.0, w, h, outer_radius)?;
 
         window.context.new_sub_path();
         maths_utility::cairo_path_rounded_rectangle(
@@ -92,7 +86,9 @@ impl DrawableLayoutElement for NotificationBlockParameters {
             h - bw * 2.0,
             inner_radius,
         )?;
-        window.context.set_source_rgba(bd_color.r, bd_color.g, bd_color.b, bd_color.a);
+        window
+            .context
+            .set_source_rgba(bd_color.r, bd_color.g, bd_color.b, bd_color.a);
         window.context.set_fill_rule(cairo::FillRule::EvenOdd);
         window.context.fill()?;
 
@@ -106,7 +102,9 @@ impl DrawableLayoutElement for NotificationBlockParameters {
             inner_radius,
         )?;
 
-        window.context.set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
+        window
+            .context
+            .set_source_rgba(bg_color.r, bg_color.g, bg_color.b, bg_color.a);
         window.context.set_fill_rule(cairo::FillRule::Winding);
         window.context.fill()?;
 
