@@ -22,7 +22,7 @@
         , pango
         , pkg-config
         , xorg
-        , ...
+        , libxkbcommon
         }:
         rustPlatform.buildRustPackage {
           name = "wired-${version}";
@@ -53,6 +53,12 @@
             # install example/default config files to etc/wired -- Arch packages seem to use etc/{pkg} for this,
             # so there's precedent
             install -Dm444 -t $out/etc/wired wired.ron wired_multilayout.ron
+          '';
+
+          preFixup = ''
+            patchelf $out/bin/wired \
+              --add-needed libxkbcommon-x11.so \
+              --add-rpath ${libxkbcommon}/lib
           '';
 
           meta = {
