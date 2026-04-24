@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, BufReader, ErrorKind, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::panic::panic_any;
 use std::path::Path;
+use std::process;
 
 use getopts::Options;
 use winit::event_loop::EventLoopWindowTarget;
@@ -255,7 +255,10 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     opts.optflag("v", "version", "print the version of wired and leave");
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
-        Err(e) => panic_any(e.to_string()),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            process::exit(1)
+        }
     };
 
     // Matching
