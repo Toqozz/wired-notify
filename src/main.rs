@@ -4,8 +4,8 @@ extern crate bitflags;
 mod bus;
 mod cli;
 mod config;
-mod manager;
 mod icons;
+mod manager;
 #[rustfmt::skip]
 mod maths_utility;
 mod rendering;

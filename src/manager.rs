@@ -196,7 +196,7 @@ impl NotifyWindowManager {
                         // 1s to be considered idle.
                         let idle_last_frame = self.is_idle_1s();
                         let is_idle = info.idle / 1000 >= 1;
-                        let info_idle = u64::from(info.idle);
+                        let info_idle = info.idle;
 
                         // If we "woke up" this frame.
                         if cfg.unpause_on_input && idle_last_frame && !is_idle {
@@ -255,6 +255,11 @@ impl NotifyWindowManager {
 
                 windows.retain(|w| !w.marked_for_destroy);
             }
+        }
+
+        // Keep notification windows above windows the WM has raised since (#176).
+        for window in self.layout_windows.values().flatten() {
+            window.raise();
         }
     }
 

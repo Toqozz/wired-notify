@@ -34,6 +34,10 @@ pub fn get_xlib_window(window: &Window) -> Option<xlib::Window> {
     }
 }
 
+pub fn on_xwayland() -> bool {
+    std::env::var("WAYLAND_DISPLAY").is_ok()
+}
+
 use crate::{
     bus::dbus::{Notification, Timeout},
     config::Config,
@@ -132,9 +136,9 @@ impl NotifyWindow {
         };
 
         // override_redirect bypasses the WM entirely on native X11, keeping us above everything.
-        // On XWayland (WAYLAND_DISPLAY is set) the compositor still controls stacking, so
-        // override_redirect breaks clicks and z-order instead.
-        let on_xwayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+        // On XWayland the compositor still controls stacking, so override_redirect breaks
+        // clicks and z-order instead.
+        let on_xwayland = on_xwayland();
 
         let mut builder = WindowBuilder::new()
             .with_inner_size(PhysicalSize { width, height })
@@ -282,6 +286,27 @@ impl NotifyWindow {
 
     pub fn set_position(&self, x: f64, y: f64) {
         self.winit.set_outer_position(PhysicalPosition { x, y });
+    }
+
+    // WMs (e.g. xmonad, #176) raise new client windows above our override-redirect windows,
+    // and nothing re-raises us, so we have to do it ourselves each frame.
+    // This is cheap: when the window is already topmost the restack is a server-side no-op
+    // and generates no events.
+    pub fn raise(&self) {
+        // On XWayland the window is WM-managed (no override_redirect) and the compositor
+        // already honors AlwaysOnTop; raising manually would just fight it.
+        if on_xwayland() {
+            return;
+        }
+
+        if let (Some(display), Some(window)) = (get_xlib_display(&self.winit), get_xlib_window(&self.winit)) {
+            unsafe {
+                xlib::XRaiseWindow(display, window);
+                // winit reads events via x11rb/XCB, which never flushes xlib's output
+                // buffer, so the request would otherwise sit unsent on idle frames.
+                xlib::XFlush(display);
+            }
+        }
     }
 
     pub fn _set_visible(&self, visible: bool) {
