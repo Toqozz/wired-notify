@@ -3,6 +3,7 @@
 
 use std::{
     env,
+    ffi::OsString,
     fmt::{self, Display, Formatter},
     io,
     path::PathBuf,
@@ -82,6 +83,7 @@ impl Display for Error {
 pub struct ConfigWatcher {
     watcher: RecommendedWatcher,
     receiver: Receiver<DebouncedEvent>,
+    file_name: OsString,
 }
 
 impl ConfigWatcher {
@@ -93,7 +95,7 @@ impl ConfigWatcher {
                     if let Some(file_name) = p.file_name() {
                         // Make sure the file that was changed is our file, since we watch the
                         // entire directory.
-                        if file_name == CONFIG_FILENAME!() && Config::try_reload(p) {
+                        if file_name == self.file_name && Config::try_reload(p) {
                             return true;
                         }
                     }
@@ -206,11 +208,11 @@ impl Config {
     }
 
     // Initialize the config.  This does a two things:
-    // - Attempts to locate and load a config file on the machine, and if it can't, then loads the
-    // default config.
+    // - Attempts to locate and load a config file on the machine (preferring `custom_path` if
+    // provided), and if it can't, then loads the default config.
     // - If config was loaded successfully, then sets up a watcher on the config file to watch for changes,
     // and returns the watcher or None.
-    pub fn init() -> Option<ConfigWatcher> {
+    pub fn init(custom_path: Option<PathBuf>) -> Option<ConfigWatcher> {
         fn assign_config(cfg: Config) {
             unsafe {
                 CONFIG = Some(cfg);
@@ -220,7 +222,7 @@ impl Config {
         unsafe {
             assert!(CONFIG.is_none());
         }
-        let cfg_file = Config::installed_config();
+        let cfg_file = custom_path.or_else(Config::installed_config);
         match cfg_file {
             Some(f) => {
                 let cfg = Config::load_file(f.clone());
@@ -454,12 +456,23 @@ impl Config {
         let mut watcher =
             notify::watcher(sender, Duration::from_millis(10)).expect("Unable to spawn file watcher.");
 
+        // We watch the whole directory, so remember the config's file name to check against
+        // change events later.
+        let file_name = path
+            .file_name()
+            .map(OsString::from)
+            .unwrap_or_else(|| OsString::from(CONFIG_FILENAME!()));
+
         // Watch dir.
         path.pop();
         let path = std::fs::canonicalize(path).expect("Couldn't canonicalize path, wtf.");
         let result = watcher.watch(path, RecursiveMode::NonRecursive);
         match result {
-            Ok(_) => Ok(ConfigWatcher { watcher, receiver }),
+            Ok(_) => Ok(ConfigWatcher {
+                watcher,
+                receiver,
+                file_name,
+            }),
             Err(e) => Err(Error::Watch(e)),
         }
     }

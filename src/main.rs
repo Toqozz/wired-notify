@@ -84,9 +84,9 @@ fn main() {
     }));
 
     let args: Vec<String> = env::args().collect();
-    match cli::process_cli(args) {
+    let config_path = match cli::process_cli(args) {
         Ok(should_run) => match should_run {
-            ShouldRun::Yes => (),
+            ShouldRun::Yes(config_path) => config_path,
             ShouldRun::No => return,
         },
         Err(e) => {
@@ -95,7 +95,7 @@ fn main() {
         }
     };
 
-    let maybe_watcher = Config::init();
+    let maybe_watcher = Config::init(config_path);
     let mut maybe_print_file = open_print_file();
 
     let maybe_listener = cli::CLIListener::init().map_or_else(

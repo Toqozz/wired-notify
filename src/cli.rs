@@ -1,9 +1,11 @@
+use std::env;
 use std::io::{self, BufRead, BufReader, ErrorKind, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 
 use getopts::Options;
+use home_dir::HomeDirExt;
 use winit::event_loop::EventLoopWindowTarget;
 use winit::window::WindowId;
 
@@ -21,7 +23,8 @@ pub enum CLIError {
 }
 
 pub enum ShouldRun {
-    Yes,
+    // Contains a custom config path, if one was provided.
+    Yes(Option<PathBuf>),
     No,
 }
 
@@ -235,7 +238,7 @@ fn validate_action(input: &str) -> Result<(), &'static str> {
 pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     if args.len() == 1 {
         // No options, assume --run.
-        return Ok(ShouldRun::Yes);
+        return Ok(ShouldRun::Yes(None));
     }
 
     // Initialization
@@ -251,6 +254,12 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     );
     opts.optopt("s", "show", "show the last N notifications", "N");
     opts.optflag("r", "run", "run the wired daemon");
+    opts.optopt(
+        "c",
+        "config",
+        "run the wired daemon with the config at PATH (implies --run)",
+        "PATH",
+    );
     opts.optflag("x", "kill", "kill the wired process");
     opts.optflag("v", "version", "print the version of wired and leave");
     let matches = match opts.parse(&args[1..]) {
@@ -272,8 +281,30 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
         return Ok(ShouldRun::No);
     }
 
-    if matches.opt_present("r") {
-        return Ok(ShouldRun::Yes);
+    let config_path = match matches.opt_str("c") {
+        Some(path) => {
+            let path = PathBuf::from(path)
+                .expand_home()
+                .map_err(|e| format!("Failed tilde expansion of config path: {}", e))?;
+
+            if !path.is_file() {
+                return Err(format!("Config file not found: {}", path.display()));
+            }
+
+            // The config watcher needs an absolute path to resolve the parent directory.
+            let path = if path.is_relative() {
+                env::current_dir().map_err(|e| e.to_string())?.join(path)
+            } else {
+                path
+            };
+
+            Some(path)
+        }
+        None => None,
+    };
+
+    if matches.opt_present("r") || config_path.is_some() {
+        return Ok(ShouldRun::Yes(config_path));
     }
 
     // All these options use a socket.
