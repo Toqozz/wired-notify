@@ -13,7 +13,7 @@ makedepends=('rust' 'cargo')
 provides=('wired')
 conflicts=('wired')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/Toqozz/wired-notify/archive/${pkgver}.tar.gz")
-sha256sums=('4a642afb7edf25e2735ec41e72dfb538769233832ec2332a2a12d993cc04f99c')
+sha256sums=('e1b3157a288bf1a1ab3a533e33a13dc17263c0465a67dd216fde24d4dd417ff7')
 
 
 build() {

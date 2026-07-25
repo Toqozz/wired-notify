@@ -1,5 +1,6 @@
 - Make sure you update the version in Cargo.toml, and you've built Cargo.lock!
 - Edit PKGBUILD version.
+- Commit any changes, create a new GitHub release off master with a tag.
 - Download version using link in PKGBUILD and get the sha256 hash.
 - Update hash in PKGBUILD.
 - `makepkg --printsrcinfo > .SRCINFO`
