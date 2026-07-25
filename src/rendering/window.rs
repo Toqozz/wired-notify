@@ -147,6 +147,7 @@ impl NotifyWindow {
             .with_x11_visual(visual_info.visualid as u32)
             .with_transparent(true)
             .with_decorations(false)
+            .with_resizable(false)
             .with_window_level(WindowLevel::AlwaysOnTop)
             // Spawn far off-screen instead of hidden — you can't draw to a hidden window.
             .with_position(PhysicalPosition {
