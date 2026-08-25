@@ -187,7 +187,7 @@ impl NotifyWindow {
         .expect("Failed to create cairo surface.");
 
         let context = cairo::Context::new(&surface).expect("Failed to create cairo context.");
-        let text = TextRenderer::new(&context);
+        let text = TextRenderer::new(&context, &cfg.font_options);
         let fuse = notification.timeout.clone();
 
         // If notifications should spawn paused, we check against threshold and against

@@ -91,6 +91,39 @@
     // Trim whitespace in received notification text, since some clients like to send whitespace, which we usually don't actually want.
     //trim_whitespace: true,
 
+    // How text is rasterized.  Each field is applied over your system's setting on its own, so you
+    // can override one and leave the rest as `System`.
+    //
+    // Careful with `System`: it means the X resource database (`Xft.antialias`, `Xft.hintstyle`,
+    // `Xft.rgba` -- what `xrdb -query` prints), *not* fontconfig, so `~/.config/fontconfig` doesn't
+    // reach Wired.  When those resources aren't set -- common under XWayland, and on WMs that don't
+    // run `xrdb` -- cairo falls back to full hinting, which is what `hint_style` below exists to
+    // avoid.  Everything else defaults to `System`, so your existing setup is left alone.
+    //
+    // `antialias`: how glyphs are smoothed.
+    //     Options: System, None, Gray, Subpixel.  Default: System.
+    //     `Subpixel` (aka LCD/ClearType) generally looks wrong on translucent windows, so `Gray` is
+    //     worth trying if your system is set up for subpixel antialiasing and notifications look
+    //     fringed.
+    // `hint_style`: how far glyph outlines are distorted to fit the pixel grid.
+    //     Options: System, None, Slight, Medium, Full.  Default: Slight.
+    //     `Full` gives crisper stems, but pango positions glyphs using unhinted advances, so the
+    //     distorted outlines end up with uneven gaps between letters.  It's worst on fonts that
+    //     don't ship hinting instructions of their own (e.g. Ubuntu), where the autohinter takes
+    //     over.
+    // `hint_metrics`: whether glyph advances are rounded to whole pixels.
+    //     Options: System, Off, On.  Default: On (which is also what cairo uses on X11).
+    //     `Off` places glyphs at fractional positions; smoother, but spacing can look irregular.
+    //     Worth trying if letter spacing still looks off to you with `hint_style: Slight`.
+    // `subpixel_order`: subpixel layout of your display; only used when `antialias: Subpixel`.
+    //     Options: System, Rgb, Bgr, Vrgb, Vbgr.  Default: System.
+    //font_options: (
+    //    antialias: System,
+    //    hint_style: Slight,
+    //    hint_metrics: On,
+    //    subpixel_order: System,
+    //),
+
     // Enable/disable debug rendering.
     debug: false,
     debug_color: Color(r: 0.0, g: 1.0, b: 0.0, a: 1.0), // Primary color for debug rectangles.

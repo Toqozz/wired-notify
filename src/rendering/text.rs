@@ -53,6 +53,142 @@ impl AlignMode {
     }
 }
 
+// Whether/how glyphs are smoothed.  Defaults to `System` (`Xft.antialias` and `Xft.rgba` on X11)
+// because a user who has deliberately set up subpixel antialiasing should keep it.
+#[derive(Debug, Deserialize, Clone)]
+pub enum Antialias {
+    System,
+    None,
+    Gray,
+    Subpixel,
+}
+impl Default for Antialias {
+    fn default() -> Self {
+        Antialias::System
+    }
+}
+
+impl Antialias {
+    fn to_cairo(&self) -> cairo::Antialias {
+        match self {
+            Antialias::System => cairo::Antialias::Default,
+            Antialias::None => cairo::Antialias::None,
+            Antialias::Gray => cairo::Antialias::Gray,
+            Antialias::Subpixel => cairo::Antialias::Subpixel,
+        }
+    }
+}
+
+// How much glyph outlines are distorted to fit the pixel grid.  `Full` produces crisper stems, but
+// pango positions glyphs using unhinted advances, so distorting the outlines leaves uneven gaps
+// between letters.  That's worst in fonts that don't ship hinting instructions of their own, where
+// the autohinter takes over.
+#[derive(Debug, Deserialize, Clone)]
+pub enum HintStyle {
+    System,
+    None,
+    Slight,
+    Medium,
+    Full,
+}
+impl Default for HintStyle {
+    fn default() -> Self {
+        HintStyle::Slight
+    }
+}
+
+impl HintStyle {
+    fn to_cairo(&self) -> cairo::HintStyle {
+        match self {
+            HintStyle::System => cairo::HintStyle::Default,
+            HintStyle::None => cairo::HintStyle::None,
+            HintStyle::Slight => cairo::HintStyle::Slight,
+            HintStyle::Medium => cairo::HintStyle::Medium,
+            HintStyle::Full => cairo::HintStyle::Full,
+        }
+    }
+}
+
+// Whether glyph advances are rounded to whole pixels.  `Off` lets pango place glyphs at fractional
+// positions, which looks smoother in isolation but uneven next to hinted glyphs.
+#[derive(Debug, Deserialize, Clone)]
+pub enum HintMetrics {
+    System,
+    Off,
+    On,
+}
+impl Default for HintMetrics {
+    fn default() -> Self {
+        HintMetrics::On
+    }
+}
+
+impl HintMetrics {
+    fn to_cairo(&self) -> cairo::HintMetrics {
+        match self {
+            HintMetrics::System => cairo::HintMetrics::Default,
+            HintMetrics::Off => cairo::HintMetrics::Off,
+            HintMetrics::On => cairo::HintMetrics::On,
+        }
+    }
+}
+
+// Subpixel geometry of the display; only used when antialiasing is `Subpixel`.
+#[derive(Debug, Deserialize, Clone)]
+pub enum SubpixelOrder {
+    System,
+    Rgb,
+    Bgr,
+    Vrgb,
+    Vbgr,
+}
+impl Default for SubpixelOrder {
+    fn default() -> Self {
+        SubpixelOrder::System
+    }
+}
+
+impl SubpixelOrder {
+    fn to_cairo(&self) -> cairo::SubpixelOrder {
+        match self {
+            SubpixelOrder::System => cairo::SubpixelOrder::Default,
+            SubpixelOrder::Rgb => cairo::SubpixelOrder::Rgb,
+            SubpixelOrder::Bgr => cairo::SubpixelOrder::Bgr,
+            SubpixelOrder::Vrgb => cairo::SubpixelOrder::Vrgb,
+            SubpixelOrder::Vbgr => cairo::SubpixelOrder::Vbgr,
+        }
+    }
+}
+
+// Font rendering options.  Each field is merged over the display server's setting on its own, so
+// anything left as `System` keeps the system value.
+//
+// We pin `hint_style` rather than inheriting it because cairo reads these from the X resource
+// database rather than fontconfig, and falls back to full hinting when the resources aren't set --
+// which is common under XWayland and on WMs that don't run `xrdb`.
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct FontOptions {
+    #[serde(default)]
+    pub antialias: Antialias,
+    #[serde(default)]
+    pub hint_style: HintStyle,
+    #[serde(default)]
+    pub hint_metrics: HintMetrics,
+    #[serde(default)]
+    pub subpixel_order: SubpixelOrder,
+}
+
+impl FontOptions {
+    fn to_cairo(&self) -> cairo::FontOptions {
+        let mut options = cairo::FontOptions::new().expect("Failed to create cairo font options.");
+        options.set_antialias(self.antialias.to_cairo());
+        options.set_hint_style(self.hint_style.to_cairo());
+        options.set_hint_metrics(self.hint_metrics.to_cairo());
+        options.set_subpixel_order(self.subpixel_order.to_cairo());
+        options
+    }
+}
+
 #[derive(Debug)]
 pub struct TextRenderer {
     //config: &'a Config,
@@ -61,8 +197,11 @@ pub struct TextRenderer {
 }
 
 impl TextRenderer {
-    pub fn new(ctx: &cairo::Context) -> Self {
+    pub fn new(ctx: &cairo::Context, font_options: &FontOptions) -> Self {
         let pctx = pangocairo::functions::create_context(ctx).expect("Failed to create pango context.");
+        // Baked in for the life of the renderer.  Windows are created per notification, so a config
+        // reload takes effect on the next notification.
+        pangocairo::functions::context_set_font_options(&pctx, Some(&font_options.to_cairo()));
 
         let layout = Layout::new(&pctx);
         layout.set_wrap(pango::WrapMode::WordChar);

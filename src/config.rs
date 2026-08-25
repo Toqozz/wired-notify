@@ -20,6 +20,7 @@ use serde::{
 use crate::{
     maths_utility::{self, Rect, Vec2},
     rendering::layout::{LayoutBlock, LayoutElement},
+    rendering::text::FontOptions,
 };
 
 // Workaround for rust not allowing contcatenations of str constants yet:
@@ -176,6 +177,10 @@ pub struct Config {
 
     #[serde(default = "maths_utility::val_true")]
     pub trim_whitespace: bool,
+
+    // Hinting/antialiasing settings applied to all text.
+    #[serde(default)]
+    pub font_options: FontOptions,
 
     // Draws rectangles around elements.
     #[serde(default)]
