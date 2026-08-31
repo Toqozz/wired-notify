@@ -1,5 +1,5 @@
 use std::env;
-use std::io::{self, BufRead, BufReader, ErrorKind, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, ErrorKind, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::process;
@@ -66,7 +66,7 @@ impl CLIListener {
         // For other errors, we should probably inform users to aide debugging.
         // I don't love the idea of spamming stderr here, however.
         match self.listener.accept() {
-            Ok((socket, _addr)) => match handle_socket_message(manager, el, socket) {
+            Ok((socket, _addr)) => match handle_socket_message(manager, el, &socket) {
                 Ok(_) => (),
                 Err(e) => eprintln!("Error while handling socket message: {:?}", e),
             },
@@ -111,10 +111,12 @@ fn get_window_id(arg: &str, manager: &NotifyWindowManager) -> Result<WindowId, C
 pub fn handle_socket_message(
     manager: &mut NotifyWindowManager,
     el: &EventLoopWindowTarget<()>,
-    stream: UnixStream,
+    socket: &UnixStream,
 ) -> Result<(), CLIError> {
-    let stream = BufReader::new(stream);
-    for line in stream.lines() {
+    let reader = BufReader::new(socket);
+    let mut writer = BufWriter::new(socket);
+
+    for line in reader.lines() {
         let line = match line {
             Ok(l) => l,
             Err(_) => continue,
@@ -174,6 +176,12 @@ pub fn handle_socket_message(
                         manager.set_dnd(true);
                     } else if OFF_VALS.contains(&args) {
                         manager.set_dnd(false);
+                    }
+                }
+                "dnd-status" => {
+                    match writeln!(writer, "{}", manager.get_dnd()).and_then(|_| writer.flush()) {
+                        Ok(_) => (),
+                        Err(e) => eprintln!("unable to respond to dnd-status request: {}", e),
                     }
                 }
                 "kill" => {
@@ -245,6 +253,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
     opts.optopt("z", "dnd", "enable/disable do not disturb mode", "[on|off]");
+    opts.optflag("Z", "dnd-status", "get do not disturb mode status");
     opts.optopt("d", "drop", "drop/close a notification", "[latest|all|IDX]");
     opts.optopt(
         "a",
@@ -312,6 +321,7 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
         || matches.opt_present("a")
         || matches.opt_present("s")
         || matches.opt_present("z")
+        || matches.opt_present("Z")
         || matches.opt_present("x")
     {
         let mut sock = match UnixStream::connect(SOCKET_PATH) {
@@ -362,6 +372,18 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
             }
 
             sock.write(format!("dnd:{}", on_off).as_bytes())
+                .map_err(|e| e.to_string())?;
+        }
+
+        if matches.opt_present("Z") {
+            writeln!(sock, "dnd-status:") // read_line blocks until newline, hence *ln;
+                .and_then(|_| sock.flush())
+                .and_then(|_| {
+                    let mut reader = BufReader::new(&sock);
+                    let mut buf = String::with_capacity(8);
+                    reader.read_line(&mut buf)?;
+                    Ok(println!("dnd: {}", buf))
+                })
                 .map_err(|e| e.to_string())?;
         }
 

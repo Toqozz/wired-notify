@@ -608,6 +608,9 @@ impl NotifyWindowManager {
     pub fn set_dnd(&mut self, val: bool) {
         self.dnd = val;
     }
+    pub fn get_dnd(&self) -> bool {
+        self.dnd
+    }
 }
 
 fn maybe_get_active_monitor(base_window: &winit::window::Window) -> Option<MonitorHandle> {
