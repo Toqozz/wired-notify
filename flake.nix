@@ -21,8 +21,12 @@
         , cairo
         , pango
         , pkg-config
-        , xorg
         , libxkbcommon
+        , libX11
+        , libXi
+        , libXrandr
+        , libXcursor
+        , libXScrnSaver
         }:
         rustPlatform.buildRustPackage {
           name = "wired-${version}";
@@ -38,11 +42,11 @@
             dlib
             cairo
             pango
-            xorg.libX11
-            xorg.libXi
-            xorg.libXrandr
-            xorg.libXcursor
-            xorg.libXScrnSaver
+            libX11
+            libXi
+            libXrandr
+            libXcursor
+            libXScrnSaver
           ];
           # install extra files (i.e. the systemd service)
           postInstall = ''
@@ -108,14 +112,14 @@
 
           devShells.default =
             let
-              wired = pkgs.callPackage mkWired { };
-
               rust-toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
                 extensions = [ "rust-src" "rust-analyzer" ];
               };
             in
             pkgs.mkShell {
-              packages = [ rust-toolchain ] ++ wired.nativeBuildInputs ++ wired.buildInputs;
+              inputsFrom = [ self'.packages.default ];
+              packages = [ rust-toolchain ];
+              env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.libxkbcommon ];
             };
         };
     };
