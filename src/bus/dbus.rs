@@ -211,7 +211,7 @@ pub fn get_connection() -> &'static Connection {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, PartialOrd)]
 pub enum Urgency {
     Low,
     Normal,

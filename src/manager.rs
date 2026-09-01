@@ -13,6 +13,7 @@ use crate::config::FollowMode;
 use crate::{
     //notification::Notification,
     bus,
+    bus::dbus::Urgency,
     bus::dbus::Notification,
     bus::dbus_codegen::{
         OrgFreedesktopNotificationsActionInvoked, OrgFreedesktopNotificationsNotificationClosed,
@@ -143,8 +144,8 @@ impl NotifyWindowManager {
             dbg!(self.dnd, &notification);
         }
 
-        // Right now we just book it if dnd is enabled.
-        if self.dnd {
+        // Ignore non-urgent notification when dnd is on.
+        if self.dnd && notification.urgency < Urgency::Critical {
             return;
         }
 
