@@ -10,7 +10,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Install Nix
-        uses: cachix/install-nix-action@v17
+        uses: cachix/install-nix-action@v31.11.1
       - name: Flake check
         run: nix fmt -- --check .
 
@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Install Nix
-        uses: cachix/install-nix-action@v17
+        uses: cachix/install-nix-action@v31.11.1
       - name: Flake check
         run: nix flake check --no-update-lock-file --show-trace --verbose
       - name: Flake build
@@ -37,7 +37,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Nix
-        uses: cachix/install-nix-action@v17
+        uses: cachix/install-nix-action@v31.11.1
         with:
           nix_path: nixpkgs=channel:nixpkgs-unstable
       - name: Nix build
