@@ -13,8 +13,8 @@ use crate::config::FollowMode;
 use crate::{
     //notification::Notification,
     bus,
-    bus::dbus::Urgency,
     bus::dbus::Notification,
+    bus::dbus::Urgency,
     bus::dbus_codegen::{
         OrgFreedesktopNotificationsActionInvoked, OrgFreedesktopNotificationsNotificationClosed,
     },
@@ -607,6 +607,9 @@ impl NotifyWindowManager {
 
     pub fn set_dnd(&mut self, val: bool) {
         self.dnd = val;
+    }
+    pub fn get_dnd(&self) -> bool {
+        self.dnd
     }
 }
 
