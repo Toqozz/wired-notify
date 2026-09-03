@@ -13,8 +13,8 @@ use crate::config::FollowMode;
 use crate::{
     //notification::Notification,
     bus,
-    bus::dbus::Urgency,
     bus::dbus::Notification,
+    bus::dbus::Urgency,
     bus::dbus_codegen::{
         OrgFreedesktopNotificationsActionInvoked, OrgFreedesktopNotificationsNotificationClosed,
     },

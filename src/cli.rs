@@ -243,6 +243,11 @@ fn validate_action(input: &str) -> Result<(), &'static str> {
     }
 }
 
+// [Note: line-endings when writing to socket]
+//
+// The socket uses BufReader::lines() which blocks until eol or eof.
+// We need to end every command with a newline so that each command is treated individually.
+
 pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
     if args.len() == 1 {
         // No options, assume --run.
@@ -336,12 +341,15 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
         };
 
         if matches.opt_present("x") {
-            sock.write("kill:".as_bytes()).map_err(|e| e.to_string())?;
+            writeln!(sock, "kill:")
+                .and_then(|_| sock.flush())
+                .map_err(|e| e.to_string())?;
         }
 
         if let Some(to_drop) = matches.opt_str("d") {
             validate_identifier(to_drop.as_str(), true)?;
-            sock.write(format!("drop:{}", to_drop).as_bytes())
+            writeln!(sock, "drop:{}", to_drop)
+                .and_then(|_| sock.flush())
                 .map_err(|e| e.to_string())?;
         }
 
@@ -358,7 +366,9 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
 
             validate_identifier(notification, false)?;
             validate_action(action)?;
-            sock.write(format!("action:{},{}", notification, action).as_bytes())
+
+            writeln!(sock, "action:{},{}", notification, action)
+                .and_then(|_| sock.flush())
                 .map_err(|e| e.to_string())?;
         }
 
@@ -371,10 +381,13 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
                 );
             }
 
-            sock.write(format!("dnd:{}", on_off).as_bytes())
+            writeln!(sock, "dnd:{}", on_off)
+                .and_then(|_| sock.flush())
                 .map_err(|e| e.to_string())?;
         }
 
+        // Using `write!` macro without a `\n` character in the end won't work.
+        // See [Note: line-endings when writing to socket]
         if matches.opt_present("Z") {
             writeln!(sock, "dnd-status:") // read_line blocks until newline, hence *ln;
                 .and_then(|_| sock.flush())
@@ -390,7 +403,9 @@ pub fn process_cli(args: Vec<String>) -> Result<ShouldRun, String> {
 
         if let Some(to_show) = matches.opt_str("s") {
             validate_identifier(to_show.as_str(), false)?;
-            sock.write(format!("show:{}", to_show).as_bytes())
+
+            writeln!(sock, "show:{}", to_show)
+                .and_then(|_| sock.flush())
                 .map_err(|e| e.to_string())?;
         }
     }
