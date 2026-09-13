@@ -10,10 +10,10 @@ use winit::{
 };
 
 use crate::config::FollowMode;
+use crate::rendering::layout::{Logic, logic_matches};
 use crate::{
     //notification::Notification,
     bus,
-    bus::dbus::Urgency,
     bus::dbus::Notification,
     bus::dbus_codegen::{
         OrgFreedesktopNotificationsActionInvoked, OrgFreedesktopNotificationsNotificationClosed,
@@ -144,8 +144,8 @@ impl NotifyWindowManager {
             dbg!(self.dnd, &notification);
         }
 
-        // Ignore non-urgent notification when dnd is on.
-        if self.dnd && notification.urgency < Urgency::Critical {
+        // Show nothing unless dnd allow criteria says so.
+        if self.dnd && !logic_matches(Logic::Or, &cfg.dnd_allow_criteria, &notification) {
             return;
         }
 

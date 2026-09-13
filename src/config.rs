@@ -19,7 +19,7 @@ use serde::{
 
 use crate::{
     maths_utility::{self, Rect, Vec2},
-    rendering::layout::{LayoutBlock, LayoutElement},
+    rendering::layout::{LayoutBlock, LayoutElement, RenderCriteria},
     rendering::text::FontOptions,
 };
 
@@ -120,6 +120,11 @@ pub struct Config {
     pub idle_poll_interval: u64, // Same as above, but when no notifications are present.
     pub layout_blocks: Vec<LayoutBlock>,
 
+    // Alternative render criteria that will be checked against and allowed when dnd (do not disturb) is enabled.
+    // By default, urgency "critical" is allowed.
+    #[serde(default = "Config::default_dnd_allow_criteria")]
+    pub dnd_allow_criteria: Vec<RenderCriteria>,
+
     // How to handle various DBus expire_timeout values
     #[serde(default)]
     pub zero_timeout_behavior: ZeroTimeoutBehavior,
@@ -204,6 +209,10 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn default_dnd_allow_criteria() -> Vec<RenderCriteria> {
+        vec![RenderCriteria::Urgency("critical".to_owned())]
+    }
+
     pub fn default_debug_color() -> Color {
         Color::from_rgba(0.0, 1.0, 0.0, 1.0)
     }

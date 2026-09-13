@@ -58,7 +58,7 @@ pub enum RenderCriteria {
     Not(Box<RenderCriteria>),
 }
 
-enum Logic {
+pub(crate) enum Logic {
     And,
     Or,
 }
@@ -87,54 +87,54 @@ pub enum LayoutElement {
     ProgressBlock(ProgressBlockParameters),
 }
 
+pub(crate) fn criteria_matches(criteria: &RenderCriteria, notification: &Notification) -> bool {
+    match criteria {
+        RenderCriteria::Summary => !notification.summary.is_empty(),
+        RenderCriteria::Body => !notification.body.is_empty(),
+        RenderCriteria::AppImage => notification.app_image.is_some(),
+        RenderCriteria::HintImage => notification.hint_image.is_some(),
+        RenderCriteria::AppName(name) => notification.app_name.eq(name),
+        RenderCriteria::Progress => notification.percentage.is_some(),
+        RenderCriteria::Urgency(u) => match notification.urgency {
+            Urgency::Low => u.eq("low"),
+            Urgency::Normal => u.eq("normal"),
+            Urgency::Critical => u.eq("critical"),
+        },
+        RenderCriteria::Tag(t) => notification.tag.as_ref().eq(&Some(t)),
+        RenderCriteria::Note(n) => notification.note.as_ref().eq(&Some(n)),
+        RenderCriteria::ActionDefault => notification.get_default_action().is_some(),
+        RenderCriteria::ActionOther(i) => notification.get_other_action(*i).is_some(),
+
+        RenderCriteria::And(criterion) => logic_matches(Logic::And, criterion, notification),
+        RenderCriteria::Or(criterion) => logic_matches(Logic::Or, criterion, notification),
+        RenderCriteria::Not(criterion) => !criteria_matches(criterion, notification),
+    }
+}
+
+pub(crate) fn logic_matches(logic: Logic, criterion: &Vec<RenderCriteria>, notification: &Notification) -> bool {
+    let mut result;
+    match logic {
+        Logic::And => {
+            // ANDs start as true to coalesce properly.
+            result = true;
+            for c in criterion {
+                result &= criteria_matches(c, notification);
+            }
+        }
+        Logic::Or => {
+            // ORs start as false to coalesce properly.
+            result = false;
+            for c in criterion {
+                result |= criteria_matches(c, notification);
+            }
+        }
+    }
+
+    result
+}
+
 impl LayoutBlock {
     pub fn should_draw(&self, notification: &Notification) -> bool {
-        fn criteria_matches(criteria: &RenderCriteria, notification: &Notification) -> bool {
-            match criteria {
-                RenderCriteria::Summary => !notification.summary.is_empty(),
-                RenderCriteria::Body => !notification.body.is_empty(),
-                RenderCriteria::AppImage => notification.app_image.is_some(),
-                RenderCriteria::HintImage => notification.hint_image.is_some(),
-                RenderCriteria::AppName(name) => notification.app_name.eq(name),
-                RenderCriteria::Progress => notification.percentage.is_some(),
-                RenderCriteria::Urgency(u) => match notification.urgency {
-                    Urgency::Low => u.eq("low"),
-                    Urgency::Normal => u.eq("normal"),
-                    Urgency::Critical => u.eq("critical"),
-                },
-                RenderCriteria::Tag(t) => notification.tag.as_ref().eq(&Some(t)),
-                RenderCriteria::Note(n) => notification.note.as_ref().eq(&Some(n)),
-                RenderCriteria::ActionDefault => notification.get_default_action().is_some(),
-                RenderCriteria::ActionOther(i) => notification.get_other_action(*i).is_some(),
-
-                RenderCriteria::And(criterion) => logic_matches(Logic::And, criterion, notification),
-                RenderCriteria::Or(criterion) => logic_matches(Logic::Or, criterion, notification),
-                RenderCriteria::Not(criterion) => !criteria_matches(criterion, notification),
-            }
-        }
-
-        fn logic_matches(logic: Logic, criterion: &Vec<RenderCriteria>, notification: &Notification) -> bool {
-            let mut result;
-            match logic {
-                Logic::And => {
-                    // ANDs start as true to coalesce properly.
-                    result = true;
-                    for c in criterion {
-                        result &= criteria_matches(c, notification);
-                    }
-                }
-                Logic::Or => {
-                    // ORs start as false to coalesce properly.
-                    result = false;
-                    for c in criterion {
-                        result |= criteria_matches(c, notification);
-                    }
-                }
-            }
-
-            result
-        }
-
         // Sometimes users might want to render empty blocks to maintain padding and stuff, so we
         // optionally allow it (in the case that both render_criterias are empty).
 
