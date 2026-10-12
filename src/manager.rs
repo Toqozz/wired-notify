@@ -198,7 +198,7 @@ impl NotifyWindowManager {
                         // 1s to be considered idle.
                         let idle_last_frame = self.is_idle_1s();
                         let is_idle = info.idle / 1000 >= 1;
-                        let info_idle = info.idle;
+                        let info_idle = info.idle as u64;
 
                         // If we "woke up" this frame.
                         if cfg.unpause_on_input && idle_last_frame && !is_idle {
