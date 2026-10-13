@@ -4,7 +4,7 @@ use crate::bus::dbus::ImageData;
 use crate::config::Padding;
 use crate::maths_utility::{self, Rect, Vec2};
 use crate::rendering::layout::{DrawableLayoutElement, Hook, LayoutBlock};
-use crate::rendering::window::NotifyWindow;
+use crate::rendering::window::{empty_layout_state, LayoutState, NotifyWindow};
 use cairo::Format;
 use cairo::ImageSurface;
 use image::imageops::FilterType;
@@ -54,11 +54,6 @@ pub struct ImageBlockParameters {
     pub min_width: i32,
     #[serde(default)]
     pub min_height: i32,
-
-    // The process of resizing the image and changing colorspace is relatively expensive,
-    // so we should cache it.
-    #[serde(skip)]
-    cached_surface: Option<ImageSurface>,
 }
 
 impl DrawableLayoutElement for ImageBlockParameters {
@@ -67,11 +62,16 @@ impl DrawableLayoutElement for ImageBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        layout_name: String,
     ) -> Result<Rect, cairo::Error> {
         // `cached_surface` should always exist on notifications with images, because we always
         // cache it.  If-let is just a precaution here.
-        if let Some(ref img_sfc) = self.cached_surface {
+        let cached_suface = window.layout_state.get(&layout_name);
+        if let Some(LayoutState {
+            image_block_cached_surface: Some(img_sfc),
+        }) = cached_suface
+        {
             let mut rect = Rect::new(
                 0.0,
                 0.0,
@@ -117,7 +117,8 @@ impl DrawableLayoutElement for ImageBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        layout_name: String,
     ) -> Rect {
         let maybe_image_data = match self.image_type {
             ImageType::App => window.notification.app_image.as_ref(),
@@ -173,7 +174,11 @@ impl DrawableLayoutElement for ImageBlockParameters {
             )
             .expect("Failed to create image surface.");
 
-            self.cached_surface = Some(image_sfc);
+            let cache = window
+                .layout_state
+                .entry(layout_name)
+                .or_insert(empty_layout_state());
+            cache.image_block_cached_surface = Some(image_sfc);
 
             rect.set_xy(pos.x, pos.y);
             rect

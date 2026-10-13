@@ -4,10 +4,9 @@ use serde::Deserialize;
 
 use crate::{
     bus::dbus::{Notification, Urgency},
-    config::{AnchorPosition, Config},
+    config::{AnchorPosition, CONFIG},
     maths_utility::{Rect, Vec2},
-    rendering::blocks::*,
-    rendering::window::NotifyWindow,
+    rendering::{blocks::*, window::NotifyWindow},
 };
 
 use wired_derive::DrawableLayoutElement;
@@ -111,7 +110,11 @@ pub(crate) fn criteria_matches(criteria: &RenderCriteria, notification: &Notific
     }
 }
 
-pub(crate) fn logic_matches(logic: Logic, criterion: &Vec<RenderCriteria>, notification: &Notification) -> bool {
+pub(crate) fn logic_matches(
+    logic: Logic,
+    criterion: &Vec<RenderCriteria>,
+    notification: &Notification,
+) -> bool {
     let mut result;
     match logic {
         Logic::And => {
@@ -181,7 +184,7 @@ impl LayoutBlock {
     // Call draw on each block in tree.
     pub fn draw_tree(
         &mut self,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
         parent_rect: &Rect,
         accum_rect: Rect,
         parent_is_root: bool,
@@ -211,7 +214,7 @@ impl LayoutBlock {
         // @TODO: This isn't really the place to be resolving this issue.  It should probably
         // happen earlier instead of last-minute, or we should have a better distinction between
         // anchoring to a root block and anchoring to a child block.
-        let cfg = Config::get();
+        let cfg = CONFIG.load();
         let fixed = &Rect::new(
             parent_rect.x(),
             parent_rect.y(),
@@ -227,7 +230,13 @@ impl LayoutBlock {
         let (rect, acc_rect) = {
             let rect = if self.should_draw(&window.notification) {
                 self.params
-                    .draw(&self.hook, &self.offset, parent_rect_fixed, window)
+                    .draw(
+                        &self.hook,
+                        &self.offset,
+                        parent_rect_fixed,
+                        window,
+                        self.name.clone(),
+                    )
                     .expect("Invalid cairo surface state.")
             } else {
                 // If block shouldn't be rendered, then we should be safe to just return an
@@ -241,8 +250,8 @@ impl LayoutBlock {
             let mut acc_rect = accum_rect.union(&rect);
 
             // Draw debug rect around bounding box.
-            if Config::get().debug {
-                let c = &Config::get().debug_color;
+            if CONFIG.load().debug {
+                let c = &CONFIG.load().debug_color;
                 window.context.set_source_rgba(c.r, c.g, c.b, c.a);
                 window.context.set_line_width(1.0);
                 window
@@ -276,7 +285,7 @@ impl LayoutBlock {
     // Predict the size of an entire layout, and initialize elements.
     pub fn predict_rect_tree_and_init(
         &mut self,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
         parent_rect: &Rect,
         accum_rect: Rect,
     ) -> Rect {
@@ -285,9 +294,15 @@ impl LayoutBlock {
         // here to save performance.
         // `predict_rect_and_init` finds the bounding box of an individual element -- children are not
         // involved.
+
         let rect = if self.should_draw(&window.notification) {
-            self.params
-                .predict_rect_and_init(&self.hook, &self.offset, parent_rect, window)
+            self.params.predict_rect_and_init(
+                &self.hook,
+                &self.offset,
+                parent_rect,
+                window,
+                self.name.clone(),
+            )
         } else {
             let pos = LayoutBlock::find_anchor_pos(&self.hook, &self.offset, parent_rect, &Rect::EMPTY);
             Rect::new(pos.x, pos.y, 0.0, 0.0)
@@ -359,14 +374,16 @@ pub trait DrawableLayoutElement {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        layout_name: String,
     ) -> Result<Rect, cairo::Error>;
     fn predict_rect_and_init(
         &mut self,
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        layout_name: String,
     ) -> Rect;
     fn update(&mut self, _delta_time: Duration, _window: &NotifyWindow) -> bool {
         false

@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use std::time::Duration;
 
 use crate::bus::dbus::Notification;
-use crate::config::{Color, Config, Padding};
+use crate::config::{Color, Padding, CONFIG};
 use crate::maths_utility::{self, MinMax, Rect, Vec2};
 use crate::rendering::layout::{DrawableLayoutElement, Hook, LayoutBlock};
 use crate::rendering::text::{AlignMode, EllipsizeMode};
@@ -72,7 +72,8 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Result<Rect, cairo::Error> {
         let width = &self.real_width;
 
@@ -157,7 +158,8 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Rect {
         let text = maths_utility::format_notification_string(&self.text, &window.notification);
 
@@ -220,7 +222,7 @@ impl DrawableLayoutElement for ScrollingTextBlockParameters {
             let delta = (now - window.creation_timestamp).num_milliseconds();
             let mut delta = u64::try_from(delta).unwrap_or(0);
 
-            let cfg = Config::get();
+            let cfg = CONFIG.load();
             while delta >= cfg.poll_interval {
                 self.update(Duration::from_millis(cfg.poll_interval), window);
                 delta -= cfg.poll_interval;

@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::config::{Color, Config, Padding};
+use crate::config::{Color, Padding, CONFIG};
 use crate::maths_utility;
 use crate::maths_utility::{Rect, Vec2};
 use crate::rendering::{
@@ -65,7 +65,8 @@ impl DrawableLayoutElement for ProgressBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Result<Rect, cairo::Error> {
         let border_col = self.border_color();
         let background_col = self.background_color();
@@ -102,7 +103,7 @@ impl DrawableLayoutElement for ProgressBlockParameters {
 
         window.context.set_operator(cairo::Operator::Over);
         // Debug, unpadded drawing, to help users.
-        if Config::get().debug {
+        if CONFIG.load().debug {
             maths_utility::debug_rect(
                 &window.context,
                 true,
@@ -122,7 +123,8 @@ impl DrawableLayoutElement for ProgressBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Rect {
         if self.padding.width() > parent_rect.width() || self.padding.height() > parent_rect.height() {
             eprintln!("Warning: padding width/height exceeds parent rect width/height.");

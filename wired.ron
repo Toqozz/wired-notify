@@ -17,18 +17,13 @@
     // The latter is technically correct according to the notification spec: https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html
     zero_timeout_behavior: NeverExpire,
 
-    // `poll_interval` decides decides how often (in milliseconds) Wired checks events,
-    // draws notifications (if necessary) -- the update loop while any notification is present.
-    // Note that when no notifications are present, Wired polls at `idle_poll_interval` instead.
+    // `poll_interval` decides decides how often (in milliseconds) Wired (re)draws notifications.
     // 16ms ~= 60hz / 7ms ~= 144hz.
     poll_interval: 16,
 
     // // Alternative render criteria that will be checked against and allowed when dnd (do not disturb) is enabled.
     // // By default, urgency "critical" is allowed.
     // dnd_allow_criteria: [Urgency("critical")],
-
-    // The interval at which wired updates when no notifications/windows are present.
-    //idle_poll_interval: 500,
 
     // Wired will pause notifications if you are idle (no mouse or keyboard input) for longer than
     // `idle_threshold` seconds.

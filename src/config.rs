@@ -7,10 +7,14 @@ use std::{
     fmt::{self, Display, Formatter},
     io,
     path::PathBuf,
-    sync::mpsc::{self, Receiver},
+    sync::{
+        mpsc::{self, Receiver},
+        Arc, LazyLock,
+    },
     time::Duration,
 };
 
+use arc_swap::ArcSwap;
 use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{
     de::{self, Deserializer, Unexpected},
@@ -35,7 +39,12 @@ macro_rules! CONFIG_FILENAME {
         "wired.ron"
     };
 }
-static mut CONFIG: Option<Config> = None;
+
+pub(crate) static CONFIG: LazyLock<ArcSwap<Config>> = LazyLock::new(|| {
+    let cfg = ArcSwap::from_pointee(Config::default());
+    println!("Default config was loaded.");
+    cfg
+});
 
 #[derive(Debug)]
 pub enum Error {
@@ -89,8 +98,9 @@ pub struct ConfigWatcher {
 
 impl ConfigWatcher {
     // Returns true if config was updated, false if not.
+    // Blocks until the file is changed.
     pub fn check_and_update_config(&self) -> bool {
-        if let Ok(ev) = self.receiver.try_recv() {
+        if let Ok(ev) = self.receiver.recv() {
             match ev {
                 DebouncedEvent::Write(p) | DebouncedEvent::Create(p) | DebouncedEvent::Chmod(p) => {
                     if let Some(file_name) = p.file_name() {
@@ -116,8 +126,6 @@ pub struct Config {
     pub max_notifications: usize,
     pub timeout: i32,       // Default timeout, in milliseconds.
     pub poll_interval: u64, // Time between checking for updates, events, drawing, etc.
-    #[serde(default = "maths_utility::val_500")]
-    pub idle_poll_interval: u64, // Same as above, but when no notifications are present.
     pub layout_blocks: Vec<LayoutBlock>,
 
     // Alternative render criteria that will be checked against and allowed when dnd (do not disturb) is enabled.
@@ -228,14 +236,10 @@ impl Config {
     // and returns the watcher or None.
     pub fn init(custom_path: Option<PathBuf>) -> Option<ConfigWatcher> {
         fn assign_config(cfg: Config) {
-            unsafe {
-                CONFIG = Some(cfg);
-            }
+            CONFIG.store(Arc::new(cfg));
+            println!("Config was loaded.");
         }
 
-        unsafe {
-            assert!(CONFIG.is_none());
-        }
         let cfg_file = custom_path.or_else(Config::installed_config);
         match cfg_file {
             Some(f) => {
@@ -251,8 +255,6 @@ impl Config {
                             f.to_str().unwrap(),
                             e
                         );
-
-                        assign_config(Config::default());
                     }
                 }
 
@@ -279,29 +281,8 @@ impl Config {
 
             None => {
                 println!("Couldn't load a config because we couldn't find one, so will use default.");
-                assign_config(Config::default());
                 None
             }
-        }
-    }
-
-    // Get immutable reference to global config variable.
-    pub fn get() -> &'static Config {
-        unsafe {
-            assert!(CONFIG.is_some());
-            // TODO: can as_ref be removed?
-            // This unwrap is safe according to the above assert.
-            CONFIG.as_ref().unwrap()
-        }
-    }
-
-    // Get mutable reference to global config variable.
-    pub fn get_mut() -> &'static mut Config {
-        unsafe {
-            assert!(CONFIG.is_some());
-            // TODO: can as_ref be removed?
-            // This unwrap is safe according to the above assert.
-            CONFIG.as_mut().unwrap()
         }
     }
 
@@ -311,9 +292,7 @@ impl Config {
     pub fn try_reload(path: PathBuf) -> bool {
         match Config::load_file(path) {
             Ok(cfg) => {
-                unsafe {
-                    CONFIG = Some(cfg);
-                }
+                CONFIG.store(Arc::new(cfg));
                 println!("Config reloaded.");
                 true
             }

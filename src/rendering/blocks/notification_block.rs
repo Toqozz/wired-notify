@@ -36,7 +36,8 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         _hook: &Hook,
         _offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Result<Rect, cairo::Error> {
         // Clear
         window.context.set_operator(cairo::Operator::Clear);
@@ -121,7 +122,8 @@ impl DrawableLayoutElement for NotificationBlockParameters {
         _hook: &Hook,
         _offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Rect {
         self.current_update_mode = window.update_mode;
         Rect::new(

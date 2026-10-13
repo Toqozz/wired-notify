@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -11,7 +11,7 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, Raw
 
 use chrono::{DateTime, Local};
 
-use cairo::{Context, Surface};
+use cairo::{Context, ImageSurface, Surface};
 use cairo_sys;
 
 use x11::xlib;
@@ -40,11 +40,11 @@ pub fn on_xwayland() -> bool {
 
 use crate::{
     bus::dbus::{Notification, Timeout},
-    config::Config,
+    config::CONFIG,
     manager::NotifyWindowManager,
     maths_utility::{Rect, Vec2},
-    rendering::layout::LayoutBlock,
-    rendering::text::TextRenderer,
+    rendering::{layout::LayoutBlock, text::TextRenderer},
+    NotifyEvent,
 };
 
 // FuseOnly probably won't be used, but it's here for completion's sake.
@@ -53,6 +53,23 @@ bitflags! {
     pub struct UpdateModes: u8 {
         const DRAW = 0b00000001;
         const FUSE = 0b00000010;
+    }
+}
+
+// Hold state that isn't `Send`.
+// In order to share the Config struct across different threads which is required to make a global
+// safe, it needs to be `Send`.
+#[derive(Debug)]
+pub struct LayoutState {
+    // The process of resizing the image and changing colorspace is relatively expensive,
+    // so we should cache it.
+    // It is abstracted from the node, because it can't be sent to another thread.
+    pub image_block_cached_surface: Option<ImageSurface>,
+}
+
+pub const fn empty_layout_state() -> LayoutState {
+    LayoutState {
+        image_block_cached_surface: None,
     }
 }
 
@@ -72,6 +89,9 @@ pub struct NotifyWindow {
     // This is pretty much just so we can change some params on LayoutBlocks, which is a bit
     // wasteful, but easy.
     pub layout: Option<LayoutBlock>,
+
+    // The state of each layout block.
+    pub layout_state: HashMap<String, LayoutState>,
 
     pub marked_for_destroy: bool,
     // Master offset is used to offset all *elements* when drawing.
@@ -96,12 +116,12 @@ pub struct NotifyWindow {
 
 impl NotifyWindow {
     pub fn new(
-        el: &EventLoopWindowTarget<()>,
+        el: &EventLoopWindowTarget<NotifyEvent>,
         notification: Notification,
         mut layout: LayoutBlock,
         manager: &NotifyWindowManager,
     ) -> Self {
-        let cfg = Config::get();
+        let cfg = CONFIG.load();
         // The minimum window width and height is 1.0.  We need this size to generate an initial window.
         let (width, height) = (
             (cfg.min_window_width as f64).max(1.0),
@@ -220,6 +240,8 @@ impl NotifyWindow {
             creation_timestamp: Local::now(),
             last_mouse_pos: Vec2::new(0.0, 0.0),
             cached_inner_rect: None,
+
+            layout_state: HashMap::new(),
         };
 
         // When we spawn a window, we get a `RedrawRequested` event which we draw from, so we don't
@@ -227,7 +249,7 @@ impl NotifyWindow {
         // `Rect::new(0.0, 0.0, width, height) is basically the same as `window.get_inner_rect()`,
         // but we don't trust it to be initialized yet.
         let rect = layout.predict_rect_tree_and_init(
-            &window,
+            &mut window,
             //&window.get_inner_rect(),
             &Rect::new(0.0, 0.0, width, height), // This parameter is only used for positioning
             Rect::new(0.0, 0.0, width, height),  // .. so we should also pass the min_size rect here
@@ -243,7 +265,7 @@ impl NotifyWindow {
     }
 
     pub fn replace_notification(&mut self, new_notification: Notification, new_layout: LayoutBlock) {
-        let cfg = Config::get();
+        let cfg = CONFIG.load();
 
         self.notification = new_notification;
 

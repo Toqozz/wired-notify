@@ -24,14 +24,14 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
         let variant_name = &f.ident;
         // TODO: quote_spanned, condense.
         quote! {
-            #name::#variant_name(ref __self_0) => __self_0.draw(hook, offset, parent_rect, window)
+            #name::#variant_name(ref __self_0) => __self_0.draw(hook, offset, parent_rect, window, layout_name)
         }
     });
 
     let traverse_predict = variants.iter().map(|f| {
         let variant_name = &f.ident;
         quote! {
-            #name::#variant_name(ref mut __self_0) => __self_0.predict_rect_and_init(hook, offset, parent_rect, window)
+            #name::#variant_name(ref mut __self_0) => __self_0.predict_rect_and_init(hook, offset, parent_rect, window, layout_name)
         }
     });
 
@@ -58,7 +58,7 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
 
     let gen = quote! {
         impl DrawableLayoutElement for #name {
-            fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Result<Rect, cairo::Error> {
+            fn draw(&self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &mut NotifyWindow, layout_name: String) -> Result<Rect, cairo::Error> {
                 window.context.save()?;
                 // Default operator is Over, for ease of use.
                 window.context.set_operator(cairo::Operator::Over);
@@ -70,7 +70,7 @@ fn impl_drawable_macro(ast: &syn::DeriveInput) -> TokenStream {
                 rect
             }
 
-            fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &NotifyWindow) -> Rect {
+            fn predict_rect_and_init(&mut self, hook: &Hook, offset: &Vec2, parent_rect: &Rect, window: &mut NotifyWindow, layout_name: String) -> Rect {
                 window.context.save().expect("Invalid cairo surface state.");
                 window.context.set_operator(cairo::Operator::Over);
                 let rect = match self {

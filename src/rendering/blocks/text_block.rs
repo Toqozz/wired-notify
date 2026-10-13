@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::bus::dbus::Notification;
-use crate::config::{Color, Config, Padding};
+use crate::config::{Color, Padding, CONFIG};
 use crate::maths_utility;
 use crate::maths_utility::{MinMax, Rect, Vec2};
 use crate::rendering::{
@@ -63,7 +63,8 @@ impl DrawableLayoutElement for TextBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Result<Rect, cairo::Error> {
         // This is implicit in >0.10.1.
         //window.context.set_operator(cairo::Operator::Over);
@@ -95,7 +96,7 @@ impl DrawableLayoutElement for TextBlockParameters {
             .text
             .paint_padded(&window.context, &pos, col, &self.padding);
         // Debug, unpadded drawing, to help users.
-        if Config::get().debug {
+        if CONFIG.load().debug {
             let r = window
                 .text
                 .get_sized_rect(dimensions.width.min, dimensions.height.min);
@@ -118,7 +119,8 @@ impl DrawableLayoutElement for TextBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Rect {
         let text = maths_utility::format_notification_string(&self.text, &window.notification);
 

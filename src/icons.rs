@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::CONFIG;
 use std::collections::{HashSet, VecDeque};
 use std::env;
 use std::fs;
@@ -88,7 +88,7 @@ pub fn resolve_icon_path(icon_name: &str) -> Option<PathBuf> {
         return Some(path.to_path_buf());
     }
 
-    let config = Config::get();
+    let config = CONFIG.load();
     let icon_dirs = get_icon_dirs();
     let theme_chain = &config.icon_theme_chain;
 

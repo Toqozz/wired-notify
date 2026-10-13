@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use crate::bus;
 use crate::bus::dbus_codegen::OrgFreedesktopNotificationsActionInvoked;
-use crate::config::{Color, Config, Padding};
+use crate::config::{Color, Padding, CONFIG};
 use crate::maths_utility;
 use crate::maths_utility::{MinMax, Rect, Vec2};
 use crate::rendering::{
@@ -91,7 +91,8 @@ impl DrawableLayoutElement for ButtonBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Result<Rect, cairo::Error> {
         let text_col = self.text_color();
         let border_col = self.border_color();
@@ -133,7 +134,7 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             .paint_padded(&window.context, &pos, text_col, &self.padding);
 
         // Debug, unpadded drawing, to help users.
-        if Config::get().debug {
+        if CONFIG.load().debug {
             let r = window
                 .text
                 .get_sized_rect(self.dimensions.width.min, self.dimensions.height.min);
@@ -156,7 +157,8 @@ impl DrawableLayoutElement for ButtonBlockParameters {
         hook: &Hook,
         offset: &Vec2,
         parent_rect: &Rect,
-        window: &NotifyWindow,
+        window: &mut NotifyWindow,
+        _layout_name: String,
     ) -> Rect {
         let maybe_action = match self.action {
             Action::DefaultAction => window.notification.get_default_action(),
@@ -194,7 +196,7 @@ impl DrawableLayoutElement for ButtonBlockParameters {
             id: window.notification.id,
         };
         let path = Path::new(bus::dbus::PATH).expect("Failed to create DBus path.");
-        let _result = bus::dbus::get_connection().send(message.to_emit_message(&path));
+        let _result = bus::dbus::DBUS_CONN.send(message.to_emit_message(&path));
         false
     }
 

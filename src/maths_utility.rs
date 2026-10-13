@@ -2,7 +2,7 @@
 use std::process::{Command, Stdio};
 
 use crate::bus::dbus::Notification;
-use crate::config::Color;
+use crate::config::{CONFIG, Color};
 use crate::rendering::window;
 use serde::Deserialize;
 use winit::monitor::MonitorHandle;
@@ -501,19 +501,18 @@ pub fn debug_rect(
     width: f64,
     height: f64,
 ) -> Result<(), cairo::Error> {
-    use crate::config::Config;
     // Often, modules will check for debug before calling this anyway to save work, but it's good
     // to be sure we never draw any debug rects when debug is turned off.
-    if !Config::get().debug {
+    if !CONFIG.load().debug {
         return Ok(());
     }
 
     ctx.save()?;
 
     let c = if alt {
-        &Config::get().debug_color_alt
+        &CONFIG.load().debug_color_alt
     } else {
-        &Config::get().debug_color
+        &CONFIG.load().debug_color
     };
     ctx.set_source_rgba(c.r, c.g, c.b, c.a);
     ctx.set_line_width(1.0);
